@@ -1,0 +1,75 @@
+{
+  "name": "coldkode-graph-explorer",
+  "displayName": "coldKode Graph Explorer",
+  "description": "VS Code graph explorer for function diagrams.",
+  "version": "0.0.409",
+  "publisher": "local",
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onUri",
+    "onView:coldKodeGraphExplorer.functions",
+    "onCommand:coldKodeGraphExplorer.openNode",
+    "onCommand:coldKodeGraphExplorer.openRuntimeAnalysis",
+    "onCommand:coldKodeGraphExplorer.openHelpersFunctionalSegment",
+    "onCommand:coldKodeGraphExplorer.runStubApp",
+    "onCommand:coldKodeGraphExplorer.refresh"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "coldKodeGraphExplorer.openNode",
+        "title": "Open Graph Diagram"
+      },
+      {
+        "command": "coldKodeGraphExplorer.openRuntimeAnalysis",
+        "title": "Open Runtime Analysis"
+      },
+      {
+        "command": "coldKodeGraphExplorer.openHelpersFunctionalSegment",
+        "title": "Draw Helpers Functional Segment"
+      },
+      {
+        "command": "coldKodeGraphExplorer.refresh",
+        "title": "Refresh Graph Explorer"
+      },
+      {
+        "command": "coldKodeGraphExplorer.runStubApp",
+        "title": "Run App (Stub)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "coldKodeGraphExplorer",
+          "title": "Graph Explorer",
+          "icon": "media/graph-flow.svg"
+        }
+      ]
+    },
+    "views": {
+      "coldKodeGraphExplorer": [
+        {
+          "id": "coldKodeGraphExplorer.functions",
+          "name": "Graph Explorer"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "coldKodeGraphExplorer.refresh",
+          "when": "view == coldKodeGraphExplorer.functions",
+          "group": "navigation"
+        }
+      ]
+    }
+  }
+}

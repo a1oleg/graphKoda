@@ -1,0 +1,883 @@
+{
+  "summary": [
+    {
+      "object": "ApiChat",
+      "surfaceCount": 305,
+      "families": [
+        "global.chats",
+        "global.users"
+      ],
+      "functionCount": 64,
+      "functions": [
+        "abortChatRequests",
+        "abortChatRequestsForCurrentChat",
+        "acceptChatInvite",
+        "createGroupChat",
+        "deleteChat",
+        "deleteChatPhoto",
+        "deleteChatUser",
+        "editChatCreator",
+        "editChatFolders",
+        "editChatParticipantRank",
+        "editChatPhoto",
+        "editChatlistInvite",
+        "editExportedChatInvite",
+        "exportChatInvite",
+        "fetchChat",
+        "fetchChatByUsername",
+        "fetchChatInviteImporters",
+        "fetchFullChat",
+        "fetchLeaveChatlistSuggestions",
+        "forwardMessagesToChat",
+        "getChatByUsername",
+        "getFullChatInfo",
+        "getUpdatedChat",
+        "handleDeleteChat",
+        "hideChatJoinRequest",
+        "importChatInvite",
+        "joinChatlistInvite",
+        "leaveChatlist",
+        "loadFullChat",
+        "loadTopChats",
+        "markChatMessagesRead",
+        "markChatRead",
+        "migrateChat",
+        "openChat",
+        "openChatByUsername",
+        "openChatRefundModal",
+        "openChatWithDraft",
+        "openChatWithInfo",
+        "openChatWithParams",
+        "openLinkedChat",
+        "openPreviousChat",
+        "reduceChats",
+        "replaceChatFullInfo",
+        "requestChatUpdate",
+        "searchMessagesInChat",
+        "selectChat",
+        "selectChatFullInfo",
+        "selectCurrentChat",
+        "selectIsChatRestricted",
+        "setChatEnabledReactions",
+        "setChatUsername",
+        "toggleChatArchived",
+        "transferChatOwnership",
+        "updateChat",
+        "updateChatAbout",
+        "updateChatAdmin",
+        "updateChatDefaultBannedRights",
+        "updateChatFullInfo",
+        "updateChatMemberBannedRights",
+        "updateChatMutedState",
+        "updateChatNotifySettings",
+        "updateChatPhoto",
+        "updateChatSilentPosting",
+        "updateChatTitle"
+      ]
+    },
+    {
+      "object": "ApiUser",
+      "surfaceCount": 294,
+      "families": [
+        "global.chats",
+        "global.users"
+      ],
+      "functionCount": 19,
+      "functions": [
+        "blockUser",
+        "deactivateAllUsernames",
+        "deleteChatUser",
+        "fetchChatByUsername",
+        "fetchFullUser",
+        "getChatByUsername",
+        "getUpdatedUser",
+        "loadFullUser",
+        "openChatByUsername",
+        "selectIsCurrentUserPremium",
+        "selectUser",
+        "selectUserFullInfo",
+        "setChatUsername",
+        "setUserSearchQuery",
+        "toggleUserEmojiStatusPermission",
+        "toggleUserLocationPermission",
+        "unblockUser",
+        "updateUserFullInfo",
+        "updateUsername"
+      ]
+    },
+    {
+      "object": "ApiMessage",
+      "surfaceCount": 196,
+      "families": [
+        "global.messages",
+        "global.quickReplies",
+        "global.scheduledMessages"
+      ],
+      "functionCount": 46,
+      "functions": [
+        "checkIfVoiceMessagesAllowed",
+        "clickSponsoredMessage",
+        "composeMessageWithAI",
+        "copyMessageLink",
+        "deleteMessages",
+        "editMessage",
+        "executeForwardMessages",
+        "exportMessageLink",
+        "fetchDiscussionMessage",
+        "fetchMessages",
+        "fetchPaidMessagesRevenue",
+        "fetchPaidMessagesStarsAmount",
+        "findFirstMessageIdAfterDate",
+        "forwardApiMessages",
+        "forwardMessages",
+        "forwardMessagesLocal",
+        "forwardMessagesToChat",
+        "getPeerStarsForMessage",
+        "handleLocalMessageUpdate",
+        "handleMultipleLocalMessagesUpdate",
+        "incrementLocalMessagesCounter",
+        "initDraftFromSuggestedMessage",
+        "loadViewportMessages",
+        "markChatMessagesRead",
+        "markMessageListRead",
+        "markMessagesRead",
+        "pinMessage",
+        "reportMessages",
+        "scrollMessageListToBottom",
+        "searchMessagesInChat",
+        "selectChatMessage",
+        "selectQuickReplyMessage",
+        "selectReplyMessage",
+        "selectScheduledMessage",
+        "sendApiMessage",
+        "sendInviteMessages",
+        "sendMessage",
+        "sendMessageLocal",
+        "sendMessageOrReduceLocal",
+        "sendMessages",
+        "sendMessagesWithNotification",
+        "setViewForumAsMessages",
+        "toggleSponsoredMessages",
+        "updateChatMessage",
+        "updatePaidMessagesPrice",
+        "updateScheduledMessage"
+      ]
+    },
+    {
+      "object": "ApiSticker",
+      "surfaceCount": 184,
+      "families": [
+        "global.animatedEmojiEffects",
+        "global.animatedEmojis",
+        "global.customEmojis",
+        "global.premiumGifts",
+        "global.restrictedEmoji",
+        "global.stickers",
+        "global.tonGifts"
+      ],
+      "functionCount": 10,
+      "functions": [
+        "fetchStickers",
+        "fetchStickersForEmoji",
+        "loadPremiumStickers",
+        "loadStickers",
+        "openStickerSet",
+        "rebuildStickersForEmoji",
+        "selectStickersForEmoji",
+        "setStickerSearchQuery",
+        "toggleStickerSet",
+        "updateStickersForEmoji"
+      ]
+    },
+    {
+      "object": "ApiPeer",
+      "surfaceCount": 176,
+      "families": [
+        "global.chats",
+        "global.users"
+      ],
+      "functionCount": 15,
+      "functions": [
+        "addStoriesForPeer",
+        "fetchPeerSettings",
+        "fetchPeerStories",
+        "fetchPeerStoriesByIds",
+        "getPeerId",
+        "getPeerStarsForMessage",
+        "hidePeerSettingsBar",
+        "loadPeerSavedGifts",
+        "loadPeerSettings",
+        "loadPeerStories",
+        "preparePeers",
+        "processResolvedPeer",
+        "selectPeer",
+        "togglePeerTranslations",
+        "updatePeer"
+      ]
+    },
+    {
+      "object": "ApiTopic",
+      "surfaceCount": 147,
+      "families": [
+        "global.chats"
+      ],
+      "functionCount": 9,
+      "functions": [
+        "createTopic",
+        "editTopic",
+        "fetchTopicById",
+        "fetchTopics",
+        "loadTopicById",
+        "loadTopics",
+        "selectTopic",
+        "updateTopic",
+        "updateTopicMutedState"
+      ]
+    },
+    {
+      "object": "ApiStickerSet",
+      "surfaceCount": 77,
+      "families": [
+        "global.animatedEmojiEffects",
+        "global.animatedEmojis",
+        "global.birthdayNumbers",
+        "global.chats",
+        "global.genericEmojiEffects",
+        "global.premiumGifts",
+        "global.restrictedEmoji",
+        "global.stickers",
+        "global.tonGifts"
+      ],
+      "functionCount": 4,
+      "functions": [
+        "openStickerSet",
+        "selectStickerSet",
+        "toggleStickerSet",
+        "updateStickerSet"
+      ]
+    },
+    {
+      "object": "ApiStory",
+      "surfaceCount": 68,
+      "families": [
+        "global.stories"
+      ],
+      "functionCount": 13,
+      "functions": [
+        "deleteHistory",
+        "deleteSavedHistory",
+        "editStoryPrivacy",
+        "fetchStoryLink",
+        "openNextStory",
+        "openPreviousStory",
+        "openStoryViewer",
+        "reportStory",
+        "sendStoryReaction",
+        "togglePreHistoryHidden",
+        "toggleStoryInProfile",
+        "toggleStoryPinnedToTop",
+        "updatePeerProfileStory"
+      ]
+    },
+    {
+      "object": "ApiUserFullInfo",
+      "surfaceCount": 62,
+      "families": [
+        "global.chats",
+        "global.users"
+      ],
+      "functionCount": 2,
+      "functions": [
+        "selectUserFullInfo",
+        "updateUserFullInfo"
+      ]
+    },
+    {
+      "object": "ApiChatFullInfo",
+      "surfaceCount": 57,
+      "families": [
+        "global.chats",
+        "global.users"
+      ],
+      "functionCount": 3,
+      "functions": [
+        "replaceChatFullInfo",
+        "selectChatFullInfo",
+        "updateChatFullInfo"
+      ]
+    },
+    {
+      "object": "ApiAvailableReaction",
+      "surfaceCount": 55,
+      "families": [
+        "global.reactions"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiPhoto",
+      "surfaceCount": 53,
+      "families": [
+        "global.chats",
+        "global.messages",
+        "global.peers",
+        "global.users"
+      ],
+      "functionCount": 13,
+      "functions": [
+        "deleteChatPhoto",
+        "deletePeerPhoto",
+        "deleteProfilePhoto",
+        "deleteProfilePhotos",
+        "editChatPhoto",
+        "fetchProfilePhotos",
+        "loadMoreProfilePhotos",
+        "reportProfilePhoto",
+        "updateChatPhoto",
+        "updatePeerPhotos",
+        "updateProfilePhoto",
+        "uploadContactProfilePhoto",
+        "uploadProfilePhoto"
+      ]
+    },
+    {
+      "object": "ApiWebPage",
+      "surfaceCount": 52,
+      "families": [
+        "global.messages"
+      ],
+      "functionCount": 2,
+      "functions": [
+        "clearWebPagePreview",
+        "selectWebPage"
+      ]
+    },
+    {
+      "object": "ApiGroupCall",
+      "surfaceCount": 41,
+      "families": [
+        "global.groupCalls"
+      ],
+      "functionCount": 16,
+      "functions": [
+        "createGroupCall",
+        "createGroupCallInviteLink",
+        "discardGroupCall",
+        "editGroupCallParticipant",
+        "exportGroupCallInvite",
+        "fetchGroupCall",
+        "getGroupCall",
+        "joinGroupCallPresentation",
+        "leaveGroupCall",
+        "leaveGroupCallPresentation",
+        "selectChatGroupCall",
+        "selectGroupCall",
+        "toggleGroupCallMute",
+        "toggleGroupCallPresentation",
+        "toggleGroupCallVideo",
+        "updateGroupCall"
+      ]
+    },
+    {
+      "object": "ApiPeerStories",
+      "surfaceCount": 38,
+      "families": [
+        "global.stories"
+      ],
+      "functionCount": 4,
+      "functions": [
+        "fetchPeerStories",
+        "fetchPeerStoriesByIds",
+        "loadPeerStories",
+        "selectPeerStories"
+      ]
+    },
+    {
+      "object": "ApiPrivacySettings",
+      "surfaceCount": 37,
+      "families": [
+        "global.settings",
+        "global.stories"
+      ],
+      "functionCount": 4,
+      "functions": [
+        "fetchPrivacySettings",
+        "loadPrivacySettings",
+        "setPrivacySettings",
+        "updateGlobalPrivacySettings"
+      ]
+    },
+    {
+      "object": "ApiChatFolder",
+      "surfaceCount": 35,
+      "families": [
+        "global.chatFolders"
+      ],
+      "functionCount": 3,
+      "functions": [
+        "editChatFolders",
+        "openDeleteChatFolderModal",
+        "selectChatFolder"
+      ]
+    },
+    {
+      "object": "ApiUsername",
+      "surfaceCount": 33,
+      "families": [
+        "global.chats",
+        "global.users"
+      ],
+      "functionCount": 6,
+      "functions": [
+        "deactivateAllUsernames",
+        "fetchChatByUsername",
+        "getChatByUsername",
+        "openChatByUsername",
+        "setChatUsername",
+        "updateUsername"
+      ]
+    },
+    {
+      "object": "ApiChatMember",
+      "surfaceCount": 31,
+      "families": [
+        "global.chats"
+      ],
+      "functionCount": 1,
+      "functions": [
+        "updateChatMemberBannedRights"
+      ]
+    },
+    {
+      "object": "ApiPeerPhotos",
+      "surfaceCount": 31,
+      "families": [
+        "global.peers"
+      ],
+      "functionCount": 1,
+      "functions": [
+        "updatePeerPhotos"
+      ]
+    },
+    {
+      "object": "ApiAttachBot",
+      "surfaceCount": 30,
+      "families": [
+        "global.attachMenu",
+        "global.users"
+      ],
+      "functionCount": 5,
+      "functions": [
+        "callAttachBot",
+        "getAttachBotOrNotify",
+        "loadAttachBot",
+        "requestAttachBotInChat",
+        "toggleAttachBot"
+      ]
+    },
+    {
+      "object": "ApiSession",
+      "surfaceCount": 30,
+      "families": [
+        "global.activeSessions"
+      ],
+      "functionCount": 4,
+      "functions": [
+        "changeSessionSettings",
+        "changeSessionTtl",
+        "handleTerminateSessionClick",
+        "handleTerminatedSession"
+      ]
+    },
+    {
+      "object": "ApiEmojiStatusCollectible",
+      "surfaceCount": 27,
+      "families": [
+        "global.chats",
+        "global.users"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiSponsoredMessage",
+      "surfaceCount": 26,
+      "families": [
+        "global.messages"
+      ],
+      "functionCount": 2,
+      "functions": [
+        "clickSponsoredMessage",
+        "toggleSponsoredMessages"
+      ]
+    },
+    {
+      "object": "ApiStarsTransaction",
+      "surfaceCount": 26,
+      "families": [
+        "global.stars",
+        "global.ton"
+      ],
+      "functionCount": 1,
+      "functions": [
+        "appendStarsTransactions"
+      ]
+    },
+    {
+      "object": "ApiVideo",
+      "surfaceCount": 26,
+      "families": [
+        "global.gifs",
+        "global.messages",
+        "global.stories"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiBotCommand",
+      "surfaceCount": 25,
+      "families": [
+        "global.users"
+      ],
+      "functionCount": 1,
+      "functions": [
+        "sendBotCommand"
+      ]
+    },
+    {
+      "object": "ApiUserStatus",
+      "surfaceCount": 23,
+      "families": [
+        "global.users"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiFormattedText",
+      "surfaceCount": 21,
+      "families": [
+        "global.chatFolders",
+        "global.translations",
+        "global.users"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiMessagePoll",
+      "surfaceCount": 20,
+      "families": [
+        "global.messages"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiPhoneCall",
+      "surfaceCount": 19,
+      "families": [
+        "global.phoneCall"
+      ],
+      "functionCount": 7,
+      "functions": [
+        "destroyPhoneCallState",
+        "handleCall",
+        "handleHangUp",
+        "handleRequestCall",
+        "handleVideoCall",
+        "hangUp",
+        "requestCall"
+      ]
+    },
+    {
+      "object": "ApiReactions",
+      "surfaceCount": 17,
+      "families": [
+        "global.messages"
+      ],
+      "functionCount": 4,
+      "functions": [
+        "fetchUnreadReactions",
+        "loadUnreadReactions",
+        "readAllReactions",
+        "setChatEnabledReactions"
+      ]
+    },
+    {
+      "object": "MediaContent",
+      "surfaceCount": 17,
+      "families": [
+        "global.messages",
+        "global.stories"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "PrivacyVisibility",
+      "surfaceCount": 17,
+      "families": [
+        "global.settings"
+      ],
+      "functionCount": 1,
+      "functions": [
+        "setPrivacyVisibility"
+      ]
+    },
+    {
+      "object": "ApiBirthday",
+      "surfaceCount": 15,
+      "families": [
+        "global.users"
+      ],
+      "functionCount": 1,
+      "functions": [
+        "updateBirthday"
+      ]
+    },
+    {
+      "object": "ApiPollResult",
+      "surfaceCount": 14,
+      "families": [
+        "global.messages"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiBotInfo",
+      "surfaceCount": 13,
+      "families": [
+        "global.users"
+      ],
+      "functionCount": 1,
+      "functions": [
+        "setBotInfo"
+      ]
+    },
+    {
+      "object": "ApiChatInviteImporter",
+      "surfaceCount": 13,
+      "families": [
+        "global.chats"
+      ],
+      "functionCount": 1,
+      "functions": [
+        "fetchChatInviteImporters"
+      ]
+    },
+    {
+      "object": "BotAppPermissions",
+      "surfaceCount": 13,
+      "families": [
+        "global.users"
+      ],
+      "functionCount": 1,
+      "functions": [
+        "updateBotAppPermissions"
+      ]
+    },
+    {
+      "object": "ApiDocument",
+      "surfaceCount": 12,
+      "families": [
+        "global.messages"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiChatBannedRights",
+      "surfaceCount": 11,
+      "families": [
+        "global.chats"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiChatlistExportedInvite",
+      "surfaceCount": 11,
+      "families": [
+        "global.chatFolders"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiPeerColorOption",
+      "surfaceCount": 11,
+      "families": [
+        "global.peerColors"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiPromoData",
+      "surfaceCount": 11,
+      "families": [
+        "global.promoData"
+      ],
+      "functionCount": 2,
+      "functions": [
+        "fetchPromoData",
+        "loadPromoData"
+      ]
+    },
+    {
+      "object": "ApiReactionCount",
+      "surfaceCount": 11,
+      "families": [
+        "global.messages",
+        "global.stories"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiTypeStory",
+      "surfaceCount": 11,
+      "families": [
+        "global.stories"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiWallpaper",
+      "surfaceCount": 11,
+      "families": [
+        "global.settings"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiWebSession",
+      "surfaceCount": 11,
+      "families": [
+        "global.activeWebSessions"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiStoryForwardInfo",
+      "surfaceCount": 10,
+      "families": [
+        "global.stories"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiChatAdminRights",
+      "surfaceCount": 9,
+      "families": [
+        "global.chats"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiMediaArea",
+      "surfaceCount": 9,
+      "families": [
+        "global.stories"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiMessageReplyInfo",
+      "surfaceCount": 8,
+      "families": [
+        "global.messages"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiPoll",
+      "surfaceCount": 8,
+      "families": [
+        "global.messages"
+      ],
+      "functionCount": 1,
+      "functions": [
+        "updatePollVote"
+      ]
+    },
+    {
+      "object": "ApiStarGiftCollection",
+      "surfaceCount": 8,
+      "families": [
+        "global.starGiftCollections"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiSavedReactionTag",
+      "surfaceCount": 7,
+      "families": [
+        "global.savedReactionTags"
+      ],
+      "functionCount": 2,
+      "functions": [
+        "editSavedReactionTag",
+        "updateSavedReactionTag"
+      ]
+    },
+    {
+      "object": "ApiStickerSetInfo",
+      "surfaceCount": 5,
+      "families": [
+        "global.customEmojis"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiUserCommonChats",
+      "surfaceCount": 4,
+      "families": [
+        "global.users"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiBusinessIntro",
+      "surfaceCount": 3,
+      "families": [
+        "global.users"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiRestrictionReason",
+      "surfaceCount": 2,
+      "families": [
+        "global.chats"
+      ],
+      "functionCount": 0,
+      "functions": []
+    },
+    {
+      "object": "ApiStarsRating",
+      "surfaceCount": 2,
+      "families": [
+        "global.users"
+      ],
+      "functionCount": 0,
+      "functions": []
+    }
+  ],
+  "mismatches": []
+}

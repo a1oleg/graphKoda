@@ -1,0 +1,6 @@
+mcp>=1.28,<2
+python-dotenv>=1.2,<2
+google-auth>=2.55,<3
+google-api-python-client>=2.198,<3
+# The root project venv is also used by scoped graph imports.
+neo4j>=6,<7

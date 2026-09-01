@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "function": {
+    "runtimeLoggable": true,
+    "runtimeLogAnchorKind": "function",
+    "runtimeLoggableKinds": [
+      "call",
+      "call-completion",
+      "response",
+      "error"
+    ]
+  },
+  "step": {
+    "runtimeLogAnchorKind": "step",
+    "runtimeLoggableKinds": [
+      "decision",
+      "predicate-eval",
+      "branch-hit",
+      "async-event",
+      "boundary-event",
+      "exception-handling-event",
+      "control-flow-guard-event",
+      "retry-transport-fallback-event",
+      "loop-control-event",
+      "path-checkpoint",
+      "store-affect"
+    ],
+    "eligibility": {
+      "resourceEdgeRequired": true,
+      "stepLabelsAllowedWithoutResourceEdge": [
+        "Branch",
+        "Switch",
+        "Case",
+        "Merge",
+        "BreakStop",
+        "ThrowStop"
+      ],
+      "runtimeReporterCallsAllowedWithoutResourceEdge": [
+        "logDecision",
+        "logPredicateEval",
+        "logBranchHit",
+        "logAsyncEvent",
+        "logBoundaryEvent",
+        "logExceptionHandlingEvent",
+        "logControlFlowGuardEvent",
+        "logRetryTransportFallbackEvent",
+        "logLoopControlEvent",
+        "logPathCheckpoint"
+      ]
+    }
+  }
+}

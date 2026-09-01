@@ -1,0 +1,47 @@
+{
+  "description": "Seed locations and provider import patterns for structural settings/storage detection. These entries narrow where CodeQL looks first; classification still comes from accessor/storage behavior.",
+  "settingsSdkImportPatterns": [
+    {
+      "provider": "BunBundle",
+      "regexp": "^bun:bundle$"
+    },
+    {
+      "provider": "LaunchDarkly",
+      "regexp": "(?i).*launchdarkly.*"
+    },
+    {
+      "provider": "Statsig",
+      "regexp": "(?i).*statsig.*"
+    },
+    {
+      "provider": "Unleash",
+      "regexp": "(?i).*unleash.*"
+    },
+    {
+      "provider": "GrowthBook",
+      "regexp": "(?i).*growthbook.*"
+    }
+  ],
+  "externalSettingsSdkCalls": [
+    {
+      "provider": "BunBundle",
+      "importRegexp": "^bun:bundle$",
+      "calleeName": "feature",
+      "keyArgIndex": 0,
+      "mode": "sdk-read"
+    }
+  ],
+  "seedFileRegexps": [
+    "services/analytics/.*",
+    "utils/config\\.ts",
+    "cli/print\\.ts",
+    "utils/settings/.*"
+  ],
+  "storageSymbolNames": [
+    "remoteEvalFeatureValues",
+    "envOverrides",
+    "pendingExposures",
+    "loggedExposures",
+    "experimentDataByFeature"
+  ]
+}
