@@ -2,6 +2,18 @@ Draw.loadPlugin(function(ui) {
   var postRequestSequence = 0;
   var pendingPostCallbacks = {};
 
+  function hidePageTabsPermanently() {
+    // coldKode opens every diagram as an independent file. Page tabs therefore
+    // consume editor space without representing anything the workflow can use.
+    ui.tabContainerVisible = false;
+    ui.isTabContainerVisible = function() { return false; };
+    if (typeof ui.updateTabContainer === 'function') ui.updateTabContainer();
+    if (ui.tabContainer != null) ui.tabContainer.style.display = 'none';
+    if (typeof ui.refresh === 'function') ui.refresh();
+  }
+
+  hidePageTabsPermanently();
+
   function completePostRequest(requestId, result) {
     var callback = pendingPostCallbacks[requestId];
     if (typeof callback !== 'function') return;

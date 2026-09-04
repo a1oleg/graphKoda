@@ -81,7 +81,18 @@ function loadMenu(attributes, options = {}) {
     stopEditing() {},
     refresh() {},
   };
-  const ui = { editor: { graph } };
+  let uiRefreshCount = 0;
+  const tabContainer = { style: { display: '' } };
+  const ui = {
+    editor: { graph },
+    tabContainer,
+    tabContainerVisible: true,
+    isTabContainerVisible() { return this.tabContainerVisible; },
+    updateTabContainer() {
+      this.tabContainer.style.display = this.isTabContainerVisible() ? '' : 'none';
+    },
+    refresh() { uiRefreshCount += 1; },
+  };
   let pluginIndex = 0;
   vm.runInNewContext(pluginSource, {
     Draw: {
@@ -149,10 +160,25 @@ function loadMenu(attributes, options = {}) {
     model,
     buttons,
     annotationControls,
+    ui,
+    tabContainer,
+    getUiRefreshCount: () => uiRefreshCount,
     notifyModelChange: () => modelListeners.forEach((listener) => listener()),
     dispatchWindowMessage: (data) => windowMessageListeners.forEach((listener) => listener({ data })),
   };
 }
+
+test('page tab bar stays hidden because every diagram is a separate file', () => {
+  const result = loadMenu({ graphKind: 'Value', graphLabel: 'input' });
+  assert.equal(result.ui.tabContainerVisible, false);
+  assert.equal(result.ui.isTabContainerVisible(), false);
+  assert.equal(result.tabContainer.style.display, 'none');
+  assert.equal(result.getUiRefreshCount(), 1);
+
+  result.ui.tabContainerVisible = true;
+  result.ui.updateTabContainer();
+  assert.equal(result.tabContainer.style.display, 'none');
+});
 
 test('annotation nodes exclusively expose a persistent connector visibility toggle', () => {
   const hidden = loadMenu({ graphKind: 'Annotation', graphLabel: 'annotation' });
