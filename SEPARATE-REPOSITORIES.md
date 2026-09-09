@@ -51,7 +51,26 @@ The source clone is detached at STUB, has its own Git objects and uses sparse
 checkout to omit historical graph/dev/tmp files. Its historical Git commit still
 contains the former combined tree; history has not been rewritten.
 
-This migration establishes repository identity, but does not yet persist the
-agreed extraction passport and per-fact provenance IDs in DuckDB/Parquet/Neo4j.
+Extraction now persists the passport in DuckDB `extraction_provenance` and
+`provenance.parquet`. Every node/relationship row has a `provenance_id` column.
+The importer places that ID on Neo4j facts, writes `ExtractionProvenance` records,
+and links import runs through `GraphImportRun.provenance_ids`.
+
+Passports contain full extractor/source Git revisions, independent dirty SHA-256
+fingerprints (including untracked file contents), extraction options and a capture
+timestamp. Display the first 12 characters of commits; do not use them as unique IDs.
+The provenance ID hashes code/source/options identity, excluding the timestamp,
+so repeat imports of the same snapshot do not conflict merely because time passed.
+No independent extractor version counter is used.
+
+Catalog-only imports retain the original passport, even when the importer has
+changed. Missing legacy passports, unknown per-fact IDs, and mismatched DuckDB/
+Parquet manifests fail before default full-import cleanup. Explicit
+`--neo4j-clear-timing parallel` retains its existing early-clear semantics.
+Scoped imports reject overlapping facts of different or unknown provenance before
+cleanup. Use a deliberate full replacement to migrate such a graph; never stamp
+old facts with the current commit. Coordinate stable IDs do not change.
 Do not interpret the old source_state_id property as an extractor version.
+Extraction checks for checkout changes before publishing its result. The daemon
+rebuilds source context when the snapshot changes and must restart for tool changes.
 No Git commit or push is performed by the migration itself.

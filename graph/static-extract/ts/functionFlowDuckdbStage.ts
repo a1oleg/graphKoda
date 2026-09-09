@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {captureExtractionProvenance} from '../../../dev/extractionProvenance.mjs';
 
 import {
   DuckDBAppender,
@@ -60,12 +61,14 @@ export class FunctionFlowDuckdbStage {
     private readonly entityAppender: DuckDBAppender,
     private readonly relationshipAppender: DuckDBAppender,
     private readonly onProgress?: (progress: StageProgress) => void,
+    readonly provenance = captureExtractionProvenance(),
   ) {}
 
   static async create(
     databasePath: string,
     parquetDir: string,
     onProgress?: (progress: StageProgress) => void,
+    provenance = captureExtractionProvenance(),
   ) {
     const resolvedDatabasePath = path.resolve(databasePath);
     const resolvedParquetDir = path.resolve(parquetDir);
@@ -76,6 +79,7 @@ export class FunctionFlowDuckdbStage {
       `${resolvedDatabasePath}.wal`,
       path.join(resolvedParquetDir, 'nodes.parquet'),
       path.join(resolvedParquetDir, 'relationships.parquet'),
+      path.join(resolvedParquetDir, 'provenance.parquet'),
     ]) {
       if (fs.existsSync(filePath)) fs.rmSync(filePath);
     }
@@ -84,6 +88,11 @@ export class FunctionFlowDuckdbStage {
       preserve_insertion_order: 'false',
     });
     const connection = await instance.connect();
+    await connection.run(`CREATE TABLE extraction_provenance (id VARCHAR PRIMARY KEY, metadata_json VARCHAR)`);
+    const metadata = await connection.createAppender('extraction_provenance');
+    metadata.appendVarchar(provenance.id);
+    metadata.appendVarchar(JSON.stringify(provenance));
+    metadata.endRow();metadata.closeSync();
     await connection.run(`
       CREATE TABLE raw_entities (
         ordinal BIGINT,
@@ -112,6 +121,7 @@ export class FunctionFlowDuckdbStage {
       entityAppender,
       relationshipAppender,
       onProgress,
+      provenance,
     );
   }
 
@@ -240,6 +250,14 @@ export class FunctionFlowDuckdbStage {
       FROM raw_relationships raw
       SEMI JOIN duplicate_relationship_signatures duplicates USING (signature)
       GROUP BY raw.signature;
+
+      ALTER TABLE canonical_entities_export ADD COLUMN provenance_id VARCHAR;
+      UPDATE canonical_entities_export SET provenance_id = (SELECT id FROM extraction_provenance);
+      ALTER TABLE canonical_relationships_export ADD COLUMN provenance_id VARCHAR;
+      UPDATE canonical_relationships_export SET provenance_id = (SELECT id FROM extraction_provenance);
+      COPY extraction_provenance
+      TO '${sqlPath(path.join(this.parquetDir, 'provenance.parquet'))}'
+      (FORMAT PARQUET, COMPRESSION ZSTD);
 
       COPY canonical_entities_export
       TO '${sqlPath(path.join(this.parquetDir, 'nodes.parquet'))}'

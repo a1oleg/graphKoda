@@ -19782,9 +19782,10 @@ function withCanonicalTransportProps<TRow extends ArtifactTransportRow>(
   };
 }
 
-export function payloadForTransport(payload: GraphExtractedPayload) {
-  return {
+export function payloadForTransport(payload: GraphExtractedPayload, provenance = captureExtractionProvenance()) {
+  const result = {
     ...payload,
+    provenance,
     functions: payload.functions.map((row) => withCanonicalTransportProps(
       'function',
       compactFunctionForTransport(row),
@@ -19800,13 +19801,16 @@ export function payloadForTransport(payload: GraphExtractedPayload) {
     semanticEntities: (payload.semanticEntities || []).map((row) => withCanonicalTransportProps('semanticEntity', row)),
     semanticRelationships: (payload.semanticRelationships || []).map((row) => withCanonicalTransportProps('semanticRelationship', row)),
   };
+  for(const key of ['functions','nodes','edges','resources','resourceEdges','resourceLinks','semanticEntities','semanticRelationships'] as const)
+    for(const row of result[key])row.props.provenance_id=provenance.id;
+  return result;
 }
 
-function writePayloadToFile(outputPath: string, payload: GraphExtractedPayload) {
+function writePayloadToFile(outputPath: string, payload: GraphExtractedPayload, provenance = captureExtractionProvenance()) {
   const fileDescriptor = fs.openSync(outputPath, 'w');
 
   try {
-    fs.writeSync(fileDescriptor, '{"functions":[');
+    fs.writeSync(fileDescriptor, `{"provenance":${JSON.stringify(provenance)},"functions":[`);
 
     payload.functions.map((row) => withCanonicalTransportProps(
       'function',
@@ -19816,7 +19820,7 @@ function writePayloadToFile(outputPath: string, payload: GraphExtractedPayload) 
         fs.writeSync(fileDescriptor, ',');
       }
 
-      fs.writeSync(fileDescriptor, JSON.stringify(row));
+      fs.writeSync(fileDescriptor, JSON.stringify({...row, props:{...row.props, provenance_id:provenance.id}}));
     });
 
     fs.writeSync(fileDescriptor, '],"nodes":[');
@@ -19829,7 +19833,7 @@ function writePayloadToFile(outputPath: string, payload: GraphExtractedPayload) 
         fs.writeSync(fileDescriptor, ',');
       }
 
-      fs.writeSync(fileDescriptor, JSON.stringify(row));
+      fs.writeSync(fileDescriptor, JSON.stringify({...row, props:{...row.props, provenance_id:provenance.id}}));
     });
 
     fs.writeSync(fileDescriptor, '],"edges":[');
@@ -19839,37 +19843,37 @@ function writePayloadToFile(outputPath: string, payload: GraphExtractedPayload) 
         fs.writeSync(fileDescriptor, ',');
       }
 
-      fs.writeSync(fileDescriptor, JSON.stringify(row));
+      fs.writeSync(fileDescriptor, JSON.stringify({...row, props:{...row.props, provenance_id:provenance.id}}));
     });
 
     fs.writeSync(fileDescriptor, '],"resources":[');
     (payload.resources || []).map((row) => withCanonicalTransportProps('resource', row)).forEach((row, index) => {
       if (index) fs.writeSync(fileDescriptor, ',');
-      fs.writeSync(fileDescriptor, JSON.stringify(row));
+      fs.writeSync(fileDescriptor, JSON.stringify({...row, props:{...row.props, provenance_id:provenance.id}}));
     });
 
     fs.writeSync(fileDescriptor, '],"resourceEdges":[');
     (payload.resourceEdges || []).map((row) => withCanonicalTransportProps('resourceEdge', row)).forEach((row, index) => {
       if (index) fs.writeSync(fileDescriptor, ',');
-      fs.writeSync(fileDescriptor, JSON.stringify(row));
+      fs.writeSync(fileDescriptor, JSON.stringify({...row, props:{...row.props, provenance_id:provenance.id}}));
     });
 
     fs.writeSync(fileDescriptor, '],"resourceLinks":[');
     (payload.resourceLinks || []).map((row) => withCanonicalTransportProps('resourceLink', row)).forEach((row, index) => {
       if (index) fs.writeSync(fileDescriptor, ',');
-      fs.writeSync(fileDescriptor, JSON.stringify(row));
+      fs.writeSync(fileDescriptor, JSON.stringify({...row, props:{...row.props, provenance_id:provenance.id}}));
     });
 
     fs.writeSync(fileDescriptor, '],"semanticEntities":[');
     (payload.semanticEntities || []).map((row) => withCanonicalTransportProps('semanticEntity', row)).forEach((row, index) => {
       if (index) fs.writeSync(fileDescriptor, ',');
-      fs.writeSync(fileDescriptor, JSON.stringify(row));
+      fs.writeSync(fileDescriptor, JSON.stringify({...row, props:{...row.props, provenance_id:provenance.id}}));
     });
 
     fs.writeSync(fileDescriptor, '],"semanticRelationships":[');
     (payload.semanticRelationships || []).map((row) => withCanonicalTransportProps('semanticRelationship', row)).forEach((row, index) => {
       if (index) fs.writeSync(fileDescriptor, ',');
-      fs.writeSync(fileDescriptor, JSON.stringify(row));
+      fs.writeSync(fileDescriptor, JSON.stringify({...row, props:{...row.props, provenance_id:provenance.id}}));
     });
 
     fs.writeSync(fileDescriptor, ']}\n');
@@ -20498,6 +20502,7 @@ async function writeFunctionFlowArtifactsDuckdb(
   stagingPath: string,
   parquetDir: string,
   metadataOnly = false,
+  provenance = captureExtractionProvenance(),
 ) {
   const started = performance.now();
   let currentPhase = 'initialize';
@@ -20516,7 +20521,7 @@ async function writeFunctionFlowArtifactsDuckdb(
   heartbeat.unref();
   const stage = await FunctionFlowDuckdbStage.create(stagingPath, parquetDir, (progress) => {
     reportProgress(progress.phase, progress.rawEntities, progress.rawRelationships);
-  });
+  }, provenance);
   const writer = createArtifactWriter(false, (kind, row) => {
     const normalized = toCanonicalArtifact(kind, row);
     if (kind === 'function' || kind === 'node' || kind === 'resource' || kind === 'semanticEntity') {
@@ -20532,6 +20537,7 @@ async function writeFunctionFlowArtifactsDuckdb(
     writer.close();
     const extractSeconds = Math.round(performance.now() - extractStarted) / 1000;
     const canonicalizeStarted = performance.now();
+    assertExtractionUnchanged(provenance);
     const counts = await stage.finalize();
     const canonicalizeSeconds = Math.round(performance.now() - canonicalizeStarted) / 1000;
     process.stdout.write(`${JSON.stringify({
@@ -20556,6 +20562,7 @@ async function writeFunctionFlowArtifactsDuckdb(
 }
 
 async function main() {
+  const provenance = captureExtractionProvenance();
   const {
     fnStableId,
     fnName,
@@ -20574,7 +20581,7 @@ async function main() {
     if (!stagingPath || !parquetDir) {
       throw new Error('--output-format duckdb requires --staging-path and --parquet-dir.');
     }
-    await writeFunctionFlowArtifactsDuckdb(program, stagingPath, parquetDir, metadataOnly);
+    await writeFunctionFlowArtifactsDuckdb(program, stagingPath, parquetDir, metadataOnly, provenance);
     return;
   }
   if (auditIdentities) {
@@ -20587,11 +20594,13 @@ async function main() {
   const payload = collectFunctionFlowArtifacts(program, fnStableId, fnName, metadataOnly);
 
   if (outputPath) {
-    writePayloadToFile(outputPath, payload);
+    assertExtractionUnchanged(provenance);
+    writePayloadToFile(outputPath, payload, provenance);
     return;
   }
 
-  process.stdout.write(`${JSON.stringify(payloadForTransport(payload))}\n`);
+  assertExtractionUnchanged(provenance);
+  process.stdout.write(`${JSON.stringify(payloadForTransport(payload, provenance))}\n`);
 }
 
 if (isEntrypoint()) {
@@ -20600,3 +20609,4 @@ if (isEntrypoint()) {
     process.exitCode = 1;
   });
 }
+import {captureExtractionProvenance, assertExtractionUnchanged} from '../../../dev/extractionProvenance.mjs';

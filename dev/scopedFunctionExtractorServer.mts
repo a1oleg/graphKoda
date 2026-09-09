@@ -1,6 +1,7 @@
 import http from 'node:http';
 import path from 'node:path';
 import projectPaths from './projectPaths.cjs';
+import {captureExtractionProvenance, assertExtractionUnchanged, gitIdentity} from './extractionProvenance.mjs';
 
 import chokidar, { type FSWatcher } from 'chokidar';
 import type ts from 'typescript';
@@ -26,6 +27,8 @@ let context: FunctionFlowExtractionContext | undefined;
 let sourceWatcher: FSWatcher | undefined;
 let sourceDirty = false;
 let requestCount = 0;
+let contextProvenanceId = '';
+const loadedProvenance = captureExtractionProvenance();
 
 function jsonResponse(response: http.ServerResponse, status: number, value: unknown) {
   response.writeHead(status, {
@@ -90,6 +93,8 @@ async function ensureContext() {
 const extractorWatcher = chokidar.watch([
   path.join(projectPaths.toolRoot, 'graph', 'static-extract', 'ts'),
   path.join(projectPaths.toolRoot, 'dev', 'scopedFunctionExtractorServer.mts'),
+  path.join(projectPaths.toolRoot, 'dev', 'extractionProvenance.mjs'),
+  path.join(projectPaths.toolRoot, 'dev', 'projectPaths.cjs'),
   path.join(workspaceRoot, 'tsconfig.json'),
 ], { ignoreInitial: true });
 extractorWatcher.on('all', () => {
@@ -101,8 +106,13 @@ extractorWatcher.on('all', () => {
 const server = http.createServer(async (request, response) => {
   try {
     if (request.method === 'GET' && request.url === '/health') {
+      const identity = gitIdentity(projectPaths.toolRoot);
       jsonResponse(response, 200, {
         ok: true,
+        provenanceSupported: true,
+        toolRoot: projectPaths.toolRoot,
+        extractorCurrent: identity.commit === loadedProvenance.extractor_commit
+          && identity.dirtyFingerprint === loadedProvenance.extractor_dirty_fingerprint,
         protocolVersion,
         pid: process.pid,
         contextReady: Boolean(context),
@@ -129,13 +139,21 @@ const server = http.createServer(async (request, response) => {
     }
 
     const started = performance.now();
+    const provenance = captureExtractionProvenance();
+    if (provenance.extractor_commit !== loadedProvenance.extractor_commit
+      || provenance.extractor_dirty_fingerprint !== loadedProvenance.extractor_dirty_fingerprint) {
+      throw new Error('Extractor checkout changed; restart the scoped extractor before importing.');
+    }
+    if (contextProvenanceId !== provenance.id) sourceDirty = true;
     const reuse = await ensureContext();
+    contextProvenanceId = provenance.id;
     const payload = extractFunctionFlowGraphs(program!, fnStableId, context);
     requestCount += 1;
     response.setHeader('X-Graph-Extractor-Elapsed-Ms', String(Math.round(performance.now() - started)));
     response.setHeader('X-Graph-Extractor-Reused-Program', String(reuse.reusedProgram));
     response.setHeader('X-Graph-Extractor-Reused-Context', String(reuse.reusedContext));
-    jsonResponse(response, 200, payloadForTransport(payload));
+    assertExtractionUnchanged(provenance);
+    jsonResponse(response, 200, payloadForTransport(payload, provenance));
   } catch (error) {
     jsonResponse(response, 500, {
       ok: false,

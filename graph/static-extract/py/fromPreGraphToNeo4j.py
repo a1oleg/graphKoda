@@ -16,6 +16,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
+from extraction_provenance import register_provenance, check_scoped_provenance
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 WORKSPACE_DIR = SCRIPT_DIR.parents[2]
@@ -168,15 +169,23 @@ def start_scoped_extractor_server() -> None:
     subprocess.Popen(command, **kwargs)
 
 
+def compatible_scoped_extractor(health: dict[str, Any]) -> bool:
+    return (health.get('protocolVersion') == SCOPED_EXTRACTOR_PROTOCOL_VERSION
+            and health.get('provenanceSupported') is True
+            and health.get('extractorCurrent') is True
+            and Path(health.get('toolRoot', '')).resolve() == WORKSPACE_DIR.resolve())
+
+
 def ensure_scoped_extractor_server() -> dict[str, Any]:
     try:
         health, _ = scoped_extractor_request('/health', timeout=0.5)
-        if health.get('protocolVersion') == SCOPED_EXTRACTOR_PROTOCOL_VERSION:
+        if compatible_scoped_extractor(health):
             return health
         try:
             scoped_extractor_request('/shutdown', {}, timeout=1.0)
         except Exception:
             pass
+        time.sleep(0.1)
     except (urllib.error.URLError, TimeoutError):
         pass
 
@@ -185,9 +194,11 @@ def ensure_scoped_extractor_server() -> dict[str, Any]:
     while time.monotonic() < deadline:
         try:
             health, _ = scoped_extractor_request('/health', timeout=0.5)
-            if health.get('protocolVersion') == SCOPED_EXTRACTOR_PROTOCOL_VERSION:
+            if compatible_scoped_extractor(health):
                 return health
         except (urllib.error.URLError, TimeoutError):
+            time.sleep(0.1)
+        else:
             time.sleep(0.1)
     raise RuntimeError('Scoped extractor server did not become ready within 15 seconds.')
 
@@ -826,11 +837,12 @@ def import_payload(writer: GraphWriter, payload: dict[str, Any]) -> None:
             writer.add(kind, row)
 
 
-def record_import(session: Any, *, fn_stable_id: str | None, counts: dict[str, int], elapsed: float) -> None:
+def record_import(session: Any, *, fn_stable_id: str | None, counts: dict[str, int], elapsed: float, provenance_ids=()) -> None:
     session.run(
         '''
         CREATE (run:GraphImportRun)
         SET run.source = $source,
+            run.provenance_ids = $provenanceIds,
             run.mode = 'func',
             run.scope_fn_stable_id = $fnStableId,
             run.counts_json = $countsJson,
@@ -838,6 +850,7 @@ def record_import(session: Any, *, fn_stable_id: str | None, counts: dict[str, i
             run.completed_at = datetime()
         ''',
         source=SOURCE,
+        provenanceIds=list(provenance_ids),
         fnStableId=fn_stable_id,
         countsJson=json.dumps(counts, sort_keys=True),
         elapsed=elapsed,
@@ -849,6 +862,7 @@ def run_scoped_import(args: argparse.Namespace, settings: dict[str, str], starte
     try:
         with driver.session(database=settings['database']) as session:
             payload = run_scoped_extractor(args.fn_stable_id)
+            provenance = check_scoped_provenance(session, payload)
             annotations_deleted = 0
             if not args.append:
                 annotations_deleted = clear_scoped_flow(
@@ -858,6 +872,7 @@ def run_scoped_import(args: argparse.Namespace, settings: dict[str, str], starte
                 )
                 clear_replaced_semantic_relationships(session, payload)
             writer = GraphWriter(session, args.batch_size, bulk=False)
+            register_provenance(session, [provenance])
             import_payload(writer, payload)
             writer.finish()
             annotations_restored = (
@@ -866,7 +881,7 @@ def run_scoped_import(args: argparse.Namespace, settings: dict[str, str], starte
                 else 0
             )
             elapsed = time.perf_counter() - started
-            record_import(session, fn_stable_id=args.fn_stable_id, counts=dict(writer.counts), elapsed=elapsed)
+            record_import(session, fn_stable_id=args.fn_stable_id, counts=dict(writer.counts), elapsed=elapsed, provenance_ids=[provenance['id']])
             return {
                 'ok': True,
                 'counts': writer.counts,
@@ -895,7 +910,6 @@ def main(argv: list[str] | None = None) -> int:
     clear_timing_used = 'after-extract' if args.catalog_only else args.neo4j_clear_timing
     if args.catalog_only:
         extract_result = {'stageSeconds': 0.0}
-        clear_full_database(settings, started, args.preserve_annotations)
     elif args.neo4j_clear_timing == 'parallel':
         print(
             '[graph:func:pipeline] phase=parallel-start tasks=duckdb-extract,neo4j-clear',
@@ -913,9 +927,10 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         extract_result = run_full_extractor(staging_path, parquet_dir)
-        clear_full_database(settings, started, args.preserve_annotations)
     catalog = FunctionFlowCatalog(staging_path, parquet_dir)
     try:
+        if args.catalog_only or args.neo4j_clear_timing != 'parallel':
+            clear_full_database(settings, started, args.preserve_annotations)
         stage_counts = catalog.counts()
         print(
             '[graph:func:pipeline] '
@@ -934,6 +949,7 @@ def main(argv: list[str] | None = None) -> int:
             with driver.session(database=settings['database']) as session:
                 print('[graph:func:pipeline] phase=neo4j-prepare-start', file=sys.stderr, flush=True)
                 prepare_bulk_import(session)
+                register_provenance(session, catalog.provenance.values())
                 print(
                     f'[graph:func:pipeline] phase=neo4j-prepare-done elapsedSeconds={time.perf_counter() - started:.3f}',
                     file=sys.stderr,
@@ -986,7 +1002,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 elapsed = time.perf_counter() - started
                 counts = stage_counts
-                record_import(session, fn_stable_id=None, counts=counts, elapsed=elapsed)
+                record_import(session, fn_stable_id=None, counts=counts, elapsed=elapsed, provenance_ids=catalog.provenance)
         finally:
             driver.close()
 

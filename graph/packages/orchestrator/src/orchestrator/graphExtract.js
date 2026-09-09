@@ -547,19 +547,13 @@ export async function importFunctionsScoped({
     `[orchestrator] scoped append import starting count=${stableIds.length} preserveAnnotations=${shouldPreserveAnnotations}`,
   );
   for (const stableId of stableIds) {
-    const args = [importerPath, 'func', '--append', '--fn-stable-id', stableId];
+    const args = [importerPath, 'func', '--fn-stable-id', stableId];
     if (!shouldPreserveAnnotations) args.push('--no-preserve-annotations');
     const stepStartedAt = new Date().toISOString();
     appendLogLine(logPath, `[orchestrator] import ${stableId}`);
     try {
-      const cleanup = await cleanupScopedFunctionImport(
-        pythonExecutable,
-        stableId,
-        logPath,
-        timeoutMs,
-        shouldPreserveAnnotations,
-      );
-      appendLogLine(logPath, `[orchestrator] cleanup ${stableId}: deleted=${cleanup.deleted ?? 'unknown'}`);
+      // Importer checks provenance before any scoped cleanup or writes.
+      const cleanup = null;
       const completed = await execFileAsync(pythonExecutable, args, {
         cwd: process.cwd(),
         env: {
