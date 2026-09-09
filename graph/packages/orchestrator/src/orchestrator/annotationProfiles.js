@@ -1,6 +1,7 @@
 import neo4j from 'neo4j-driver';
 
 import { relationshipTypesForAnnotation } from './relationshipSemantics.js';
+import { loadProjectionDependencies, projectionProfiles } from './projectionContext.js';
 
 const PROFILE_VERSION = 13;
 
@@ -28,6 +29,7 @@ function parseCallableRoleBindings(value) {
 export function inferAnnotationKind(labels, explicitKind) {
   const labelSet = new Set(labels || []);
   if (labelSet.has('VisualProxy') || labelSet.has('PresentationOnly')) return null;
+  if (explicitKind === 'Projection' || explicitKind === 'SelectedMember') return explicitKind;
   const typeOnlyDeclaration = (
     labelSet.has('TypeDeclaration')
     || labelSet.has('TypeAliasDeclaration')
@@ -240,9 +242,10 @@ export async function loadCompositionContextDependenciesMany(session, stableIds)
 }
 
 const PROFILES = {
+  ...projectionProfiles,
   FunctionalEntity: {
     id: 'functional-accumulation',
-    version: 4,
+    version: 7,
     compositionContext: false,
     accumulateToSystemBoundary: true,
     async contextMany(session, stableIds) {
@@ -258,6 +261,22 @@ const PROFILES = {
                relationshipTypes: [relation IN relationships(effectPath) | type(relation)],
                operationSyntax: [node IN nodes(effectPath) WHERE node:Operation | coalesce(node.syntax, node.action_text_raw)]
              } END) AS terminalEffects
+        CALL (subject) {
+          MATCH p=(subject)-[r]-(neighbor)
+          WHERE type(r) IN ['WRITES_TO', 'READS_FROM', 'VALUE_FROM', 'RESOLVES_TO',
+            'BINDS_TO_PARAMETER', 'HAS_PROPERTY', 'HAS_ARGUMENT', 'CALLS', 'CALLS_VALUE']
+            OR (type(r) = 'AST_CHILD' AND startNode(r):FunctionImplementation)
+          RETURN collect(DISTINCT p) AS directEvidence
+        }
+        CALL (subject) {
+          MATCH p=(consumer)-[:VALUE_FROM|READS_FROM|RESOLVES_TO|CALLS_VALUE|HAS_ARGUMENT*1..3]->(subject)
+          WHERE none(n IN nodes(p)[1..-1] WHERE n:DeveloperDefined OR n:System)
+            AND (consumer:Operation OR consumer:PropertyValue OR consumer:ArgumentValue
+              OR consumer:ValueWrite OR consumer:ValueProjection)
+          WITH DISTINCT p ORDER BY length(p), [n IN nodes(p) | n.stableId]
+          LIMIT 81
+          RETURN collect(p) AS usageEvidence
+        }
         RETURN subject.stableId AS stableId, {
           stableId: subject.stableId,
           labels: labels(subject),
@@ -270,12 +289,34 @@ const PROFILES = {
             endLine: coalesce(subject.endLine, subject.end_line),
             endColumn: coalesce(subject.endColumn, subject.end_column)
           },
-          terminalEffects: [effect IN terminalEffects WHERE effect IS NOT NULL]
+          terminalEffects: [effect IN terminalEffects WHERE effect IS NOT NULL],
+          evidenceGraph: {
+            usageMaxHops: 3,
+            usagePathLimit: 80,
+            usageTruncated: size(usageEvidence) > 80,
+            paths: [p IN directEvidence + usageEvidence[0..80] | {
+              nodes: [n IN nodes(p) | {
+                stableId: n.stableId, name: n.name, labels: labels(n),
+                syntax: CASE WHEN n:FunctionImplementation AND n <> subject THEN null
+                  ELSE left(coalesce(n.syntax, n.action_text_raw), 2000) END,
+                syntaxTruncated: CASE WHEN n:FunctionImplementation AND n <> subject THEN false
+                  ELSE size(coalesce(n.syntax, n.action_text_raw, '')) > 2000 END,
+                index: n.index, propertyName: n.propertyName
+              }],
+              edges: [r IN relationships(p) | {
+                fromId: startNode(r).stableId, toId: endNode(r).stableId,
+                type: type(r), properties: properties(r)
+              }]
+            }]
+          }
         } AS context
       `, { stableIds });
       return new Map(result.records.map((record) => [record.get('stableId'), normalizeNeo4jValue(record.get('context'))]));
     },
     async dependenciesMany(session, stableIds) {
+      const projections = await loadProjectionDependencies(session, stableIds);
+      const remainingIds = stableIds.filter(id => !projections.has(id));
+      if (!remainingIds.length) return projections;
       const result = await session.run(`
         UNWIND $stableIds AS stableId
         MATCH (subject:DeveloperDefined {stableId: stableId})
@@ -289,12 +330,16 @@ const PROFILES = {
           WITH subject, selectedBinding.origin AS origin
           MATCH forwardPath=(origin)-[:AST_CHILD|VALUE_FROM|HAS_PROPERTY|RESOLVES_TO|SELECTS_RETURN_PROPERTY|HAS_OPERATION|CALLS|CALLS_VALUE|READS_FROM|WRITES_TO*1..12]->(candidate:DeveloperDefined)
           WHERE subject:Parameter
+            AND none(edge IN relationships(forwardPath) WHERE type(edge) = 'READS_FROM'
+              AND EXISTS { MATCH (projection)-[:SELECTS_RETURN_PROPERTY]->() WHERE projection = startNode(edge) })
             AND coalesce(candidate.declarationKind, '') <> 'FunctionType'
             AND none(node IN nodes(forwardPath)[0..-1] WHERE node:DeveloperDefined OR node:System)
           RETURN candidate, 1 + length(forwardPath) AS distance
           UNION
           MATCH directPath=(subject)-[:AST_CHILD|VALUE_FROM|RESOLVES_TO|SELECTS_RETURN_PROPERTY|HAS_OPERATION|CALLS|CALLS_VALUE|READS_FROM|WRITES_TO*1..12]->(candidate:DeveloperDefined)
           WHERE coalesce(candidate.declarationKind, '') <> 'FunctionType'
+            AND none(edge IN relationships(directPath) WHERE type(edge) = 'READS_FROM'
+              AND EXISTS { MATCH (projection)-[:SELECTS_RETURN_PROPERTY]->() WHERE projection = startNode(edge) })
             AND none(node IN nodes(directPath)[1..-1] WHERE node:DeveloperDefined OR node:System)
           RETURN candidate, length(directPath) AS distance
         }
@@ -308,8 +353,8 @@ const PROFILES = {
           recurse: true,
           ordinal: distance
         }) AS dependencies
-      `, { stableIds });
-      return new Map(result.records.map((record) => [record.get('stableId'), normalizeNeo4jValue(record.get('dependencies'))]));
+      `, { stableIds: remainingIds });
+      return new Map([...projections, ...result.records.map((record) => [record.get('stableId'), normalizeNeo4jValue(record.get('dependencies'))])]);
     },
     async context(session, stableId) {
       return (await this.contextMany(session, [stableId])).get(stableId) || null;
@@ -1772,6 +1817,8 @@ export function getAnnotationProfile(annotationKind) {
 
 export async function resolveAnnotationSubjects(session, requestedStableIds, annotationKinds = new Map()) {
   const primaryLabels = {
+    Projection: 'Call',
+    SelectedMember: 'MemberDeclaration',
     FunctionalEntity: 'DeveloperDefined',
     Callable: 'Fn|FnDeclaration',
     Step: 'Step',
@@ -1892,7 +1939,9 @@ export async function resolveAnnotationSubjects(session, requestedStableIds, ann
     const row = normalizeNeo4jValue(record.toObject());
     return [row.requestedStableId, {
       ...row,
-      annotationKind: row.requestedIsFnDeclaration
+      annotationKind: ['Projection', 'SelectedMember'].includes(annotationKinds.get(row.requestedStableId))
+        ? annotationKinds.get(row.requestedStableId)
+        : row.requestedIsFnDeclaration
         ? 'Callable'
         : row.subjectHasInvocation
           && !row.labels.includes('Fn')

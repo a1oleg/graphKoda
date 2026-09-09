@@ -7,6 +7,33 @@ import ts from 'typescript';
 
 import { collectCanonicalReferenceGraph } from './functionFlowGraph.canonicalReferences.ts';
 
+test('resolves untyped component prop destructuring by symbol, including renamed bindings', () => {
+  const fixturePath = path.resolve('tmp', 'canonical-untyped-props.fixture.tsx');
+  fs.mkdirSync(path.dirname(fixturePath), { recursive: true });
+  fs.writeFileSync(fixturePath, `
+function Untyped(t0) {
+  const { send: invoke } = t0;
+  const handler = () => invoke('actual');
+  function unrelated(t0) { const { send: invoke } = t0; invoke('wrong'); }
+  return handler;
+}
+const callback = (received: string) => received;
+const element = <Untyped send={callback} />;
+`, 'utf8');
+  try {
+    const graph = collectCanonicalReferenceGraph(ts.createProgram([fixturePath], {
+      target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext,
+      jsx: ts.JsxEmit.Preserve, skipLibCheck: true,
+    }));
+    const parameter = graph.entities.find(e => e.labels.includes('Parameter') && e.props.name === 'received');
+    assert.ok(parameter);
+    const entities = new Map(graph.entities.map(e => [e.stableId, e]));
+    const bindings = graph.relationships.filter(r => r.type === 'BINDS_TO_PARAMETER' && r.toId === parameter.stableId);
+    assert.ok(bindings.some(r => entities.get(r.fromId)?.props.syntax === "'actual'"));
+    assert.ok(!bindings.some(r => entities.get(r.fromId)?.props.syntax === "'wrong'"));
+  } finally { fs.rmSync(fixturePath, { force: true }); }
+});
+
 test('materializes canonical declarations, references, aliases, derived types, React wrappers, refs, overloads, and merged symbols', () => {
   const typesPath = path.resolve('tmp', 'canonical-references-types.fixture.ts');
   const usagePath = path.resolve('tmp', 'canonical-references-usage.fixture.tsx');

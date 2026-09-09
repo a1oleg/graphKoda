@@ -1,4 +1,5 @@
 import neo4j from 'neo4j-driver';
+import { saveAnnotation } from './annotationResolver.js';
 
 const TYPE_LABELS = [
   ['Function', 'function'],
@@ -50,7 +51,6 @@ export class Fragment {
 
   async upsertAnnotation(text, {
     source = 'codex',
-    toolGitCommitShortHash = null,
     maxDepth = null,
   } = {}) {
     const annotationText = String(text || '').trim();
@@ -59,52 +59,11 @@ export class Fragment {
       return { ok: true, storage: 'annotation-node', updated: 0, headID: this.headID };
     }
 
-    const updatedAt = new Date().toISOString();
-    const session = this.driver.session({ database: this.database });
-    try {
-      const result = await session.run(`
-        MATCH (head {stableId: $headID})
-        MERGE (head)-[:HAS_ANNOTATION]->(annotation:Annotation {headID: $headID})
-        SET annotation.text = $text,
-            annotation.type = $type,
-            annotation.source = $source,
-            annotation.toolGitCommitShortHash = $toolGitCommitShortHash,
-            annotation.maxDepth = $maxDepth,
-            annotation.updatedAt = $updatedAt
-        REMOVE head.graph_annotation_text,
-               head.graph_annotation_updated_at,
-               head.graph_annotation_source
-        RETURN count(annotation) AS updated
-      `, {
-        headID: this.headID,
-        text: annotationText,
-        type: this.type,
-        source,
-        toolGitCommitShortHash,
-        maxDepth,
-        updatedAt,
-      });
-      const updated = result.records[0]?.get('updated')?.toNumber?.() ?? 0;
-      this.annotation = {
-        text: annotationText,
-        type: this.type,
-        source,
-        toolGitCommitShortHash,
-        maxDepth,
-        updatedAt,
-      };
-      return {
-        ok: true,
-        storage: 'annotation-node',
-        updated,
-        headID: this.headID,
-        type: this.type,
-        toolGitCommitShortHash,
-        maxDepth,
-      };
-    } finally {
-      await session.close();
-    }
+    const result = await saveAnnotation(this.driver, this.database, {
+      stableId: this.headID, text: annotationText, source, maxDepth,
+    });
+    this.annotation = { ...result, text: annotationText, type: this.type, source };
+    return { ...result, storage: 'annotation-node', updated: 1, headID: result.stableId, type: this.type };
   }
 
   static async loadAnnotations(driver, database) {

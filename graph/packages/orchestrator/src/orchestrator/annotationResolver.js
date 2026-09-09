@@ -40,9 +40,12 @@ export function shouldRefreshAnnotation(refreshMode, depth) {
   return refreshMode === 'subtree' || (refreshMode === 'root' && depth === 0);
 }
 
+export function shouldRecurseAnnotationDependency(dependency, depth, depthLimit) {
+  return Boolean(dependency?.recurse) && depth < depthLimit;
+}
+
 const PARAMETER_SYNTHESIS_CONTRACT_VERSION = 1;
 const FUNCTIONAL_ACCUMULATION_CONTRACT_VERSION = 2;
-const FUNCTIONAL_ACCUMULATION_MAX_DEPTH = 32;
 const TOOL_GIT_COMMIT_SHORT_HASH = (() => {
   try {
     return execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], {
@@ -375,10 +378,8 @@ export async function resolveAnnotation(driver, database, {
         }
       }
 
-      const shouldRecurse = (entry, dependency) => dependency.recurse && (
-        entry.profile.accumulateToSystemBoundary
-          ? depth < FUNCTIONAL_ACCUMULATION_MAX_DEPTH
-          : depth < depthLimit
+      const shouldRecurse = (_entry, dependency) => (
+        shouldRecurseAnnotationDependency(dependency, depth, depthLimit)
       );
       const recursiveDependencies = prepared.flatMap((entry) => entry.dependencies
         .filter((dependency) => shouldRecurse(entry, dependency)));
@@ -407,6 +408,7 @@ export async function resolveAnnotation(driver, database, {
             role: dependency.role,
             dependencyKind: dependency.dependencyKind || 'semantic',
             ordinal: integer(dependency.ordinal),
+            ...(dependency.evidencePath ? { evidencePath: dependency.evidencePath } : {}),
           };
         });
         const contextFingerprint = hash({
@@ -417,6 +419,7 @@ export async function resolveAnnotation(driver, database, {
             stableId: child.stableId,
             annotationId: child.annotationId,
             role: child.role,
+            evidencePath: child.evidencePath,
             referenceContextFingerprint: child.referenceOnly ? hash(child.context || null) : null,
           })),
           ...annotationContractFingerprint({
@@ -491,7 +494,7 @@ export async function resolveAnnotation(driver, database, {
     const root = memo.get(requestedStableId);
     return {
       ok: true,
-      status: root.status === 'ready' ? 'ready' : 'needs-generation',
+      status: isAnnotationPassReady(root, generationOrder) ? 'ready' : 'needs-generation',
       root,
       generationOrder,
       diagnostics: {
@@ -508,6 +511,17 @@ export async function resolveAnnotation(driver, database, {
 }
 
 const ANNOTATION_REQUIREMENTS = Object.freeze({
+  Projection: [
+    'Explain the selected value at this call site using its selector and selected-member evidence.',
+    'Do not describe the complete gateway, aggregate state, or unrelated callers.',
+    'If resolutionStatus is unresolved-member, explicitly report missing provenance; do not infer behavior from identifiers.',
+  ],
+  SelectedMember: [
+    'Describe the runtime meaning of the selected member using its proven writes and their enclosing code.',
+    'Owner and caller code is evidence for those writes, not an invitation to annotate unrelated fields or infrastructure.',
+    'Distinguish potential writes and call sites from a proven runtime ordering; do not infer temporal behavior from names.',
+    'If no writers are proven, report that boundary explicitly.',
+  ],
   ExecutionPrimitive: [
     'Explain the semantic source of the produced value using source expressions and producer callable annotations.',
     'For feature flags and external settings, state their graph-visible purpose, key, fallback, and retrieval behavior.',
@@ -645,6 +659,10 @@ export function buildAnnotationTask(item, rootStableId, options = {}) {
       dependencies,
     },
     completion: {
+      required: true,
+      storage: 'neo4j',
+      successCondition: 'persisted-ready',
+      passScope: 'all-non-reference-dependencies-and-root',
       endpoint: options.taskId
         ? `/api/annotation-tasks/${encodeURIComponent(options.taskId)}/complete`
         : '/api/graph/annotations/workflow/complete',
@@ -673,6 +691,11 @@ export function selectNextAnnotationTask(generationOrder = []) {
       dependency.referenceOnly || dependency.status === 'ready'
     ))
   )) || null;
+}
+
+export function isAnnotationPassReady(root, generationOrder = []) {
+  return root?.status === 'ready'
+    && generationOrder.every((item) => item.status === 'ready');
 }
 
 const ANNOTATION_TASK_LEASE_MS = 5 * 60 * 1000;
@@ -706,7 +729,7 @@ async function persistAnnotationJob(session, {
     ON CREATE SET job.createdAt = $now
     SET job.rootStableId = $rootStableId,
         job.rootAnnotationId = $rootAnnotationId,
-        job.status = CASE WHEN root.status = 'ready' THEN 'complete' ELSE 'pending' END,
+        job.status = CASE WHEN root.status = 'ready' AND size($tasks) = 0 THEN 'complete' ELSE 'pending' END,
         job.maxDepth = $maxDepth,
         job.atStableId = $atStableId,
         job.atOperationIndex = $atOperationIndex,
@@ -761,6 +784,7 @@ function normalizeNeo4jDependencies(dependencies) {
 
 export async function leaseNextAnnotationTask(driver, database, {
   jobId,
+  singleStep = false,
 } = {}) {
   const resolvedJobId = String(jobId || '').trim();
   if (!resolvedJobId) throw new Error('jobId is required.');
@@ -775,6 +799,11 @@ export async function leaseNextAnnotationTask(driver, database, {
       WITH job, root
       OPTIONAL MATCH (job)-[:HAS_TASK]->(task:AnnotationTask)-[:GENERATES]->(candidate:Annotation)
       WHERE candidate.status <> 'ready'
+        AND (NOT $singleStep OR NOT EXISTS {
+          MATCH (job)-[:HAS_TASK]->(active:AnnotationTask)-[:GENERATES]->(working:Annotation)
+          WHERE active.status = 'leased' AND active.leaseExpiresAt > $now
+            AND coalesce(working.status, '') <> 'ready'
+        })
         AND (task.status <> 'leased' OR task.leaseExpiresAt IS NULL OR task.leaseExpiresAt <= $now)
         AND NOT EXISTS {
           MATCH (candidate)-[:DEPENDS_ON]->(missing:Annotation)
@@ -804,6 +833,10 @@ export async function leaseNextAnnotationTask(driver, database, {
              job.clientContextJson AS clientContextJson,
              root.annotationId AS rootAnnotationId,
              root.status AS rootStatus,
+             NOT EXISTS {
+               MATCH (job)-[:HAS_TASK]->(:AnnotationTask)-[:GENERATES]->(unfinished:Annotation)
+               WHERE coalesce(unfinished.status, '') <> 'ready'
+             } AS allAnnotationsReady,
              root.text AS rootText,
              root.toolGitCommitShortHash AS rootToolGitCommitShortHash,
              root.maxDepth AS rootMaxDepth,
@@ -825,11 +858,11 @@ export async function leaseNextAnnotationTask(driver, database, {
                status: dependency.status,
                annotation: dependency.text
              } END) AS dependencies
-    `, { jobId: resolvedJobId, proposedLeaseToken, leaseExpiresAt, now });
+    `, { jobId: resolvedJobId, proposedLeaseToken, leaseExpiresAt, now, singleStep });
     const record = result.records[0];
     if (!record) throw new Error(`Annotation job not found: ${resolvedJobId}`);
     const clientContext = parseStoredJson(record.get('clientContextJson'), null);
-    if (record.get('rootStatus') === 'ready') {
+    if (record.get('rootStatus') === 'ready' && record.get('allAnnotationsReady')) {
       await session.run(`
         MATCH (job:AnnotationJob {jobId: $jobId})
         SET job.status = 'complete', job.updatedAt = $now
@@ -910,13 +943,14 @@ export async function getAnnotationJob(driver, database, { jobId } = {}) {
     if (!record) throw new Error(`Annotation job not found: ${resolvedJobId}`);
     const tasks = normalizeNeo4jDependencies(record.get('tasks'));
     const completedTaskCount = tasks.filter((task) => (
-      task.taskStatus === 'complete' || task.annotationStatus === 'ready'
+      task.annotationStatus === 'ready'
     )).length;
     const leasedTaskCount = tasks.filter((task) => task.taskStatus === 'leased').length;
     return {
       ok: true,
       jobId: record.get('jobId'),
-      status: record.get('rootStatus') === 'ready' ? 'complete' : record.get('status'),
+      status: record.get('rootStatus') === 'ready' && completedTaskCount === tasks.length
+        ? 'complete' : record.get('status') === 'complete' ? 'pending' : record.get('status'),
       rootStableId: record.get('rootStableId'),
       rootAnnotationId: record.get('rootAnnotationId'),
       annotation: record.get('annotation') || '',
@@ -944,6 +978,7 @@ export async function startAnnotationWorkflow(driver, database, {
   atOperationIndex,
   clientContext,
   leaseTask = true,
+  createJob = false,
   refreshMode,
   refresh,
   overwrite,
@@ -960,7 +995,7 @@ export async function startAnnotationWorkflow(driver, database, {
     refresh,
     overwrite,
   });
-  if (resolution.status === 'ready') {
+  if (resolution.status === 'ready' && !createJob) {
     return {
       ok: true,
       status: 'ready',
@@ -1129,7 +1164,26 @@ async function continueAnnotationWorkflow(driver, database, {
   }
 }
 
-export async function completeAnnotationWorkflow(driver, database, {
+export async function completeAnnotationWorkflow(driver, database, options = {}) {
+  if (!options.requireLease) return completeAnnotationWorkflowInSession(driver, database, options);
+  const session = driver.session({ database });
+  try {
+    // Keep lease validation, annotation persistence and task completion under the
+    // same job lock as lease-next, including when the lease expires during save.
+    return await session.executeWrite(async transaction => {
+      await transaction.run(`
+        MATCH (job:AnnotationJob {jobId: $jobId}) SET job.leaseProbeAt = $now
+      `, { jobId: options.jobId, now: new Date().toISOString() });
+      const transactionDriver = { session: () => ({
+        run: (query, parameters) => transaction.run(query, parameters),
+        close: async () => {},
+      }) };
+      return completeAnnotationWorkflowInSession(transactionDriver, database, options);
+    });
+  } finally { await session.close(); }
+}
+
+async function completeAnnotationWorkflowInSession(driver, database, {
   jobId,
   taskId,
   leaseToken,
@@ -1142,6 +1196,8 @@ export async function completeAnnotationWorkflow(driver, database, {
   atStableId,
   atOperationIndex,
   clientContext,
+  leaseNext = true,
+  requireLease = false,
 } = {}) {
   if (jobId) {
     const resolvedTaskId = String(taskId || '').trim();
@@ -1152,12 +1208,18 @@ export async function completeAnnotationWorkflow(driver, database, {
         MATCH (job:AnnotationJob {jobId: $jobId})-[:HAS_TASK]->(task:AnnotationTask {taskId: $taskId})-[:GENERATES]->(annotation:Annotation)
         RETURN annotation.annotationId AS annotationId,
                task.leaseToken AS leaseToken,
-               task.status AS taskStatus
+               task.status AS taskStatus,
+               task.leaseExpiresAt AS leaseExpiresAt
       `, { jobId: String(jobId), taskId: resolvedTaskId });
       const record = result.records[0];
       if (!record) throw new Error(`Annotation task not found in job: ${resolvedTaskId}`);
       if (record.get('annotationId') !== annotationId) {
         throw new Error(`Annotation task target mismatch: ${resolvedTaskId}`);
+      }
+      if (requireLease && (!leaseToken || record.get('leaseToken') !== leaseToken
+        || record.get('taskStatus') !== 'leased'
+        || !record.get('leaseExpiresAt') || record.get('leaseExpiresAt') <= new Date().toISOString())) {
+        throw new Error(`Annotation task requires a valid active lease: ${resolvedTaskId}`);
       }
       if (leaseToken && record.get('leaseToken') && record.get('leaseToken') !== leaseToken) {
         throw new Error(`Annotation task lease mismatch: ${resolvedTaskId}`);
@@ -1183,7 +1245,9 @@ export async function completeAnnotationWorkflow(driver, database, {
     } finally {
       await completionSession.close();
     }
-    return leaseNextAnnotationTask(driver, database, { jobId });
+    return leaseNext
+      ? leaseNextAnnotationTask(driver, database, { jobId })
+      : getAnnotationJob(driver, database, { jobId });
   }
   await completeAnnotation(driver, database, { annotationId, text, source, maxDepth });
   if (!rootAnnotationId) {
@@ -1205,12 +1269,24 @@ export async function completeAnnotationWorkflow(driver, database, {
   });
 }
 
+export async function saveAnnotation(driver, database, options = {}) {
+  validateAnnotationTextEncoding(options.text);
+  const resolved = await resolveAnnotation(driver, database, {
+    stableId: options.stableId,
+    maxDepth: options.maxDepth ?? undefined,
+  });
+  return completeAnnotation(driver, database, {
+    ...options,
+    annotationId: resolved.root.annotationId,
+  }, { requireReadyDependencies: false });
+}
+
 export async function completeAnnotation(driver, database, {
   annotationId,
   text,
   source = 'codex',
   maxDepth,
-} = {}) {
+} = {}, { requireReadyDependencies = true } = {}) {
   const resolvedAnnotationId = String(annotationId || '').trim();
   const annotationText = validateAnnotationTextEncoding(text);
   if (!resolvedAnnotationId) throw new Error('annotationId and text are required.');
@@ -1227,7 +1303,7 @@ export async function completeAnnotation(driver, database, {
     const dependencyRecord = dependencyResult.records[0];
     if (!dependencyRecord) throw new Error(`Annotation job not found: ${resolvedAnnotationId}`);
     const missing = dependencyRecord.get('missing') || [];
-    if (missing.length) {
+    if (requireReadyDependencies && missing.length) {
       throw new Error(`Annotation dependencies are not ready for ${resolvedAnnotationId}: ${missing.join(', ')}`);
     }
     const result = await session.run(`
@@ -1254,6 +1330,13 @@ export async function completeAnnotation(driver, database, {
     });
     const record = result.records[0];
     if (!record) throw new Error(`Annotation job not found: ${resolvedAnnotationId}`);
+    await session.run(`
+      MATCH (annotation:Annotation {annotationId: $annotationId})
+      MATCH (legacy:Annotation {headID: annotation.headID})
+      WHERE legacy.annotationId IS NULL
+      SET legacy.status = 'stale', legacy.staleAt = $updatedAt,
+          legacy.supersededBy = $annotationId
+    `, { annotationId: resolvedAnnotationId, updatedAt });
     const previousText = record.get('previousText') || '';
     if (previousText && previousText !== annotationText) {
       await session.run(`

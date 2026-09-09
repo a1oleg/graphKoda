@@ -1,4 +1,6 @@
 .cache/
+.coldkode-data/
+coldkode.local.json
 .venv/
 node_modules/
 __pycache__/

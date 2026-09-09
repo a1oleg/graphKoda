@@ -26,14 +26,8 @@ function readWidth(cellXml) {
   return Number(cellXml.match(/<mxGeometry\b[^>]*\bwidth="([^"]+)"/)?.[1]);
 }
 
-function makeWorkspaceTempDir() {
-  const root = path.join(process.cwd(), '.test-tmp');
-  fs.mkdirSync(root, { recursive: true });
-  return fs.mkdtempSync(path.join(root, 'annotation-drawio-'));
-}
-
 test('annotation expands its Step row and creates an initially hidden target edge', () => {
-  const directory = makeWorkspaceTempDir();
+  const directory = fs.mkdtempSync(path.join(process.cwd(), 'tmp', 'annotation-drawio-'));
   const diagramPath = path.join(directory, 'fixture.drawio');
   try {
     fs.writeFileSync(diagramPath, fixtureXml(), 'utf8');
@@ -89,7 +83,7 @@ test('annotation expands its Step row and creates an initially hidden target edg
 });
 
 test('editing an annotation updates its displayed and cancellation baseline text', () => {
-  const directory = makeWorkspaceTempDir();
+  const directory = fs.mkdtempSync(path.join(process.cwd(), 'tmp', 'annotation-drawio-'));
   const diagramPath = path.join(directory, 'fixture.drawio');
   try {
     fs.writeFileSync(diagramPath, fixtureXml(), 'utf8');
@@ -115,7 +109,7 @@ test('editing an annotation updates its displayed and cancellation baseline text
 });
 
 test('long annotation is widened until its compact height fits inside the Step row', () => {
-  const directory = makeWorkspaceTempDir();
+  const directory = fs.mkdtempSync(path.join(process.cwd(), 'tmp', 'annotation-drawio-'));
   const diagramPath = path.join(directory, 'fixture.drawio');
   try {
     fs.writeFileSync(diagramPath, fixtureXml(), 'utf8');

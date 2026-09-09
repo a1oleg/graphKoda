@@ -1,8 +1,4 @@
 duckdb==1.5.4
 pyarrow==25.0.0
-neo4j>=6,<7
-python-dotenv>=1,<2
-mcp>=1,<2
-google-api-python-client>=2,<3
-google-auth>=2,<3
-
+neo4j==6.2.0
+python-dotenv==1.2.2

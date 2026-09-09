@@ -1,5 +1,8 @@
 # coldKode
 
+For independent tool/source checkouts, use [Separate Repositories](SEPARATE-REPOSITORIES.md).
+The overlay instructions below describe the legacy installation mode.
+
 Приватный набор инструментов для извлечения, хранения, анализа и визуализации
 графа TypeScript/React-приложения. Репозиторий **не содержит исходники Claude
 Code, трассы пользовательских сессий, базы, токены или пароли**.

@@ -2,12 +2,13 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import projectPaths from './projectPaths.cjs';
 
-const workspaceRoot = process.cwd();
+const workspaceRoot = projectPaths.toolRoot;
 const codeql = path.join(os.homedir(), '.cache', 'telegraph-codeql', 'cli', 'codeql', process.platform === 'win32' ? 'codeql.exe' : 'codeql');
-const database = path.join(workspaceRoot, '.cache', 'codeql', 'databases', 'javascript');
+const database = path.join(projectPaths.dataRoot, 'codeql', 'databases', 'javascript');
 const query = path.join(workspaceRoot, 'graph', 'codeql', 'canonical-reference-links.ql');
-const resultRoot = path.join(workspaceRoot, '.cache', 'codeql', 'results');
+const resultRoot = path.join(projectPaths.dataRoot, 'codeql', 'results');
 const bqrs = path.join(resultRoot, 'canonical-reference-links.bqrs');
 const decoded = path.join(resultRoot, 'canonical-reference-links.json');
 const facts = path.join(resultRoot, 'canonical-reference-links.facts.json');

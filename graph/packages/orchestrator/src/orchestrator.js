@@ -1,6 +1,9 @@
 ﻿import http from 'node:http';
 
 import neo4j from 'neo4j-driver';
+import { serveAnnotationPlanUi } from './orchestrator/annotationPlanUi.js';
+import { replayLaunch } from './orchestrator/annotation-plan/replayRoutes.js';
+import { executeAnnotationGraphql, annotationSchemaSDL } from './orchestrator/annotationGraphql.js';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -1424,6 +1427,19 @@ function readRelativeGeometryWithinAncestor(xml, cellXml, ancestorId) {
 
 async function handleGet(requestUrl, response, context) {
   const { searchParams, pathname } = requestUrl;
+  if (pathname === '/api/annotations/visualizer') {
+    const result = replayLaunch(searchParams.get('stableId'), context.baseUrl);
+    sendJson(response, result.status, result.body);
+    return;
+  }
+  if (pathname === '/annotation-plan' || pathname.startsWith('/annotation-plan/assets/')) {
+    serveAnnotationPlanUi(pathname, response);
+    return;
+  }
+  if (pathname === '/api/annotations/graphql/schema') {
+    sendJson(response, 200, { sdl: annotationSchemaSDL });
+    return;
+  }
 
   if (pathname === '/') {
     sendJson(response, 200, getOrchestratorLanding(context.baseUrl));
@@ -1672,6 +1688,10 @@ async function handleGet(requestUrl, response, context) {
 async function handlePost(requestUrl, request, response, context) {
   const { pathname } = requestUrl;
   const body = await readJsonBody(request);
+  if (pathname === '/api/annotations/graphql') {
+    sendJson(response, 200, await executeAnnotationGraphql(body, context));
+    return;
+  }
 
   if (pathname === '/api/features/get') {
     const featureRequest = await resolveFeatureRequest(context.driver, context.database, body);
@@ -2205,7 +2225,7 @@ export async function startOrchestrator({
     });
   });
 
-  baseUrl = `http://${host}:${port}/`;
+  baseUrl = `http://${host}:${server.address().port}/`;
 
   return {
     orchestratorConfig: resolvedOrchestratorConfig,

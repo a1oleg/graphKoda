@@ -28,6 +28,19 @@ function relationship(fromId: string, toId: string, type: string): CanonicalRela
   return { fromId, toId, type, props: {} };
 }
 
+test('export modifiers do not exclude a function from its own scoped import', () => {
+  const fn = entity('subject.ts:1:7:10:1', ['FunctionImplementation'], 'subject.ts', 1, 10);
+  const parameter = entity('subject.ts:1:25:1:30', ['Parameter'], 'subject.ts', 1);
+  parameter.props.startColumn = 25;
+  parameter.props.endColumn = 30;
+  const jsx = entity('subject.ts:4:2:4:10', ['ComponentConstruction'], 'subject.ts', 4);
+  const edges = [relationship(fn.stableId, parameter.stableId, 'HAS_PARAMETER'),
+    relationship(fn.stableId, jsx.stableId, 'DECLARES_JSX')];
+  const result = scopeCanonicalReferenceGraph({ entities: [fn, parameter, jsx], relationships: edges }, fn.stableId);
+  assert.deepEqual(result.relationships, edges);
+  assert.ok(result.entities.some(e => e.stableId === fn.stableId));
+});
+
 test('scoped canonical graph keeps boundary references without entering callee bodies', () => {
   const fnId = 'subject.ts:1:0:10:1';
   const localCallId = 'subject.ts:3:2:3:8';
@@ -119,4 +132,29 @@ test('scoped canonical graph keeps sibling writes to an external React state slo
   assert(ids.has(siblingWriteId), 'the sibling write is a one-hop state provenance boundary');
   assert(!ids.has(siblingBodyId), 'the sibling writer body must not be expanded');
   assert(scoped.relationships.some((row) => row.fromId === siblingWriteId && row.toId === stateId));
+});
+
+test('scoped parameter frame retains JSX spread provenance', () => {
+  const fn = 'subject.ts:1:0:10:1';
+  const parameter = 'subject.ts:1:20:1:27';
+  const props = 'caller.ts:5:1:5:20';
+  const spread = 'caller.ts:5:2:5:19';
+  const reference = 'caller.ts:5:6:5:18';
+  const declaration = 'caller.ts:2:0:2:12';
+  const graph = {
+    entities: [entity(fn, ['FunctionImplementation'], 'subject.ts', 1, 10),
+      entity(parameter, ['Parameter'], 'subject.ts', 1),
+      entity(props, ['ObjectConstruction'], 'caller.ts', 5),
+      entity(spread, ['SpreadValue'], 'caller.ts', 5),
+      entity(reference, ['Reference'], 'caller.ts', 5),
+      entity(declaration, ['ValueDeclaration'], 'caller.ts', 2)],
+    relationships: [relationship(fn, parameter, 'AST_CHILD'),
+      relationship(props, parameter, 'BINDS_TO_PARAMETER'),
+      relationship(props, spread, 'SPREADS_FROM'),
+      relationship(spread, reference, 'VALUE_FROM'),
+      relationship(reference, declaration, 'RESOLVES_TO')],
+  };
+  const scoped = scopeCanonicalReferenceGraph(graph, fn);
+  assert(scoped.entities.some(n => n.stableId === declaration));
+  assert(scoped.relationships.some(r => r.type === 'SPREADS_FROM'));
 });

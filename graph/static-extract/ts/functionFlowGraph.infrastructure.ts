@@ -5,12 +5,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
+import projectPaths from '../../../dev/projectPaths.cjs';
 import { resolveProjectGitRevision } from '../../../dev/load-env.mjs';
 import { buildStableIdDescriptor, buildStableIdFromCoordinates } from '../../packages/runtime-core/src/stableId.js';
 import { buildBabelStableIdByDeclaration } from './babelStableIdByDeclaration.js';
 
 const scriptPath = fileURLToPath(import.meta.url);
-const workspaceRoot = path.resolve(path.dirname(scriptPath), '..', '..', '..');
+const workspaceRoot = projectPaths.sourceRoot;
 const tsconfigPath = path.join(workspaceRoot, 'tsconfig.json');
 
 function runGitText(args: string[]) {
@@ -260,7 +261,7 @@ export function getStableId(sourceFile: ts.SourceFile, node: ts.Node) {
   const endPosition = Math.max(getStableIdStartPosition(sourceFile, node), node.getEnd());
   const end = getLineAndColumn(sourceFile, endPosition);
   return buildStableIdFromCoordinates({
-    filePath: toPosix(path.resolve(sourceFile.fileName)),
+    filePath: getRepoRelativePath(sourceFile.fileName),
     startLine: start.line,
     startColumn: start.column,
     endLine: end.line,
@@ -307,7 +308,7 @@ export function getExtendedStableId(sourceFile: ts.SourceFile, node: ts.Node, en
     ? { line: endLine, column: endColumn }
     : getLineAndColumn(sourceFile, node.getEnd());
   return buildStableIdFromCoordinates({
-    filePath: toPosix(path.resolve(sourceFile.fileName)),
+    filePath: getRepoRelativePath(sourceFile.fileName),
     startLine: start.line,
     startColumn: start.column,
     endLine: end.line,

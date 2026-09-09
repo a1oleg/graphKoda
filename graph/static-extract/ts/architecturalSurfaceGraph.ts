@@ -65,7 +65,7 @@ type ModuleSurfaceStat = {
 };
 
 const scriptPath = fileURLToPath(import.meta.url);
-const workspaceRoot = path.resolve(path.dirname(scriptPath), '..', '..', '..');
+const workspaceRoot = projectPaths.sourceRoot;
 
 const SKIP_PATH_FRAGMENTS = [
   '/node_modules/',
@@ -394,3 +394,4 @@ function main() {
 }
 
 main();
+import projectPaths from '../../../dev/projectPaths.cjs';

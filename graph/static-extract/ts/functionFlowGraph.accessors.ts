@@ -22,7 +22,7 @@ export type AccessorIndex = {
 };
 
 function loadStorageFacts(): StorageFact[] {
-  const factsPath = path.resolve('.cache/codeql/results/parameterized-storage-accessor-calls.facts.json');
+  const factsPath = path.join(projectPaths.dataRoot, 'codeql/results/parameterized-storage-accessor-calls.facts.json');
   if (!fs.existsSync(factsPath)) return [];
   try {
     const payload = JSON.parse(fs.readFileSync(factsPath, 'utf8')) as { rows?: StorageFact[] };
@@ -179,3 +179,4 @@ export function buildAccessorIndex(
     },
   };
 }
+import projectPaths from '../../../dev/projectPaths.cjs';

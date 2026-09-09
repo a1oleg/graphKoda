@@ -692,13 +692,10 @@ function attachSyntaxCompositionGraph(payload: GraphExtractedPayload) {
   payload.semanticRelationships = [...relationshipByKey.values()];
 }
 
-function attachImmediateStepOperationGraph(
+export function attachImmediateStepOperationGraph(
   payload: GraphExtractedPayload,
-  operationEntities: CanonicalEntity[] = payload.semanticEntities || [],
+  operationIds: ReadonlySet<string> = collectOperationIds(payload.semanticEntities || []),
 ) {
-  const operationIds = new Set(operationEntities
-    .filter((entity) => entity.labels.includes('Operation'))
-    .map((entity) => entity.stableId));
   if (!operationIds.size) return;
 
   const relationshipByKey = new Map((payload.semanticRelationships || []).map((relationship) => [
@@ -723,6 +720,14 @@ function attachImmediateStepOperationGraph(
     });
   }
   payload.semanticRelationships = [...relationshipByKey.values()];
+}
+
+export function collectOperationIds(entities: readonly CanonicalEntity[]): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const entity of entities) {
+    if (entity.labels.includes('Operation')) ids.add(entity.stableId);
+  }
+  return ids;
 }
 
 function sourceRangeContains(containerStableId: string, nestedStableId: string) {
@@ -775,6 +780,8 @@ export function scopeCanonicalReferenceGraph(
   );
   const included = new Set(graph.entities
     .filter((entity) => {
+      // The canonical ID omits export/default modifiers; sourceProps includes them.
+      if (entity.stableId === fnStableId) return true;
       const props = entity.props;
       return typeof props.startLine === 'number'
         && typeof props.startColumn === 'number'
@@ -840,11 +847,11 @@ export function scopeCanonicalReferenceGraph(
   const rootImplementations = graph.entities.filter((entity) => (
     included.has(entity.stableId)
     && entity.labels.includes('FunctionImplementation')
-    && entity.props.repoRelativePath === rootRange.repoRelativePath
+    && (entity.stableId === fnStableId || (entity.props.repoRelativePath === rootRange.repoRelativePath
     && entity.props.startLine === rootRange.startLine
     && entity.props.startColumn === rootRange.startColumn
     && entity.props.endLine === rootRange.endLine
-    && entity.props.endColumn === rootRange.endColumn
+    && entity.props.endColumn === rootRange.endColumn))
   ));
   const rootBindings = new Set(rootImplementations.map((entity) => entity.stableId));
   let bindingFrontier = [...rootBindings];
@@ -900,6 +907,7 @@ export function scopeCanonicalReferenceGraph(
   const argumentFrameEdges = new Set([
     'HAS_ARGUMENT',
     'HAS_PROPERTY',
+    'SPREADS_FROM',
     'VALUE_FROM',
     'RESOLVES_TO',
     'READS_FROM',
@@ -9403,6 +9411,9 @@ class FunctionFlowGraphBuilder {
   }
 
   private isDeveloperDefinedTypeNode(typeNode: ts.TypeNode) {
+    if (ts.isFunctionTypeNode(typeNode) || ts.isConstructorTypeNode(typeNode)) {
+      return !typeNode.getSourceFile().isDeclarationFile;
+    }
     const symbolLocation = ts.isTypeReferenceNode(typeNode) ? typeNode.typeName : typeNode;
     let symbol = this.checker.getSymbolAtLocation(symbolLocation);
     if (symbol && (symbol.flags & ts.SymbolFlags.Alias)) {
@@ -20096,6 +20107,7 @@ function writeFunctionFlowArtifacts(program: ts.Program, writer: ArtifactWriter,
     }
 
     const canonicalReferenceGraph = collectCanonicalReferenceGraph(program);
+    const operationIds = collectOperationIds(canonicalReferenceGraph.entities);
     for (const entity of canonicalReferenceGraph.entities) writer.writeSemanticEntity(entity);
     for (const relationship of canonicalReferenceGraph.relationships) writer.writeSemanticRelationship(relationship);
 
@@ -20144,7 +20156,7 @@ function writeFunctionFlowArtifacts(program: ts.Program, writer: ArtifactWriter,
           if (finiteLiteralGraph) attachFiniteLiteralDomainsFromGraph(finiteLiteralGraph, result);
           const storageGraph = buildStorageGraph(result.nodes);
           attachStorageBindings(result.edges, storageGraph.storageBindings);
-          attachImmediateStepOperationGraph(result, canonicalReferenceGraph.entities);
+          attachImmediateStepOperationGraph(result, operationIds);
           attachSyntaxCompositionGraph(result);
           for (const nodeRow of result.nodes) {
             writer.writeNode(nodeRow);

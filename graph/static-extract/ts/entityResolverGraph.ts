@@ -51,7 +51,7 @@ type LocalBinding = {
 };
 
 const scriptPath = fileURLToPath(import.meta.url);
-const workspaceRoot = path.resolve(path.dirname(scriptPath), '..', '..', '..');
+const workspaceRoot = projectPaths.sourceRoot;
 
 const TRACKED_TYPE_DIRS = [
   'src/api/types/',
@@ -1136,3 +1136,4 @@ function main() {
 }
 
 main();
+import projectPaths from '../../../dev/projectPaths.cjs';

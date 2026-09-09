@@ -55,7 +55,7 @@ type StaticTarget = {
 };
 
 const scriptPath = fileURLToPath(import.meta.url);
-const workspaceRoot = path.resolve(path.dirname(scriptPath), '..', '..', '..');
+const workspaceRoot = projectPaths.sourceRoot;
 const tsconfigPath = path.join(workspaceRoot, 'tsconfig.json');
 const SRC_ROOT = toPosix(path.join(workspaceRoot, 'src'));
 const COMPONENTS_ROOT = `${SRC_ROOT}/components`;
@@ -722,3 +722,4 @@ function main() {
 }
 
 main();
+import projectPaths from '../../../dev/projectPaths.cjs';

@@ -4,11 +4,12 @@ import { fileURLToPath } from 'node:url';
 
 import { parse } from '@babel/parser';
 import ts from 'typescript';
+import projectPaths from '../../../dev/projectPaths.cjs';
 
 import { buildStableIdFromCoordinates } from '../../packages/runtime-core/src/stableId.js';
 
 const scriptPath = fileURLToPath(import.meta.url);
-const workspaceRoot = path.resolve(path.dirname(scriptPath), '..', '..', '..');
+const workspaceRoot = projectPaths.sourceRoot;
 
 type BabelFunctionRecord = {
   endColumn: number;
@@ -134,7 +135,7 @@ function collectBabelFunctionRecords(sourceFile: ts.SourceFile) {
         records.push({
           name: resolveBabelFunctionName(current, parent),
           stableId: buildStableIdFromCoordinates({
-            filePath: toPosix(absoluteFilePath),
+            filePath: getRepoRelativePath(absoluteFilePath),
             startLine,
             startColumn,
             endLine,

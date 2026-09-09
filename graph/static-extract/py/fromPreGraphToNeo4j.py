@@ -28,8 +28,11 @@ DEFAULT_NEO4J_BATCH_SIZE = 100_000
 DEFAULT_NEO4J_CLEAR_TIMING = 'after-extract'
 IMPORT_LABEL = '_GraphImportNode'
 IMPORT_CONSTRAINT = 'graph_import_node_stable_id'
-DEFAULT_STAGE_PATH = WORKSPACE_DIR / 'graph' / '.runtime' / 'cache' / 'function-flow.duckdb'
-DEFAULT_PARQUET_DIR = WORKSPACE_DIR / 'graph' / '.runtime' / 'cache' / 'function-flow-parquet'
+PROJECT_CONFIG_PATH = Path(os.getenv('COLDKODE_PROJECT_CONFIG', str(WORKSPACE_DIR / 'coldkode.local.json')))
+PROJECT_CONFIG = json.loads(PROJECT_CONFIG_PATH.read_text(encoding='utf-8')) if PROJECT_CONFIG_PATH.is_file() else {}
+DATA_ROOT = (WORKSPACE_DIR / os.getenv('COLDKODE_DATA_ROOT', PROJECT_CONFIG.get('dataRoot', '.coldkode-data'))).resolve()
+DEFAULT_STAGE_PATH = DATA_ROOT / 'cache' / 'function-flow.duckdb'
+DEFAULT_PARQUET_DIR = DATA_ROOT / 'cache' / 'function-flow-parquet'
 SCOPED_EXTRACTOR_PROTOCOL_VERSION = 1
 SCOPED_EXTRACTOR_PORT = int(os.getenv('GRAPH_SCOPED_EXTRACTOR_PORT', '8794'))
 SCOPED_EXTRACTOR_BASE_URL = f'http://127.0.0.1:{SCOPED_EXTRACTOR_PORT}'
@@ -74,13 +77,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         dest='preserve_annotations',
         action='store_true',
         default=True,
-        help='Reattach existing Annotation nodes after a scoped function import (default).',
+        help='Preserve and reattach Annotation nodes after full or scoped import (default).',
     )
     annotation_group.add_argument(
         '--no-preserve-annotations',
         dest='preserve_annotations',
         action='store_false',
-        help='Delete annotations attached to scoped nodes before replacing them.',
+        help='Delete annotations when replacing the full graph or scoped nodes.',
     )
     parser.add_argument('--catalog-only', action='store_true')
     parser.add_argument(
@@ -337,21 +340,23 @@ def normalize_resource_link(row: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def clear_database(session: Any) -> None:
+def clear_database(session: Any, preserve_annotations: bool = True) -> None:
     while True:
         deleted = session.run(
-            'MATCH (n) WITH n LIMIT 10000 DETACH DELETE n RETURN count(*) AS deleted'
+            'MATCH (n) WHERE NOT ($preserveAnnotations AND n:Annotation) '
+            'WITH n LIMIT 10000 DETACH DELETE n RETURN count(*) AS deleted',
+            preserveAnnotations=preserve_annotations,
         ).single()['deleted']
         if not deleted:
             return
 
 
-def clear_full_database(settings: dict[str, str], started: float) -> None:
+def clear_full_database(settings: dict[str, str], started: float, preserve_annotations: bool = True) -> None:
     print('[graph:func:pipeline] phase=neo4j-clear-start', file=sys.stderr, flush=True)
     driver = GraphDatabase.driver(settings['uri'], auth=(settings['username'], settings['password']))
     try:
         with driver.session(database=settings['database']) as session:
-            clear_database(session)
+            clear_database(session, preserve_annotations)
     finally:
         driver.close()
     print(
@@ -468,13 +473,13 @@ def clear_replaced_semantic_relationships(
     ).consume()
 
 
-def restore_scoped_annotations(session: Any, fn_stable_id: str) -> int:
+def restore_scoped_annotations(session: Any, fn_stable_id: str | None) -> int:
     result = session.run(
         '''
         MATCH (annotation:Annotation)
         WHERE annotation.headID IS NOT NULL
         MATCH (head {stableId: annotation.headID})
-        WHERE head.stableId = $fnStableId
+        WHERE $fnStableId IS NULL OR head.stableId = $fnStableId
            OR (head.source = $source AND (
                 head.parentFnStableId = $fnStableId
                 OR head.parent_fn_stable_id = $fnStableId
@@ -890,7 +895,7 @@ def main(argv: list[str] | None = None) -> int:
     clear_timing_used = 'after-extract' if args.catalog_only else args.neo4j_clear_timing
     if args.catalog_only:
         extract_result = {'stageSeconds': 0.0}
-        clear_full_database(settings, started)
+        clear_full_database(settings, started, args.preserve_annotations)
     elif args.neo4j_clear_timing == 'parallel':
         print(
             '[graph:func:pipeline] phase=parallel-start tasks=duckdb-extract,neo4j-clear',
@@ -898,7 +903,7 @@ def main(argv: list[str] | None = None) -> int:
             flush=True,
         )
         with concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix='neo4j-clear') as executor:
-            clear_future = executor.submit(clear_full_database, settings, started)
+            clear_future = executor.submit(clear_full_database, settings, started, args.preserve_annotations)
             extract_result = run_full_extractor(staging_path, parquet_dir)
             clear_future.result()
         print(
@@ -908,7 +913,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         extract_result = run_full_extractor(staging_path, parquet_dir)
-        clear_full_database(settings, started)
+        clear_full_database(settings, started, args.preserve_annotations)
     catalog = FunctionFlowCatalog(staging_path, parquet_dir)
     try:
         stage_counts = catalog.counts()
@@ -973,6 +978,7 @@ def main(argv: list[str] | None = None) -> int:
                     write_batches[kind] = batch_count
                 print('[graph:func:pipeline] phase=neo4j-finish-start', file=sys.stderr, flush=True)
                 finish_bulk_import(session)
+                annotations_restored = restore_scoped_annotations(session, None) if args.preserve_annotations else 0
                 print(
                     f'[graph:func:pipeline] phase=neo4j-finish-done elapsedSeconds={time.perf_counter() - started:.3f}',
                     file=sys.stderr,
@@ -988,6 +994,8 @@ def main(argv: list[str] | None = None) -> int:
             'ok': True,
             'counts': counts,
             'elapsedSeconds': round(elapsed, 3),
+            'preserveAnnotations': args.preserve_annotations,
+            'annotationsRestored': annotations_restored,
             'stageSeconds': extract_result.get('stageSeconds'),
             'extractSeconds': extract_result.get('extractSeconds'),
             'canonicalizeSeconds': extract_result.get('canonicalizeSeconds'),

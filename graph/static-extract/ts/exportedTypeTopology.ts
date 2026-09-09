@@ -129,7 +129,7 @@ function dedupeFieldTypeRefs(rows: FieldTypeRef[]) {
 }
 
 const scriptPath = fileURLToPath(import.meta.url);
-const workspaceRoot = path.resolve(path.dirname(scriptPath), '..', '..', '..');
+const workspaceRoot = projectPaths.sourceRoot;
 const tsconfigPath = path.join(workspaceRoot, 'tsconfig.json');
 
 const TRACKED_TYPE_DIRS = [
@@ -830,3 +830,4 @@ function main() {
 }
 
 main();
+import projectPaths from '../../../dev/projectPaths.cjs';

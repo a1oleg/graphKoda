@@ -23,7 +23,7 @@ type ExtractedPayload = {
 };
 
 const scriptPath = fileURLToPath(import.meta.url);
-const workspaceRoot = path.resolve(path.dirname(scriptPath), '..', '..', '..');
+const workspaceRoot = projectPaths.sourceRoot;
 const tsconfigPath = path.join(workspaceRoot, 'tsconfig.json');
 
 const SKIP_PATH_FRAGMENTS = [
@@ -552,3 +552,4 @@ function main() {
 }
 
 main();
+import projectPaths from '../../../dev/projectPaths.cjs';

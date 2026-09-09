@@ -2,9 +2,10 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import projectPaths from './projectPaths.cjs';
 
-const workspaceRoot = process.cwd();
-const cacheRoot = path.join(workspaceRoot, '.cache', 'codeql');
+const workspaceRoot = projectPaths.toolRoot;
+const cacheRoot = path.join(projectPaths.dataRoot, 'codeql');
 const toolCacheRoot = path.join(os.homedir(), '.cache', 'telegraph-codeql');
 const sourceRoot = path.join(cacheRoot, 'source-root');
 const cliRoot = path.join(toolCacheRoot, 'cli');
@@ -179,7 +180,7 @@ function ensureGeneratedStorageSeeds() {
 }
 
 function shouldCopySourcePath(sourcePath) {
-  const relativePath = path.relative(workspaceRoot, sourcePath);
+  const relativePath = path.relative(projectPaths.sourceRoot, sourcePath);
   if (!relativePath) {
     return true;
   }
@@ -190,11 +191,11 @@ function prepareSourceRoot() {
   rmSync(sourceRoot, { recursive: true, force: true });
   mkdirSync(sourceRoot, { recursive: true });
 
-  for (const entry of readdirSync(workspaceRoot, { withFileTypes: true })) {
+  for (const entry of readdirSync(projectPaths.sourceRoot, { withFileTypes: true })) {
     if (ignoredSourcePathParts.has(entry.name)) {
       continue;
     }
-    const from = path.join(workspaceRoot, entry.name);
+    const from = path.join(projectPaths.sourceRoot, entry.name);
     const to = path.join(sourceRoot, entry.name);
     cpSync(from, to, {
       recursive: true,

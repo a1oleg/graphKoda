@@ -86,7 +86,7 @@ type ResolvedCallTarget = {
 type DeclarationWithOptionalName = ts.SignatureDeclaration | ts.JSDocSignature | ts.NamedDeclaration;
 
 const scriptPath = fileURLToPath(import.meta.url);
-const workspaceRoot = path.resolve(path.dirname(scriptPath), '..', '..', '..');
+const workspaceRoot = projectPaths.sourceRoot;
 const tsconfigPath = path.join(workspaceRoot, 'tsconfig.json');
 const SRC_ROOT = toPosix(path.join(workspaceRoot, 'src'));
 const PUBLIC_CALL_API_REPO_PATH = 'src/api/gramjs/worker/connector.ts';
@@ -2424,3 +2424,4 @@ function extractCallApiValueFlow(fnStableId?: string): ExtractedPayload {
 const args = parseArgs();
 const payload = extractCallApiValueFlow(args.fnStableId);
 process.stdout.write(JSON.stringify(payload));
+import projectPaths from '../../../dev/projectPaths.cjs';

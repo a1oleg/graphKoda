@@ -40,6 +40,21 @@ class FakeSession:
 
 
 class WriterTransportContractTest(unittest.TestCase):
+    def test_full_cleanup_preserves_annotations_and_reattaches_globally(self) -> None:
+        session = FakeSession([{'deleted': 10}, {'deleted': 0}])
+        MODULE.clear_database(session)
+        self.assertTrue(session.calls[0][1]['preserveAnnotations'])
+        self.assertIn('n:Annotation', session.calls[0][0])
+        session = FakeSession([{'restored': 3}])
+        self.assertEqual(restore_scoped_annotations(session, None), 3)
+        self.assertIsNone(session.calls[0][1]['fnStableId'])
+        self.assertIn('$fnStableId IS NULL', session.calls[0][0])
+
+    def test_full_cleanup_can_explicitly_delete_annotations(self) -> None:
+        session = FakeSession([{'deleted': 0}])
+        MODULE.clear_database(session, False)
+        self.assertFalse(session.calls[0][1]['preserveAnnotations'])
+
     def test_full_import_clears_neo4j_only_after_successful_extraction_by_default(self) -> None:
         args = parse_args(['func'])
 

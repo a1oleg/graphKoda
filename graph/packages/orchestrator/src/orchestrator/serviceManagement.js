@@ -2783,6 +2783,7 @@ export function getOrchestratorStatus(gatewayUrl) {
 
   return {
     ok: true,
+    projectRoots: projectPaths,
     url: gatewayUrl || 'http://127.0.0.1:8791/',
     pid: process.pid,
     execPath: process.execPath,
@@ -3350,3 +3351,4 @@ export async function stopGraphSession() {
 }
 
 
+import projectPaths from '../../../../../dev/projectPaths.cjs';

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import projectPaths from '../../../dev/projectPaths.cjs';
 
 export type StorageNode = {
   stableId: string;
@@ -323,7 +324,7 @@ function compareLocation(leftLine: number, leftColumn: number, rightLine: number
 
 function codeqlFactsByPath(): Map<string, IndexedCodeqlStorageFact[]> {
   const result = new Map<string, IndexedCodeqlStorageFact[]>();
-  const factsPath = path.join(process.cwd(), '.cache', 'codeql', 'results', 'parameterized-storage-accessor-calls.facts.json');
+  const factsPath = path.join(projectPaths.dataRoot, 'codeql', 'results', 'parameterized-storage-accessor-calls.facts.json');
   if (!fs.existsSync(factsPath)) return result;
   try {
     const payload = JSON.parse(fs.readFileSync(factsPath, 'utf8')) as { rows?: CodeqlStorageFact[] };

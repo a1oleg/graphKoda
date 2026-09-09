@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>План аннотатора</title><link rel="stylesheet" href="/annotation-plan/assets/style.css">
+<script defer src="/annotation-plan/assets/cytoscape.js"></script><script defer src="/annotation-plan/assets/dagre.js"></script>
+<script defer src="/annotation-plan/assets/icons.js"></script><script defer src="/annotation-plan/assets/app.js"></script></head>
+<body>
+<header><i data-lucide="workflow"></i><h1>План аннотатора</h1><span id="status" role="status">Не построен</span></header>
+<form id="prepare"><label class="subject">Стартовый узел<input id="stableId" required aria-label="Стартовый узел" value="screens/REPL.tsx:3142:38:3142:51"></label>
+<label>Глубина<input id="depth" type="number" min="0" max="8" value="4" required></label>
+<button id="build" type="submit"><i data-lucide="network"></i>Получить граф</button></form>
+<div id="error" role="alert" hidden></div>
+<main><section class="graph-area" aria-label="Диаграмма зависимостей">
+<div class="toolbar"><label class="search"><i data-lucide="search"></i><input id="search" type="search" placeholder="Найти узел" aria-label="Найти узел"></label>
+<button id="fit" title="Вместить граф" aria-label="Вместить граф"><i data-lucide="scan"></i></button>
+<button id="root" title="К стартовому узлу" aria-label="К стартовому узлу"><i data-lucide="locate-fixed"></i></button>
+<button id="zoomIn" title="Увеличить" aria-label="Увеличить"><i data-lucide="zoom-in"></i></button>
+<button id="zoomOut" title="Уменьшить" aria-label="Уменьшить"><i data-lucide="zoom-out"></i></button>
+<button id="refresh" title="Обновить состояния" aria-label="Обновить состояния" disabled><i data-lucide="refresh-cw"></i></button>
+<button id="download" title="Скачать план JSON" aria-label="Скачать план JSON" disabled><i data-lucide="download"></i></button></div>
+<div id="graph"></div><footer><span id="counts">input</span><span id="snapshot"></span></footer>
+</section><aside>
+<section><h2>Выбранный узел</h2><div id="details"></div></section>
+<section><h2>Сейчас в работе <span id="workingCount">0</span></h2><div id="working" class="node-list"></div></section>
+<section><h2>Сейчас в ожидании <span id="waitingCount">0</span></h2><div id="waiting" class="node-list"></div></section>
+<section><h2>Доступны <span id="availableCount">0</span></h2><div id="available" class="node-list"></div></section>
+<section class="legend"><h2>Состояния</h2><span><b class="READY"></b>Готова</span><span><b class="AVAILABLE"></b>Доступна</span><span><b class="RUNNING"></b>В работе</span><span><b class="WAITING"></b>Ожидает</span><span><b class="REFERENCE"></b>Граница / ссылка</span></section>
+</aside></main></body></html>

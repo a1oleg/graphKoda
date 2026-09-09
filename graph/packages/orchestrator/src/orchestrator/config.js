@@ -1,8 +1,9 @@
 import path from 'node:path';
+import projectPaths from '../../../../../dev/projectPaths.cjs';
 
-export const DEVOPS_SERVICE_LOG_DIR = path.resolve(process.cwd(), 'tmp', 'devops-service-logs');
-export const INFRA_SERVICE_LOG_DIR = path.resolve(process.cwd(), 'tmp', 'infra-service-logs');
-export const REVERSE_SERVICE_LOG_DIR = path.resolve(process.cwd(), 'tmp', 'reverse-service-logs');
+export const DEVOPS_SERVICE_LOG_DIR = path.join(projectPaths.dataRoot, 'logs', 'devops');
+export const INFRA_SERVICE_LOG_DIR = path.join(projectPaths.dataRoot, 'logs', 'infra');
+export const REVERSE_SERVICE_LOG_DIR = path.join(projectPaths.dataRoot, 'logs', 'reverse');
 export const DEFAULT_ORCHESTRATOR_PORT = Number(process.env.ORCHESTRATOR_PORT || process.env.GRAPH_GATEWAY_PORT || 8791);
 
 function parseBooleanEnv(name, defaultValue) {

@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import ts from 'typescript';
+import { declaredMemberEvidence } from './declaredMemberEvidence.js';
+import { callbackContributesToResult } from './callbackResultFlow.js';
 
 import {
   getExtendedStableId,
@@ -53,7 +55,7 @@ function codeqlFactKey(fact: CodeqlReferenceFact) {
 }
 
 function loadCodeqlReferenceFacts() {
-  const factsPath = path.resolve('.cache', 'codeql', 'results', 'canonical-reference-links.facts.json');
+  const factsPath = path.join(projectPaths.dataRoot, 'codeql', 'results', 'canonical-reference-links.facts.json');
   try {
     const payload = JSON.parse(fs.readFileSync(factsPath, 'utf8')) as { rows?: CodeqlReferenceFact[] };
     return new Set((payload.rows || []).map(codeqlFactKey));
@@ -119,6 +121,7 @@ function declarationName(node: ts.Node) {
 }
 
 function declarationCategory(node: ts.Declaration): DeclarationCategory {
+  if (ts.isFunctionTypeNode(node) || ts.isConstructorTypeNode(node)) return 'TypeDeclaration';
   if (
     ts.isPropertyDeclaration(node)
     || ts.isPropertySignature(node)
@@ -147,7 +150,7 @@ function declarationLabels(node: ts.Declaration, category: DeclarationCategory) 
   if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) labels.push('Class', 'TypeDeclaration', 'ValueDeclaration');
   if (ts.isEnumDeclaration(node)) labels.push('EnumDeclaration', 'TypeDeclaration', 'ValueDeclaration');
   if (ts.isParameter(node)) labels.push('Parameter', 'ValueSlot');
-  if (ts.isFunctionLike(node)) labels.push('CallableDeclaration');
+  if (ts.isFunctionLike(node) && !ts.isFunctionTypeNode(node) && !ts.isConstructorTypeNode(node)) labels.push('CallableDeclaration');
   if ('typeParameters' in node && (node as ts.SignatureDeclaration).typeParameters?.length) labels.push('GenericDeclaration');
   const ambient = node.getSourceFile().isDeclarationFile
     || (ts.canHaveModifiers(node) && Boolean(ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.DeclareKeyword)));
@@ -243,8 +246,8 @@ function callName(checker: ts.TypeChecker, expression: ts.LeftHandSideExpression
   return symbol?.getName() || (ts.isIdentifier(target) ? target.text : '');
 }
 
-function isReactStateHookCall(checker: ts.TypeChecker, node: ts.CallExpression) {
-  if (!['useState', 'useReducer'].includes(callName(checker, node.expression))) return false;
+function isReactApiCall(checker: ts.TypeChecker, node: ts.CallExpression, names: string[]) {
+  if (!names.includes(callName(checker, node.expression))) return false;
   if (ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression)) {
     const namespace = checker.getSymbolAtLocation(node.expression.expression);
     if ((namespace?.declarations || []).some((declaration) => {
@@ -278,6 +281,10 @@ function isReactStateHookCall(checker: ts.TypeChecker, node: ts.CallExpression) 
   });
 }
 
+function isReactStateHookCall(checker: ts.TypeChecker, node: ts.CallExpression) {
+  return isReactApiCall(checker, node, ['useState', 'useReducer']);
+}
+
 export function resolveCanonicalDeclarationStableId(checker: ts.TypeChecker, node: ts.Node) {
   const declaration = symbolDeclarations(checker, node)[0];
   if (!declaration) return undefined;
@@ -286,11 +293,14 @@ export function resolveCanonicalDeclarationStableId(checker: ts.TypeChecker, nod
 
 export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalReferenceGraph {
   const checker = program.getTypeChecker();
+  const declaredMembers = declaredMemberEvidence(checker);
   const codeqlFacts = loadCodeqlReferenceFacts();
   const entities = new Map<string, CanonicalEntity>();
   const relationships = new Map<string, CanonicalRelationship>();
   const declarationIds = new Map<ts.Declaration, string>();
   const emittedCalls = new Set<ts.CallExpression>();
+  const forwardedParameterTypes = new Map<ts.ParameterDeclaration, { type: ts.Type; expression: ts.Expression; callSiteStableId: string }[]>();
+  const memberReferences = new Set<ts.Node>();
   const emittedObjects = new Set<ts.ObjectLiteralExpression>();
   const emittedBindings = new Set<ts.VariableDeclaration | ts.ParameterDeclaration>();
   const emittedReturns = new Set<ts.ReturnStatement>();
@@ -367,6 +377,8 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
   }
 
   function emitDeclaration(node: ts.Declaration, forcedCategory?: DeclarationCategory) {
+    // Resolving a call through a signature does not turn that type into a value.
+    if (ts.isFunctionTypeNode(node) || ts.isConstructorTypeNode(node)) forcedCategory = 'TypeDeclaration';
     const previous = declarationIds.get(node);
     if (previous) {
       if (forcedCategory) {
@@ -447,6 +459,7 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
   }
 
   function emitReference(node: ts.Node, kind: 'TypeReference' | 'ValueReference' | 'MemberReference') {
+    if (kind === 'MemberReference') memberReferences.add(node);
     const suffix = kind.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
     const id = stableId(node, suffix);
     emitEntity({
@@ -639,6 +652,9 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     if (!owner) return;
     const ownerId = emitDeclaration(owner, 'ValueDeclaration');
     const ownerEntity = entities.get(ownerId);
+    if (operationId && operationId !== ownerId) {
+      emitRelationship(operationId, ownerId, 'ENCLOSED_BY', { layer: 'functional', resolution: 'lexical-function-owner' });
+    }
     if (ownerEntity?.labels.includes('CallableDeclaration')) {
       ownerEntity.labels = [...new Set([...ownerEntity.labels, 'FunctionImplementation'])];
       if (operationId && operationId !== ownerId) {
@@ -724,6 +740,34 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       const propsType = checker.getNonNullableType(checker.getTypeOfSymbolAtLocation(propsParameter, node));
       const member = propsType.getProperty(propertyName);
       declarations.push(...(member?.declarations || (member?.valueDeclaration ? [member.valueDeclaration] : [])));
+      const implementation = signature.declaration;
+      const parameter = implementation?.parameters[0];
+      if (!parameter) continue;
+      const collectBindings = (pattern: ts.BindingName) => {
+        if (!ts.isObjectBindingPattern(pattern)) return;
+        for (const binding of pattern.elements) {
+          if (binding.dotDotDotToken) continue;
+          const key = binding.propertyName || binding.name;
+          if ((ts.isIdentifier(key) || ts.isStringLiteralLike(key)) && key.text === propertyName) {
+            declarations.push(binding);
+          }
+        }
+      };
+      collectBindings(parameter.name);
+      // Compiled components can lose their props type but retain an exact
+      // destructuring of the first parameter. Resolve by symbol, not spelling.
+      if (implementation && 'body' in implementation && implementation.body) {
+        const visitBindings = (child: ts.Node): void => {
+          if (ts.isFunctionLike(child)) return;
+          if (ts.isVariableDeclaration(child) && child.initializer
+            && ts.isIdentifier(unwrapExpression(child.initializer))
+            && symbolDeclarations(checker, unwrapExpression(child.initializer)).includes(parameter)) {
+            collectBindings(child.name);
+          }
+          ts.forEachChild(child, visitBindings);
+        };
+        visitBindings(implementation.body as ts.Node);
+      }
     }
     return [...new Set(declarations)];
   }
@@ -789,7 +833,14 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     const contextualTypes = [checker.getContextualType(node), declaredReturnTypeForWrappedObject(node)]
       .filter((type): type is ts.Type => Boolean(type));
     node.properties.forEach((property, index) => {
-      if (ts.isSpreadAssignment(property)) return;
+      if (ts.isSpreadAssignment(property)) {
+        const spreadId = stableId(property, 'object-spread');
+        emitEntity({ stableId: spreadId, labels: ['Value', 'ValueProjection', 'SpreadValue'],
+          props: { ...sourceProps(property), index } });
+        emitRelationship(id, spreadId, 'SPREADS_FROM', { index, layer: 'functional', overwriteOrder: 'left-to-right' });
+        emitRelationship(spreadId, emitExpressionValue(property.expression), 'VALUE_FROM', { layer: 'functional' });
+        return;
+      }
       const propertyId = stableId(property, 'property-value');
       const propertyName = propertyNameText(property);
       emitEntity({
@@ -798,10 +849,10 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
         props: { ...sourceProps(property), name: propertyName, index },
       });
       emitRelationship(id, propertyId, 'HAS_PROPERTY', { index, propertyName, layer: 'functional' });
-      const contextualDeclarations = [...new Set(contextualTypes.flatMap((type) => {
+      const contextualDeclarations = [...new Set([...contextualTypes.flatMap((type) => {
         const member = checker.getNonNullableType(type).getProperty(propertyName);
         return member?.declarations || (member?.valueDeclaration ? [member.valueDeclaration] : []);
-      }))];
+      }), ...declaredMembers.contextualMembers(node, propertyName)])];
       for (const declaration of contextualDeclarations) {
         emitRelationship(
           propertyId,
@@ -841,6 +892,23 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       props: { ...sourceProps(node), name: node.tagName.getText(node.getSourceFile()) },
     });
     markEnclosingFunctionImplementation(node, id);
+    // A single attribute has the same source range as the attribute list.
+    const propsId = `${id}:jsx-props`;
+    emitEntity({ stableId: propsId, labels: ['Value', 'Object', 'ObjectConstruction', 'ArgumentValue'],
+      props: { ...sourceProps(node.attributes), name: 'props', composition: 'ordered-jsx-attributes' } });
+    emitRelationship(id, propsId, 'HAS_ARGUMENT', { index: 0, layer: 'functional' });
+    for (const signature of checker.getSignaturesOfType(checker.getTypeAtLocation(node.tagName), ts.SignatureKind.Call)) {
+      const parameter = signature.declaration?.parameters[0];
+      const declaration = signature.declaration;
+      if (declaration && ts.isFunctionLike(declaration) && 'body' in declaration && declaration.body) {
+        emitRelationship(id, emitDeclaration(declaration, 'ValueDeclaration'), 'CALLS', {
+          resolution: 'typescript-checker-jsx-implementation-signature', layer: 'functional',
+        });
+      }
+      if (parameter) emitRelationship(propsId, emitDeclaration(parameter, 'ValueDeclaration'), 'BINDS_TO_PARAMETER', {
+        index: 0, callSiteStableId: id, resolution: 'typescript-checker-jsx-props', layer: 'functional',
+      });
+    }
     for (const declaration of symbolDeclarations(checker, node.tagName)) {
       emitRelationship(id, emitDeclaration(declaration, 'ValueDeclaration'), 'CALLS', {
         resolution: 'typescript-checker',
@@ -848,7 +916,14 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       });
     }
     node.attributes.properties.forEach((attribute, index) => {
-      if (ts.isJsxSpreadAttribute(attribute)) return;
+      if (ts.isJsxSpreadAttribute(attribute)) {
+        const spreadId = stableId(attribute, 'jsx-spread');
+        emitEntity({ stableId: spreadId, labels: ['Value', 'ValueProjection', 'SpreadValue'],
+          props: { ...sourceProps(attribute), index } });
+        emitRelationship(propsId, spreadId, 'SPREADS_FROM', { index, layer: 'functional', overwriteOrder: 'left-to-right' });
+        emitRelationship(spreadId, emitExpressionValue(attribute.expression), 'VALUE_FROM', { layer: 'functional' });
+        return;
+      }
       const propertyId = stableId(attribute, 'jsx-property-value');
       const propertyName = attribute.name.text;
       emitEntity({
@@ -857,6 +932,7 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
         props: { ...sourceProps(attribute), name: propertyName, index },
       });
       emitRelationship(id, propertyId, 'HAS_PROPERTY', { index, propertyName, layer: 'functional' });
+      emitRelationship(propsId, propertyId, 'HAS_PROPERTY', { index, propertyName, layer: 'functional' });
       const propDeclarations = jsxPropMemberDeclarations(node, propertyName);
       for (const declaration of propDeclarations) {
         emitRelationship(propertyId, emitDeclaration(declaration, 'MemberDeclaration'), 'SATISFIES_MEMBER', {
@@ -868,6 +944,16 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       if (!initializer) return;
       if (ts.isJsxExpression(initializer) && initializer.expression) {
         emitRelationship(propertyId, emitExpressionValue(initializer.expression), 'VALUE_FROM', { layer: 'functional' });
+        if (propertyName === 'value' && ts.isPropertyAccessExpression(node.tagName) && node.tagName.name.text === 'Provider') {
+          for (const context of symbolDeclarations(checker, node.tagName.expression)) {
+            if (!ts.isVariableDeclaration(context) || !context.initializer) continue;
+            const creation = unwrapExpression(context.initializer);
+            if (!ts.isCallExpression(creation) || !isReactApiCall(checker, creation, ['createContext'])) continue;
+            emitRelationship(propertyId, emitDeclaration(context, 'ValueDeclaration'), 'PROVIDES_CONTEXT', {
+              providerStableId: id, resolution: 'react-context-provenance', layer: 'functional',
+            });
+          }
+        }
         const implementations = callbackImplementations(initializer.expression);
         for (const declaration of propDeclarations) {
           if (!implementations.length) continue;
@@ -892,6 +978,11 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       props: { ...sourceProps(node), name: node.expression.getText(node.getSourceFile()) },
     });
     markEnclosingFunctionImplementation(node, id);
+    if (node.arguments[0] && isReactApiCall(checker, node, ['useContext'])) {
+      emitRelationship(id, emitExpressionValue(node.arguments[0]), 'READS_CONTEXT', {
+        resolution: 'react-context-provenance', layer: 'functional',
+      });
+    }
     const targetNode = callableTargetNode(node.expression);
     const referenceKind = ts.isPropertyAccessExpression(node.expression) ? 'MemberReference' : 'ValueReference';
     const referenceId = emitReference(targetNode, referenceKind);
@@ -913,6 +1004,9 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
 
     const signature = checker.getResolvedSignature(node);
     const signatureDeclaration = signature?.declaration;
+    for (const declaration of symbolDeclarations(checker, targetNode)) {
+      if (ts.isBindingElement(declaration)) pendingPropCallbackCalls.push({ call: node, member: declaration });
+    }
     if (signatureDeclaration) {
       const members = ts.isPropertyAccessExpression(node.expression)
         ? memberDeclarationsAt(node.expression.name)
@@ -996,14 +1090,38 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       || ts.isNonNullExpression(node)
     ) node = node.expression;
     if (ts.isObjectLiteralExpression(node)) return emitObjectConstruction(node);
+    if (ts.isJsxElement(node)) return emitJsxConstruction(node.openingElement);
+    if (ts.isJsxSelfClosingElement(node)) return emitJsxConstruction(node);
     if (ts.isCallExpression(node)) return emitCall(node);
+    const binaryUse = ts.isBinaryExpression(node)
+      && !(node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
+      && ![ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.CommaToken].includes(node.operatorToken.kind);
+    if (binaryUse || ts.isElementAccessExpression(node)) {
+      const id = stableId(node, 'value-consumption');
+      emitEntity({ stableId: id, labels: ['Operation', 'ValueConsumption'],
+        props: { ...sourceProps(node), consumptionKind: binaryUse ? 'binary-operation' : 'index-access' } });
+      markEnclosingFunctionImplementation(node, id);
+      const operands: [ts.Expression, string][] = ts.isBinaryExpression(node)
+        ? [[node.left, 'left'], [node.right, 'right']]
+        : [[(node as ts.ElementAccessExpression).expression, 'receiver'], [(node as ts.ElementAccessExpression).argumentExpression, 'index']];
+      for (const [operand, role] of operands) emitRelationship(id, emitExpressionValue(operand), 'CONSUMES_VALUE', {
+        layer: 'functional', role, resolution: 'ast-operand',
+      });
+      return id;
+    }
     if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
       const id = emitDeclaration(node, 'ValueDeclaration');
       const entity = entities.get(id);
       if (entity) entity.labels = [...new Set([...entity.labels, 'FunctionImplementation', 'CallbackImplementation'])];
       return id;
     }
-    if (ts.isPropertyAccessExpression(node)) return emitReference(node.name, 'MemberReference');
+    if (ts.isPropertyAccessExpression(node)) {
+      const id = emitReference(node.name, 'MemberReference');
+      emitRelationship(id, emitExpressionValue(node.expression), 'READS_FROM', {
+        role: 'receiver', propertyName: node.name.text, layer: 'functional',
+      });
+      return id;
+    }
     if (ts.isIdentifier(node)) return emitReference(node, 'ValueReference');
     return emitLiteralValue(node);
   }
@@ -1192,6 +1310,13 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
           layer: 'structural',
         });
       });
+      // Expression-bodied callbacks have a real return value too. Preserve it
+      // so consumers can follow a selector without expanding the whole body.
+      if (ts.isArrowFunction(node) && !ts.isBlock(node.body)) {
+        emitRelationship(callableId, emitExpressionValue(node.body), 'RETURNS_VALUE', {
+          layer: 'functional', implicit: true,
+        });
+      }
     }
 
     if (ts.isTypeAliasDeclaration(node)) {
@@ -1293,15 +1418,40 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     if (ts.isObjectLiteralExpression(node)) emitObjectConstruction(node);
 
     if (ts.isReturnStatement(node)) emitReturn(node);
-    if (ts.isBinaryExpression(node)) emitWrite(node);
+    if (ts.isBinaryExpression(node)) {
+      emitWrite(node);
+      if (!(node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
+        && ![ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.CommaToken].includes(node.operatorToken.kind)) emitExpressionValue(node);
+    }
+    if (ts.isElementAccessExpression(node)) emitExpressionValue(node);
 
     if (ts.isJsxAttribute(node) && node.name.text === 'ref' && node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression) {
       emitRuntimeRef(node, node.initializer.expression);
     }
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) emitJsxConstruction(node);
+    if (ts.isJsxExpression(node) && node.expression
+      && (ts.isJsxElement(node.parent) || ts.isJsxFragment(node.parent))) {
+      let owner: ts.Node = node.parent;
+      while (ts.isJsxFragment(owner)) owner = owner.parent;
+      if (ts.isJsxElement(owner)) {
+        const emitRenderedValue = (expression: ts.Expression, conditions: Record<string, unknown>[] = []) => {
+          const value = unwrapExpression(expression);
+          if (ts.isConditionalExpression(value)) {
+            const guard = { stableId: stableId(value.condition), syntax: value.condition.getText() };
+            emitRenderedValue(value.whenTrue, [...conditions, { ...guard, outcome: true }]);
+            emitRenderedValue(value.whenFalse, [...conditions, { ...guard, outcome: false }]);
+          } else if (!ts.isJsxElement(value) && !ts.isJsxSelfClosingElement(value)) {
+            emitRelationship(stableId((owner as ts.JsxElement).openingElement), emitExpressionValue(value), 'RENDERS_VALUE', {
+              layer: 'functional', resolution: 'jsx-child-expression', conditions: JSON.stringify(conditions),
+            });
+          }
+        };
+        emitRenderedValue(node.expression);
+      }
+    }
 
     if (ts.isPropertyAccessExpression(node)) {
-      emitReference(node.name, 'MemberReference');
+      emitExpressionValue(node);
     } else if (ts.isIdentifier(node) && !isDeclarationName(node)) {
       const parent = node.parent;
       const inTypeReference = ts.isTypeReferenceNode(parent) || ts.isExpressionWithTypeArguments(parent);
@@ -1344,6 +1494,13 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
           }
           const setterSymbol = resolveSymbol(checker, setter.name);
           if (setterSymbol) reactStateBySetterSymbol.set(setterSymbol, stateId);
+          const setterId = emitDeclaration(setter, 'ValueDeclaration');
+          emitRelationship(setterId, stateId, 'WRITES_TO', {
+            resolution: 'react-state-provenance',
+            role: 'state-updater',
+          });
+          markEnclosingFunctionImplementation(state, stateId);
+          markEnclosingFunctionImplementation(setter, setterId);
         }
       }
       ts.forEachChild(node, collectReactStateBindings);
@@ -1355,7 +1512,135 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     if (isTrackedSourceFile(sourceFile)) visit(sourceFile, sourceFile);
   }
 
+  // Resolve higher-order argument forwarding by symbol identity, including
+  // gateways whose callback parameter lost its TS annotation during compilation.
+  // The outer call site remains evidence on each binding; do not conflate calls.
+  const callbackCallsByParameter = new Map<ts.Declaration, ts.CallExpression[]>();
+  const projectionParameters = new Map<ts.ParameterDeclaration, boolean>();
+  for (const call of emittedCalls) {
+    for (const target of symbolDeclarations(checker, callableTargetNode(call.expression))) {
+      if (!ts.isParameter(target)) continue;
+      const calls = callbackCallsByParameter.get(target) || [];
+      calls.push(call);
+      callbackCallsByParameter.set(target, calls);
+    }
+  }
+  for (const outerCall of [...emittedCalls]) {
+    const signature = checker.getResolvedSignature(outerCall)?.declaration;
+    if (!signature) continue;
+    outerCall.arguments.forEach((argument, callbackIndex) => {
+      const gatewayParameter = signature.parameters[callbackIndex];
+      if (!gatewayParameter) return;
+      const implementations = callbackImplementations(argument);
+      if (!implementations.length) return;
+      if (!projectionParameters.has(gatewayParameter)) {
+        projectionParameters.set(gatewayParameter, callbackContributesToResult(checker, signature, gatewayParameter));
+      }
+      if (projectionParameters.get(gatewayParameter)) {
+        const callEntity = entities.get(stableId(outerCall));
+        if (callEntity) {
+          const indexes = (callEntity.props.valueProjectionCallbackIndexes || []) as number[];
+          if (!indexes.includes(callbackIndex)) indexes.push(callbackIndex);
+          callEntity.props.valueProjectionCallbackIndexes = indexes;
+        }
+      }
+      for (const innerCall of callbackCallsByParameter.get(gatewayParameter) || []) {
+        for (const implementation of implementations) {
+          innerCall.arguments.forEach((value, index) => {
+            const parameter = implementation.parameters[index];
+            if (!parameter) return;
+            emitRelationship(stableId(value), emitDeclaration(parameter, 'ValueDeclaration'), 'BINDS_TO_PARAMETER', {
+              index, layer: 'functional', resolution: 'typescript-checker-callback-forwarding',
+              callSiteStableId: stableId(innerCall), outerCallSiteStableId: stableId(outerCall),
+            });
+            const types = forwardedParameterTypes.get(parameter) || [];
+            const valueType = checker.getTypeAtLocation(value);
+            const callSiteStableId = stableId(outerCall);
+            if (!types.some(row => row.type === valueType && row.callSiteStableId === callSiteStableId)) {
+              types.push({ type: valueType, expression: value, callSiteStableId });
+            }
+            forwardedParameterTypes.set(parameter, types);
+          });
+        }
+      }
+    });
+  }
+  for (const reference of memberReferences) {
+    const access = reference.parent;
+    if (!ts.isPropertyAccessExpression(access)) continue;
+    const memberPath = [access.name.text];
+    let receiver = access.expression;
+    while (ts.isPropertyAccessExpression(receiver)) {
+      memberPath.unshift(receiver.name.text);
+      receiver = receiver.expression;
+    }
+    if (!ts.isIdentifier(receiver)) continue;
+    for (const declaration of symbolDeclarations(checker, receiver)) {
+      if (!ts.isParameter(declaration)) continue;
+      for (const forwarded of forwardedParameterTypes.get(declaration) || []) {
+        let type = forwarded.type;
+        let member: ts.Symbol | undefined;
+        for (const name of memberPath) {
+          member = checker.getNonNullableType(type).getProperty(name);
+          if (!member) break;
+          type = checker.getTypeOfSymbolAtLocation(member, reference);
+        }
+        const targets = [...new Set([...(member?.declarations || []),
+          ...declaredMembers.expressionMemberPath(forwarded.expression, memberPath)])];
+        for (const target of targets) {
+          const fromId = stableId(reference);
+          const toId = emitDeclaration(target, 'MemberDeclaration');
+          const key = `${fromId}\u0000RESOLVES_TO\u0000${toId}`;
+          const previous = relationships.get(key);
+          if (previous) {
+            const contexts = previous.props.contextCallSiteStableIds;
+            if (Array.isArray(contexts) && !contexts.includes(forwarded.callSiteStableId)) contexts.push(forwarded.callSiteStableId);
+          } else {
+            emitRelationship(fromId, toId, 'RESOLVES_TO', {
+              resolution: 'typescript-checker-callback-receiver',
+              contextCallSiteStableIds: [forwarded.callSiteStableId], layer: 'functional',
+            });
+          }
+        }
+      }
+    }
+  }
+
   for (const parent of visitedSourceNodes) {
+    if (ts.isJsxOpeningElement(parent) || ts.isJsxSelfClosingElement(parent)) {
+      let ancestor: ts.Node | undefined = ts.isJsxOpeningElement(parent) ? parent.parent.parent : parent.parent;
+      const conditions: { stableId: string; syntax: string; outcome: boolean | string }[] = [];
+      let child: ts.Node = ts.isJsxOpeningElement(parent) ? parent.parent : parent;
+      while (ancestor && !ts.isFunctionLike(ancestor)) {
+        // JSX passed as a prop is not a proven child in the rendered tree.
+        if (ts.isJsxAttribute(ancestor) || ts.isJsxSpreadAttribute(ancestor)) break;
+        if (ts.isConditionalExpression(ancestor)) {
+          conditions.push({ stableId: stableId(ancestor.condition), syntax: ancestor.condition.getText(),
+            outcome: ancestor.whenTrue === child });
+        }
+        if (ts.isIfStatement(ancestor)) conditions.push({ stableId: stableId(ancestor.expression),
+          syntax: ancestor.expression.getText(), outcome: ancestor.thenStatement === child });
+        if (ts.isBinaryExpression(ancestor) && ancestor.right === child
+          && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(ancestor.operatorToken.kind)) {
+          conditions.push({ stableId: stableId(ancestor.left), syntax: ancestor.left.getText(),
+            outcome: ancestor.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken ? 'nullish'
+              : ancestor.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken ? 'truthy' : 'falsy' });
+        }
+        if (ts.isJsxElement(ancestor)) {
+          emitRelationship(stableId(ancestor.openingElement), stableId(parent), 'JSX_CHILD', {
+            layer: 'functional', conditions: JSON.stringify(conditions), resolution: 'lexical-jsx-child',
+          });
+          break;
+        }
+        child = ancestor;
+        ancestor = ancestor.parent;
+      }
+      if (ancestor && ts.isFunctionLike(ancestor)) {
+        emitRelationship(emitDeclaration(ancestor, 'ValueDeclaration'), stableId(parent), 'DECLARES_JSX', {
+          layer: 'functional', conditions: JSON.stringify(conditions), resolution: 'lexical-jsx-root',
+        });
+      }
+    }
     const parentId = stableId(parent);
     if (!entities.has(parentId)) continue;
     let order = 0;
@@ -1458,3 +1743,4 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     )),
   };
 }
+import projectPaths from '../../../dev/projectPaths.cjs';

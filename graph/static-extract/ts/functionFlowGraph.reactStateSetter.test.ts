@@ -161,6 +161,7 @@ export function subject() {
     const canonicalActiveWrites = payload.semanticRelationships?.filter((relationship) => (
       relationship.type === 'WRITES_TO'
       && relationship.toId === namespaceSetter.stateResourceStableId
+      && relationship.props.role !== 'state-updater'
     )) || [];
     assert.deepEqual(
       canonicalActiveWrites.map((relationship) => payload.semanticEntities?.find((entity) => (
@@ -169,6 +170,21 @@ export function subject() {
       ['setActive(true)', 'setActive(false)'],
       'nested and direct setter calls must target one state slot',
     );
+    const updater = payload.semanticRelationships?.find((relationship) => (
+      relationship.type === 'WRITES_TO'
+      && relationship.toId === namespaceSetter.stateResourceStableId
+      && relationship.props.role === 'state-updater'
+    ));
+    assert.ok(updater, 'the setter declaration must retain its state target without a call');
+    const owner = payload.semanticEntities?.find((entity) => entity.props.name === 'subject');
+    assert.ok(owner);
+    for (const memberId of [updater.fromId, updater.toId]) {
+      assert.ok(payload.semanticRelationships?.some((relationship) => (
+        relationship.fromId === owner.stableId
+        && relationship.toId === memberId
+        && relationship.type === 'AST_CHILD'
+      )), 'both hook bindings must belong to the function creating the state');
+    }
   } finally {
     fs.rmSync(fixturePath, { force: true });
     fs.rmSync(reactTypesPath, { force: true });

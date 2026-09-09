@@ -3,9 +3,12 @@ import test from 'node:test';
 
 import {
   buildAnnotationTask,
+  completeAnnotation,
+  isAnnotationPassReady,
   getAnnotationToolMetadata,
   normalizeAnnotationRefreshMode,
   selectNextAnnotationTask,
+  shouldRecurseAnnotationDependency,
   shouldRefreshAnnotation,
   validateAnnotationTextEncoding,
 } from './annotationResolver.js';
@@ -15,6 +18,53 @@ import {
   loadCompositionContextDependenciesMany,
   resolveAnnotationSubjects,
 } from './annotationProfiles.js';
+
+test('a saved root alone does not complete the accumulated annotation pass', () => {
+  assert.equal(isAnnotationPassReady({ status: 'ready' }, [{ status: 'pending' }]), false);
+  assert.equal(isAnnotationPassReady({ status: 'ready' }, [{ status: 'ready' }]), true);
+  assert.equal(isAnnotationPassReady({ status: 'pending' }, []), false);
+});
+
+test('annotation task requires database persistence for every generated result', () => {
+  const task = buildAnnotationTask({ stableId: 'subject', annotationKind: 'FunctionalEntity' }, 'root');
+  assert.equal(task.completion.required, true);
+  assert.equal(task.completion.storage, 'neo4j');
+  assert.equal(task.completion.successCondition, 'persisted-ready');
+  assert.equal(task.completion.passScope, 'all-non-reference-dependencies-and-root');
+});
+
+test('workflow completion rejects unfinished dependencies without writing', async () => {
+  const driver = { session: () => ({
+    run: async () => ({ records: [{ get: (key) => key === 'missing' ? ['child'] : 'annotation:test' }] }),
+    close: async () => {},
+  }) };
+  await assert.rejects(completeAnnotation(driver, 'neo4j', {
+    annotationId: 'annotation:test', text: 'Ready text',
+  }), /dependencies are not ready/);
+});
+
+test('explicit save uses the same canonical writer without completing child tasks', async () => {
+  const queries = [];
+  const driver = { session: () => ({
+    async run(query, params) {
+      queries.push({ query, params });
+      return { records: [{ get(key) {
+        return ({ missing: ['child'], stableId: 'subject', profileVersion: 7,
+          maxDepth: 4, previousText: '' })[key] ?? null;
+      } }] };
+    },
+    close: async () => {},
+  }) };
+  const result = await completeAnnotation(driver, 'neo4j', {
+    annotationId: 'annotation:test', text: 'Ready text', maxDepth: 4,
+  }, { requireReadyDependencies: false });
+  assert.equal(result.annotationId, 'annotation:test');
+  assert.equal(result.status, 'ready');
+  assert.equal(queries[1].params.text, 'Ready text');
+  assert.match(queries[1].query, /annotationId: \$annotationId/);
+  assert.match(queries[2].query, /legacy.annotationId IS NULL/);
+  assert.equal(queries.length, 3);
+});
 
 test('annotation metadata identifies the tool commit and requested depth', () => {
   const metadata = getAnnotationToolMetadata({ maxDepth: '4' });
@@ -38,6 +88,14 @@ test('annotation refresh defaults to reuse and can target only the root or the c
     () => normalizeAnnotationRefreshMode({ refreshMode: 'dependencies' }),
     /Unsupported annotation refresh mode/,
   );
+});
+
+test('explicit maxDepth also bounds functional accumulation', () => {
+  const dependency = { recurse: true };
+
+  assert.equal(shouldRecurseAnnotationDependency(dependency, 3, 4), true);
+  assert.equal(shouldRecurseAnnotationDependency(dependency, 4, 4), false);
+  assert.equal(shouldRecurseAnnotationDependency({ recurse: false }, 0, 4), false);
 });
 
 test('composition context dependencies are method-agnostic and resolve semantic participants', async () => {
@@ -202,6 +260,8 @@ test('developer-defined canonical entities use bottom-up functional accumulation
   assert.equal(profile.accumulateToSystemBoundary, true);
   await profile.contextMany(session, ['helpers']);
   await profile.dependenciesMany(session, ['helpers']);
+  assert.match(queries[1], /RETURNS_VALUE/);
+  queries.splice(1, 1); // Projection probe returned no match; inspect the fallback below.
   assert.match(queries[0], /system:System/);
   assert.match(queries[0], /HAS_OPERATION/);
   assert.match(queries[0], /terminalEffects/);
@@ -215,7 +275,35 @@ test('developer-defined canonical entities use bottom-up functional accumulation
   assert.doesNotMatch(queries[1], /directPath=.*HAS_PROPERTY/);
   assert.match(queries[1], /CALLS_VALUE/);
   assert.match(queries[1], /READS_FROM/);
+  assert.match(queries[1], /none\(edge IN relationships\(directPath\)/);
+  assert.match(queries[1], /none\(edge IN relationships\(forwardPath\)/);
+  assert.match(queries[1], /projection = startNode\(edge\)/);
   assert.doesNotMatch(queries[1], /HAS_ARGUMENT|RETURNS_VALUE/);
+});
+
+test('functional evidence survives context loading and task construction with directed edges', async () => {
+  const evidenceGraph = {
+    usageMaxHops: 3, usagePathLimit: 80, usageTruncated: false,
+    paths: [{
+      nodes: [{ stableId: 'writer' }, { stableId: 'slot' }, { stableId: 'owner' }],
+      edges: [
+        { fromId: 'writer', toId: 'slot', type: 'WRITES_TO', properties: { role: 'state-updater' } },
+        { fromId: 'owner', toId: 'writer', type: 'AST_CHILD', properties: { layer: 'syntax' } },
+      ],
+    }],
+  };
+  const contexts = await getAnnotationProfile('FunctionalEntity').contextMany({
+    async run() {
+      return { records: [{ get(key) {
+        return key === 'stableId' ? 'writer' : { stableId: 'writer', evidenceGraph };
+      } }] };
+    },
+  }, ['writer']);
+  const task = buildAnnotationTask({
+    stableId: 'writer', annotationKind: 'FunctionalEntity', labels: ['DeveloperDefined'],
+    context: contexts.get('writer'), dependencies: [],
+  }, 'writer');
+  assert.deepEqual(task.contextBundle.context.evidenceGraph, evidenceGraph);
 });
 
 test('loop annotation profile uses its source collection and same-function loop members', async () => {

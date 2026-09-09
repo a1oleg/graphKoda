@@ -40,7 +40,7 @@ type ChildReference = {
   containerKind: TypeEdgeRow['containerKind'];
 };
 
-const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const workspaceRoot = projectPaths.sourceRoot;
 const tsconfigPath = path.join(workspaceRoot, 'tsconfig.json');
 const TRACKED_OWNER_DIRS = [
   'src/api/types/',
@@ -332,3 +332,4 @@ function main() {
 }
 
 main();
+import projectPaths from '../../../dev/projectPaths.cjs';

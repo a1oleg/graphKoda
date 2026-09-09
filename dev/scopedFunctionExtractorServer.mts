@@ -1,5 +1,6 @@
 import http from 'node:http';
 import path from 'node:path';
+import projectPaths from './projectPaths.cjs';
 
 import chokidar, { type FSWatcher } from 'chokidar';
 import type ts from 'typescript';
@@ -15,7 +16,7 @@ import {
   refreshSourceStateId,
 } from '../graph/static-extract/ts/functionFlowGraph.infrastructure.ts';
 
-const workspaceRoot = process.cwd();
+const workspaceRoot = projectPaths.sourceRoot;
 const host = '127.0.0.1';
 const port = Number(process.env.GRAPH_SCOPED_EXTRACTOR_PORT || 8794);
 const protocolVersion = 1;
@@ -87,8 +88,8 @@ async function ensureContext() {
 }
 
 const extractorWatcher = chokidar.watch([
-  path.join(workspaceRoot, 'graph', 'static-extract', 'ts'),
-  path.join(workspaceRoot, 'dev', 'scopedFunctionExtractorServer.mts'),
+  path.join(projectPaths.toolRoot, 'graph', 'static-extract', 'ts'),
+  path.join(projectPaths.toolRoot, 'dev', 'scopedFunctionExtractorServer.mts'),
   path.join(workspaceRoot, 'tsconfig.json'),
 ], { ignoreInitial: true });
 extractorWatcher.on('all', () => {

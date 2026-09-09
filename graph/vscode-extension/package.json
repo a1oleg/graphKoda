@@ -2,7 +2,7 @@
   "name": "coldkode-graph-explorer",
   "displayName": "coldKode Graph Explorer",
   "description": "VS Code graph explorer for function diagrams.",
-  "version": "0.0.410",
+  "version": "0.0.413",
   "publisher": "local",
   "private": true,
   "engines": {
@@ -17,6 +17,7 @@
     "onView:coldKodeGraphExplorer.functions",
     "onCommand:coldKodeGraphExplorer.openNode",
     "onCommand:coldKodeGraphExplorer.openRuntimeAnalysis",
+    "onCommand:coldKodeGraphExplorer.openAnnotationVisualizer",
     "onCommand:coldKodeGraphExplorer.openHelpersFunctionalSegment",
     "onCommand:coldKodeGraphExplorer.runStubApp",
     "onCommand:coldKodeGraphExplorer.refresh"
@@ -24,6 +25,10 @@
   "main": "./extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "coldKodeGraphExplorer.openAnnotationVisualizer",
+        "title": "Open Annotation Visualizer"
+      },
       {
         "command": "coldKodeGraphExplorer.openNode",
         "title": "Open Graph Diagram"

@@ -665,7 +665,10 @@ export function startExtract({
       scopedFnStableId,
       ...(!shouldPreserveAnnotations ? ['--no-preserve-annotations'] : []),
     ]
-    : (catalogOnly ? ['--catalog-only'] : []);
+    : [
+      ...(catalogOnly ? ['--catalog-only'] : []),
+      ...(!shouldPreserveAnnotations ? ['--no-preserve-annotations'] : []),
+    ];
   const logPath = path.join(
     ensureLogDir(),
     `extract-${normalizedMode}-${new Date().toISOString().replace(/[:.]/g, '-')}.log`,
@@ -697,7 +700,7 @@ export function startExtract({
   const run = {
     mode: normalizedMode,
     fnStableId: scopedFnStableId,
-    preserveAnnotations: scopedFnStableId ? shouldPreserveAnnotations : null,
+    preserveAnnotations: shouldPreserveAnnotations,
     steps: EXTRACT_MODES[normalizedMode],
     script,
     scriptArgs,

@@ -33,9 +33,13 @@ const GROUPS = [
     '/api/actions/run-extract', '/api/actions/import-functions', '/api/actions/stop-extract',
   ]],
   ['Annotations', 'GET', [
+    '/api/annotations/visualizer',
+    '/annotation-plan', '/annotation-plan/assets/{name}',
+    '/api/annotations/graphql/schema',
     '/api/graph/annotation-profiles', '/api/graph/annotations', '/api/annotation-jobs/{jobId}',
   ]],
   ['Annotations', 'POST', [
+    '/api/annotations/graphql',
     '/api/graph/annotations/upsert', '/api/graph/annotations/resolve',
     '/api/graph/annotations/complete', '/api/graph/annotations/workflow/start',
     '/api/graph/annotations/workflow/complete', '/api/annotation-jobs',
@@ -74,6 +78,7 @@ const GROUPS = [
 ];
 
 const DETAILS = {
+  'GET /api/annotations/visualizer': ['Launch the annotation visualizer', 'Returns the URL of an authored annotation route selected by its source stableId. Does not generate annotations or write to Neo4j. Missing stableId returns 400; an unknown route returns 404.'],
   'GET /': ['Discover the orchestrator', 'Returns stable entry points and the normal local runbook.'],
   'GET /health': ['Check Neo4j-backed health', 'Verifies both the HTTP process and its configured Neo4j connection.'],
   'GET /api/docs': ['Open Swagger UI', 'Interactive Swagger UI generated from the live orchestrator contract.'],
@@ -118,6 +123,7 @@ const BODY_SCHEMA_BY_KEY = {
 };
 
 const QUERY_PARAMETERS = {
+  '/api/annotations/visualizer': [['stableId', 'string', true, 'Source node stableId. Example: screens/REPL.tsx:3142:82:3146:3 (speculationAccept).']],
   '/api/status/gateway': [['tailLog', 'boolean', false, 'Include the current extraction log tail.']],
   '/api/status/repro-monitor': [['tailLines', 'integer', false, 'Number of recent log lines, from 1 to 100.']],
   '/api/status/process-diagnostics': [['tailLines', 'integer', false, 'Number of recent log lines, from 1 to 100.']],
