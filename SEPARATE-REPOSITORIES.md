@@ -9,7 +9,10 @@ checkout; do not install the overlay for this workflow.
 - Source repository: `https://github.com/a1oleg/claude-code`.
 - Both existing GitHub repositories are private (verified through authenticated
   GitHub repository metadata on 2026-09-09). No repository rename is required.
-- Pinned source: `af272b9e82955330836f9354229c0a8453c3a3da` (`STUB`).
+- Local tool checkout: `C:\GitHub\coldKode`.
+- Local source checkout: the existing `C:\GitHub\claude-code`.
+- Use these two checkouts only. Do not create `claude-code-source`, detach the
+  existing source at STUB, or change its revision as part of this migration.
 - Migration input: tool files from `claude-code` commit
   `0a5a922cff7a3e43b027174c70e13017177b5478`.
 
@@ -47,9 +50,10 @@ through `/api/status/gateway`. Extension 0.0.413 supports the separate source ro
 tool and source checkouts. Source-coordinate IDs are relative to `sourceRoot`;
 absolute source paths remain available as location metadata.
 
-The source clone is detached at STUB, has its own Git objects and uses sparse
-checkout to omit historical graph/dev/tmp files. Its historical Git commit still
-contains the former combined tree; history has not been rewritten.
+The existing source checkout stays in place with its current revision, local
+files and dependencies. Historical graph/dev/tmp files may still be present;
+active tooling is run from coldKode, not from those historical copies. This
+migration does not delete source files, rewrite history, or move databases.
 
 Extraction now persists the passport in DuckDB `extraction_provenance` and
 `provenance.parquet`. Every node/relationship row has a `provenance_id` column.

@@ -1,4 +1,5 @@
 import { buildSchema, graphql } from 'graphql';
+import { routeContract, startDeterministicRoute, readDeterministicRoute, nextDeterministicRoute } from './deterministicRoute.js';
 import { startValueOrigin, readValueOrigin, nextValueOrigin, valueOriginContract } from './valueOrigin.js';
 import { annotationProfileContract } from './annotationProfiles.js';
 import { startAnnotationWorkflow, leaseNextAnnotationTask, completeAnnotationWorkflow } from './annotationResolver.js';
@@ -6,6 +7,12 @@ import { startAnnotationWorkflow, leaseNextAnnotationTask, completeAnnotationWor
 // Kinds come from the executable profile registry, not from every Neo4j label.
 export const annotationSchemaSDL = `
   scalar JSON
+  enum DeterministicRouteStatus { PAUSED COMPLETE INCOMPLETE STALE }
+  type DeterministicRoute {
+    runId: ID!, revision: Int!, version: Int!, objective: String!, rootId: ID!,
+    status: DeterministicRouteStatus!, nodes: JSON!, edges: JSON!, results: JSON!, events: JSON!, probes: JSON!
+  }
+  input DeterministicRouteInput { stableId: ID!, maxTasks: Int = 100 }
   enum ValueOriginState { PENDING EXPANDED BOUNDARY PURPOSE_BOUNDARY UNRESOLVED LIMIT }
   enum ValueOriginRunState { PAUSED COMPLETE PURPOSE_COMPLETE INCOMPLETE }
   type ValueOriginTask {
@@ -50,6 +57,8 @@ export const annotationSchemaSDL = `
     jobId: ID!, taskId: ID!, annotationId: ID!, leaseToken: String!, text: String!
   }
   type Query {
+    deterministicRouteContract: JSON!
+    deterministicRoute(runId: ID!): DeterministicRoute!
     valueOriginContract: JSON!
     valueOriginPlan(runId: ID!): ValueOriginPlan!
     annotationProfiles: [AnnotationProfile!]!
@@ -57,6 +66,8 @@ export const annotationSchemaSDL = `
     annotationPlan(jobId: ID!): AnnotationPlan!
   }
   type Mutation {
+    startDeterministicRoute(input: DeterministicRouteInput!): DeterministicRoute!
+    nextDeterministicRoute(runId: ID!, expectedRevision: Int!, taskId: ID): DeterministicRoute!
     startValueOrigin(input: ValueOriginInput!): ValueOriginPlan!
     nextValueOrigin(runId: ID!, expectedRevision: Int!, taskId: ID): ValueOriginPlan!
     "Resolve and persist the plan using existing profiles; do not start a worker."
@@ -169,6 +180,10 @@ export function createAnnotationGraphqlRoot({ driver, database, services = {} })
   const next = services.next || (input => leaseNextAnnotationTask(driver, database, input));
   const complete = services.complete || (input => completeAnnotationWorkflow(driver, database, input));
   return {
+    deterministicRouteContract: () => routeContract,
+    deterministicRoute: ({ runId }) => readDeterministicRoute(driver, database, runId),
+    startDeterministicRoute: ({ input }) => startDeterministicRoute(driver, database, input),
+    nextDeterministicRoute: input => nextDeterministicRoute(driver, database, input),
     valueOriginContract: () => valueOriginContract,
     valueOriginPlan: ({ runId }) => readValueOrigin(driver, database, runId),
     startValueOrigin: ({ input }) => startValueOrigin(driver, database, input),
