@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><title>Bloom Next — локальный стенд</title>
+<style>
+body{margin:0;background:#131b20;color:#dde9ee;font:16px system-ui}aside{position:fixed;width:212px;height:100vh;background:#1b282e;padding:24px;box-sizing:border-box}main{margin-left:240px;padding:24px}button,input{font:inherit;padding:10px;border-radius:8px;border:1px solid #51636b;background:#25343b;color:#edf5f7}input{width:500px}h1{font-size:22px}h2{font-size:16px;color:#67d9b5}#chips{display:block;margin:12px 0;color:#67d9b5}#graph{margin-top:24px;display:flex;gap:90px;padding-left:350px}article{border:1px solid #49606c;padding:18px;max-width:200px;border-radius:12px}p{font-size:13px;color:#a9bec8}.notice{color:#99bac9;font-size:13px}#link{color:#f6cc7b}#log{margin-top:24px;font:13px monospace;white-space:pre-wrap}
+</style>
+<aside>NEO4J UI FIXTURE<p>Локальный стенд расширения.<br>Не подключён к базе.</p></aside>
+<main><h1>Проверка кнопки Next</h1><button aria-label="Database: fixture">fixture</button>
+<h2 title="DemoStage1">DemoStage1</h2><p class="notice">Эмуляция только публичных элементов поиска и счётчиков Bloom.</p>
+<div id="search"><span id="chips">DemoStage1 NEXT DemoStage1</span><input data-testid="search-input" aria-label="search input"><span id="actions"></span></div>
+<p><button data-testid="card-panel-expand">Card list (0/7)</button> <button aria-label="Fit all nodes">Fit all nodes</button></p>
+<div id="graph"><article><h2>REPL.onSubmit</h2><p>input → helpers → speculationAccept?</p></article><article id="second" hidden><h2>PromptInput.onSubmit</h2><p>12 узлов второй функции</p><p id="link" hidden>VALUE_FROM → создание объекта</p></article></div>
+<div id="log">Этап 1 уже загружен. Первый Next должен выполнить этап 2.</div>
+</main>
+<script>
+const searchInput=document.querySelector('input'), actions=document.getElementById('actions'), chips=document.getElementById('chips');
+const log=document.getElementById('log');
+const queries=['DemoStage1 NEXT DemoStage1','DemoStage2 NEXT DemoStage2','DemoStage1 VALUE_FROM DemoStage2'];
+function button(label,fn){const b=document.createElement('button');b.setAttribute('aria-label',label);b.textContent=label;b.onclick=fn;actions.append(b);return b;}
+function render(){actions.replaceChildren();if(chips.textContent||searchInput.value)button('Clear input',()=>{chips.textContent='';searchInput.value='';actions.replaceChildren();});button('Run Query',()=>{
+ const q=searchInput.value,stage=queries.indexOf(q);chips.textContent=q;searchInput.value='';actions.replaceChildren();button('Cancel Query',()=>{});log.textContent+='\nЗапрос: '+q;
+ setTimeout(()=>{document.querySelector('[data-testid="card-panel-expand"]').textContent='Card list (0/'+[7,30,31][stage]+')';document.getElementById('second').hidden=stage<1;document.getElementById('link').hidden=stage<2;render();},650);
+}).dataset.testid='search-query-button';}
+searchInput.addEventListener('input',()=>setTimeout(render,250));
+document.querySelector('[aria-label="Fit all nodes"]').onclick=()=>{log.textContent+='\nFit all nodes';};
+render();
+</script>
+<script src="/content.js"></script>
+</html>

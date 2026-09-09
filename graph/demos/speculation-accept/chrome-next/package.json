@@ -1,0 +1,12 @@
+{
+  "name": "bloom-demo-next",
+  "version": "1.0.1",
+  "private": true,
+  "scripts": {
+    "test": "node --test --test-timeout=10000 test/*.test.cjs",
+    "build": "node tools/build.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  }
+}

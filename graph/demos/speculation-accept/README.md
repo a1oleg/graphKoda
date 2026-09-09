@@ -57,6 +57,35 @@ the filters. For a clean reveal without grey placeholders, use Search phrases.
 
 ## Read-only Search phrases
 
+### Verified Bloom search-bar sequence
+
+The [Bloom Demo Next Chrome extension](chrome-next/README.md) automates this
+sequence with a Next button on the Bloom page, including detection of an
+already-loaded first stage and result-count checks.
+
+Tested in Aura Bloom with the Default Perspective on 2026-09-09. Saved Cypher
+phrases are not required: use the ordinary graph search bar.
+
+| Step | Search text | Result accumulated in the Scene |
+| --- | --- | --- |
+| 1 | `DemoStage1 NEXT DemoStage1` | 4 nodes, 3 NEXT relationships |
+| 2 | `DemoStage2 NEXT DemoStage2` | 16 nodes, 14 NEXT relationships; no VALUE_FROM |
+| 3 | `DemoStage1 VALUE_FROM DemoStage2` | 16 nodes, 14 NEXT + 1 VALUE_FROM |
+
+Before each new search, click **Clear input** (the X in the search bar), enter
+the next search text, wait for Bloom's graph-pattern suggestion, then press
+Enter. Keep the Scene between steps: search results are added to it. These are
+successive searches, not additional tokens appended to a single search pattern.
+Do not use **Clear Scene** between steps. Use **Fit all nodes** after step 2
+if the second function is outside the viewport.
+
+The third search adds only the link between `speculationAccept?` and
+`{ state, speculationSessionTimeSavedMs, setAppState }`. To restart, reopen an
+unchanged first-stage Scene or clear the working Scene and run step 1 again.
+Running step 1 over a full Scene does not remove stages 2 and 3.
+
+### Saved Cypher alternative
+
 In Perspective designer -> Saved Cypher, register these static Search phrases:
 
 | Phrase | Query file |
