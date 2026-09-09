@@ -1,6 +1,6 @@
 import {scenario as inputScenario,buildFrames,buildSequence,accumulatedContexts} from './replayModel.js';
 import {speculationScenario} from './speculationReplay.js';
-import {resolveReplayRoute} from './replayRoutes.js';
+import {resolveReplayRoute,replayRoutes} from './replayRoutes.js';
 const params=new URLSearchParams(location.search);
 const scenario = params.has('stableId') ? resolveReplayRoute(params.get('stableId'))?.model
   : params.get('scenario') === 'speculation' ? speculationScenario : inputScenario;
@@ -11,19 +11,30 @@ const frames=buildFrames(scenario); let index=0;
 const collapsedContexts=new Set();
 const menu=document.createElement('div');menu.className='node-menu';menu.hidden=true;menu.setAttribute('role','menu');document.body.append(menu);
 function closeMenu(){menu.hidden=true;}
-function openMenu(event,id){
+function nodeStableId(node){return node.stableId || (node.id===scenario.root?replayRoutes.find(route=>route.model===scenario)?.stableId:'') || '';}
+function nodeContext(node){
+  const stableId=nodeStableId(node);
+  return [node.title,stableId?`stableId: ${stableId}`:'',`${node.file}:${node.line}`].filter(Boolean).join('\n');
+}
+function openMenu(event,id,edge=null){
   event.preventDefault();event.stopPropagation();
   const node=byId.get(id);if(!node)return;
   menu.replaceChildren();
   const actions=[
-    ['Перейти к шагу узла','locate',()=>{index=frames.findIndex(frame=>frame.id===id);render();}],
-    ['Копировать контекст','copy',async()=>{
-      const value=contextElements.get(id).hidden?`${node.title}\n${node.file}:${node.line}`:contextElements.get(id).innerText;
-      if(params.get('host')==='vscode')parent.postMessage({type:'annotationVisualizer',action:'copy',text:value},'*');
-      else await navigator.clipboard.writeText(value);
+    ['Добавить в Чат','message-square-plus',async()=>{
+      if(params.get('host')!=='vscode')throw new Error('Добавление в чат доступно в визуализаторе расширения VS Code.');
+      let value=nodeContext(node),stableId=nodeStableId(node);
+      if(edge){
+        const source=byId.get(edge.source().data('subject')),target=byId.get(edge.target().data('subject'));
+        stableId=edge.data('stableId') || '';
+        value=[`Связь: ${edge.data('label') || (edge.hasClass('reply')?'возврат контекста':edge.hasClass('lifeline')?'ось':'запрос контекста')}`,
+          `visualEdgeId: ${edge.id()}`,stableId?`stableId: ${stableId}`:'',
+          source?`Источник:\n${nodeContext(source)}`:'',target?`Адресат:\n${nodeContext(target)}`:''].filter(Boolean).join('\n');
+      }else if(!contextElements.get(id).hidden)value+=`\n\n${contextElements.get(id).innerText}`;
+      parent.postMessage({type:'annotationVisualizer',action:'addToChat',text:value,stableId},'*');
     }],
   ];
-  if(params.get('host')==='vscode')actions.unshift(['Открыть исходник','file-code',()=>parent.postMessage({type:'annotationVisualizer',action:'openSource',file:node.file,line:node.line},'*')]);
+  if(params.get('host')==='vscode')actions.unshift(['Перейти в Код','file-code',()=>parent.postMessage({type:'annotationVisualizer',action:'openSource',file:node.file,line:node.line},'*')]);
   for(const [label,icon,action] of actions){
     const button=document.createElement('button');button.type='button';button.setAttribute('role','menuitem');
     const glyph=document.createElement('i');glyph.dataset.lucide=icon;button.append(glyph,document.createTextNode(label));
@@ -63,6 +74,10 @@ const cy=window.cytoscape({container:$('graph'),minZoom:.08,maxZoom:2,elements:b
     {selector:'.context-block',style:{'width':220,'height':48,'padding':0,'label':'','opacity':0}},
   ]});
 cy.add(scenario.nodes.map(node=>({data:{id:`context-${node.id}`,subject:node.id,label:''},classes:'context-block',style:{display:'none'}})));
+cy.on('cxttap','edge',event=>{
+  const edge=event.target,id=edge.source().data('subject');
+  if(event.originalEvent)openMenu(event.originalEvent,id,edge);
+});
 const axisNames=[...new Set(scenario.nodes.flatMap(node=>[node.title,node.title.replace(/\s*\(.*$/u,'')]))].filter(Boolean).sort((a,b)=>b.length-a.length);
 const namePattern=new RegExp(`(${axisNames.map(name=>name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')})`,'gu');
 function richText(element,value){

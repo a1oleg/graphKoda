@@ -29,10 +29,11 @@ test('visualizer command uses the API, reuses its Webview, and rejects foreign U
   assert.match(panel.webview.html, /<iframe/);
   assert.match(panel.webview.html, /host=vscode/);
   assert.match(panel.webview.html, /event.source !== frame.contentWindow/);
-  let copied;
-  sandbox.vscode.env = {clipboard:{writeText:async text => {copied = text;}}};
-  await receiveMessage({type:'annotationVisualizer',action:'copy',text:'node context'});
-  assert.equal(copied, 'node context');
+  let sent;
+  sandbox.addTextToCodexThread = async (text,stableId) => {sent={text,stableId};};
+  await receiveMessage({type:'annotationVisualizer',action:'addToChat',text:'node context',stableId:'source:1:2'});
+  assert.deepEqual(sent, {text:'node context',stableId:'source:1:2'});
+  assert.match(panel.webview.html, /\['addToChat', 'openSource'\]/);
   await receiveMessage({type:'annotationVisualizer',action:'openSource',file:'../secret',line:1});
   assert.match(panel.webview.html, /frame-src http:\/\/127.0.0.1:8791/);
   await sandbox.openAnnotationVisualizer(context, 'workspace', 'source:1:2');

@@ -2,7 +2,7 @@
   "name": "coldkode-graph-explorer",
   "displayName": "coldKode Graph Explorer",
   "description": "VS Code graph explorer for function diagrams.",
-  "version": "0.0.413",
+  "version": "0.0.414",
   "publisher": "local",
   "private": true,
   "engines": {

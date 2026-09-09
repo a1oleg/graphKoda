@@ -203,8 +203,8 @@ async function openAnnotationVisualizer(context, workspaceRoot, stableId) {
     annotationVisualizerPanel.webview.onDidReceiveMessage(async (message) => {
       if (message?.type !== 'annotationVisualizer') return;
       try {
-        if (message.action === 'copy' && typeof message.text === 'string') {
-          await vscode.env.clipboard.writeText(message.text);
+        if (message.action === 'addToChat' && typeof message.text === 'string') {
+          await addTextToCodexThread(message.text, typeof message.stableId === 'string' ? message.stableId : '', null, { includeStableIdHeader: false });
         } else if (message.action === 'openSource' && typeof message.file === 'string') {
           const sourceRoot = resolveSourceRoot(workspaceRoot);
           const target = path.resolve(sourceRoot, message.file);
@@ -228,7 +228,7 @@ async function openAnnotationVisualizer(context, workspaceRoot, stableId) {
       const vscode = acquireVsCodeApi(), frame = document.querySelector('iframe');
       window.addEventListener('message', event => {
         if (event.source !== frame.contentWindow || event.origin !== new URL(frame.src).origin) return;
-        if (event.data?.type === 'annotationVisualizer' && ['copy', 'openSource'].includes(event.data.action)) vscode.postMessage(event.data);
+        if (event.data?.type === 'annotationVisualizer' && ['addToChat', 'openSource'].includes(event.data.action)) vscode.postMessage(event.data);
       });
     </script></body></html>`;
   annotationVisualizerPanel.reveal(vscode.ViewColumn.Active);
