@@ -1,12 +1,18 @@
 {
   "manifest_version": 3,
   "name": "Bloom Demo Next",
-  "version": "1.0.1",
+  "version": "1.0.4",
   "description": "Три этапа демонстрации speculationAccept в Neo4j Bloom одной кнопкой Next.",
-  "content_scripts": [{
-    "matches": ["https://console.neo4j.io/projects/*"],
-    "js": ["content.js"],
-    "run_at": "document_idle",
-    "world": "ISOLATED"
-  }]
+  "content_scripts": [
+    {
+      "matches": [
+        "https://console.neo4j.io/projects/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "world": "ISOLATED"
+    }
+  ]
 }

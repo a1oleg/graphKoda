@@ -1,5 +1,43 @@
 # speculationAccept Bloom demo
 
+## Current extractor-header projection (2026-09-09)
+
+`install.py` now installs [steps-projection.json](steps-projection.json), generated
+by [install_steps.py](install_steps.py) from scoped extractor results for both
+onSubmit functions. The historical 16-node example below and `bake.cypher` are
+superseded by this projection.
+
+- REPL.onSubmit: function entry + all 113 extractor Step headers = 114 nodes.
+- PromptInput.onSubmit: function entry + all 43 Step headers + the one object
+  origin anchor = 45 nodes. No horizontal expression/argument expansion.
+- NEXT denotes presentation/source order, including branch headers; it is not
+  a claim that mutually exclusive branches execute sequentially.
+- The parameter and origin anchor share y=-540. Each lane has constant x;
+  neighbouring headers are 180 coordinate units apart. The second lane is
+  translated vertically to align the origin. Extractor stable IDs and provenance
+  are stored on presentation nodes; the direct origin shortcut remains authored.
+- Bloom colors from `dev/localCoordinateDrawio.mjs`: calls/default `#DAE8FC`,
+  variables/parameters/object `#FFE6CC`, using `visualKind = value` as a color
+  rule on ColdKodeDemoNode. Styling is saved to Default Perspective.
+- Live scene zoom: 80%. X-layout scale: 501; Y-layout scale: 20000 so headers
+  do not overlap. Long axes are navigated by panning, not by fitting all nodes.
+- Next 1.0.4 expects totals **227 → 316 → 317** (nodes plus relationships).
+  Automatic Fit is disabled by default.
+
+Regenerate using the current extractor, then install atomically:
+
+```powershell
+node --import tsx graph/static-extract/ts/fromASTtoPreGraphFlow.ts --fn-stable-id screens/REPL.tsx:3142:31:3533:3 --output-path C:/GitHub/coldKode-data/bloom-repl-steps.json
+node --import tsx graph/static-extract/ts/fromASTtoPreGraphFlow.ts --fn-stable-id components/PromptInput/PromptInput.tsx:984:31:1105:3 --output-path C:/GitHub/coldKode-data/bloom-prompt-steps.json
+.venv/Scripts/python.exe graph/demos/speculation-accept/install_steps.py C:/GitHub/coldKode-data/bloom-repl-steps.json C:/GitHub/coldKode-data/bloom-prompt-steps.json --install
+```
+
+For reinstallation of the committed projection use `install.py`. A snapshot of
+the previous demo properties is kept in `before-steps.json`. The installer only
+replaces this demo's presentation data; it does not import or change other facts.
+
+## Historical abbreviated demonstration
+
 An authored source-based demonstration, not extractor output or a runtime trace.
 Only the successful active-speculation acceptance path is shown. The optional
 fourth REPL parameter (`options`) and other branches are intentionally omitted.
