@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bloom Demo Next",
-  "version": "1.0.4",
+  "version": "1.0.11",
   "description": "Три этапа демонстрации speculationAccept в Neo4j Bloom одной кнопкой Next.",
   "content_scripts": [
     {

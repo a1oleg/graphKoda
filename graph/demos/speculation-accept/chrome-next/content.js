@@ -2,18 +2,18 @@
 (() => {
   'use strict';
   const STEPS = Object.freeze([
-    { query: 'DemoStage1 NEXT DemoStage1', title: 'Первая функция', total: 227, summary: '114 узлов · 113 связей' },
-    { query: 'DemoStage2 NEXT DemoStage2', title: 'Вторая функция', total: 316, summary: '159 узлов · 157 связей' },
-    { query: 'DemoStage1 VALUE_FROM DemoStage2', title: 'Связь с созданием объекта', total: 317, summary: '159 узлов · 158 связей' }
+    { query: 'DemoStage1 NEXT DemoStage1', title: 'Первая функция' },
+    { query: 'DemoStage2 NEXT DemoStage2', title: 'Вторая функция' },
+    { query: 'DemoStage1 VALUE_FROM DemoStage2', title: 'Связь с созданием объекта' }
   ]);
 
   function createBloomNext(win, overrides = {}) {
     const doc = win.document;
-    const timing = { poll: 120, debounce: 700, settle: 450, initial: 1500, ready: 12000, result: 130000, ...overrides };
+    const timing = { poll: 120, debounce: 700, settle: 450, ready: 12000, result: 130000, ...overrides };
     const hostId = 'coldkode-bloom-next';
     if (doc.getElementById(hostId)) return null;
     let busy = false, error = '', disposed = false, active = null, previousIdentity = '';
-    let confirmed = null, candidate = '', candidateSince = 0, resetting = false;
+    let confirmed = null, emptySince = null;
     const host = doc.createElement('div');
     host.id = hostId;
     const shadow = host.attachShadow({ mode: 'open' });
@@ -36,27 +36,20 @@
           border-radius: 9px; background: #69e5bd; color: #102b23; font: 700 16px system-ui; cursor: pointer; }
         #next:hover:enabled { background: #97f3d3; }
         #next:disabled { background: #314d46; color: #93b0a6; cursor: default; }
-        #restart { background: transparent; color: #b6c7cc; border: 1px solid #38535c;
-          border-radius: 7px; margin-top: 10px; padding: 6px 12px; cursor: pointer; font: inherit; }
-        #restart:disabled { opacity: .45; cursor: default; }
-        button:focus-visible, input:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-        label { display: flex; gap: 7px; align-items: center; color: #c2d0d5; font-size: 12px; }
-        input { accent-color: #69e5bd; }
+        button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
         details { margin-top: 10px; color: #9bb3bc; font-size: 11px; }
         code { display: block; margin-top: 6px; white-space: normal; }
         @media (max-width: 700px) { :host { left: 16px; bottom: 84px; width: 260px; } }
       </style>
       <section aria-label="Bloom Demo Next">
-        <header><strong title="Bloom Demo Next 1.0.4">BLOOM · DEMO · 1.0.4</strong><span id="step"></span></header>
+        <header><strong title="Bloom Demo Next 1.0.11">BLOOM · DEMO · 1.0.11</strong><span id="step"></span></header>
         <div id="title"></div>
         <div id="status" role="status" aria-live="polite"></div>
-        <button id="next" type="button">Next →</button>
-        <button id="restart" type="button" title="Очистить текущую сцену Bloom и начать с этапа 0">Сначала</button>
-        <label><input id="fit" type="checkbox">Показать весь граф после шага</label>
+        <button id="next" type="button">next</button>
         <details><summary>Что будет выполнено</summary><code id="query"></code></details>
       </section>`;
     (doc.body || doc.documentElement).append(host);
-    const ui = Object.fromEntries(['step', 'title', 'status', 'next', 'restart', 'fit', 'query'].map(id => [id, shadow.getElementById(id)]));
+    const ui = Object.fromEntries(['step', 'title', 'status', 'next', 'query'].map(id => [id, shadow.getElementById(id)]));
     const input = () => doc.querySelector('input[data-testid="search-input"], input[aria-label="search input"]');
     const button = label => doc.querySelector(`button[aria-label="${label}"]`);
     const available = el => !!el && !el.disabled && el.getAttribute('aria-disabled') !== 'true' &&
@@ -89,22 +82,6 @@
       }
       return null;
     }
-    function observe() {
-      const count = total();
-      if (!isBloom() || !input() || count === null) return { stage: null, count };
-      if (count === 0) return { stage: 0, count };
-      const query = tokens();
-      // Aura restores graph contents without restoring the search chips.
-      // Only named demo scenes may use this fallback; an unrelated populated
-      // scene must never be mistaken for an empty starting point.
-      const sceneName = doc.querySelector('main h2[title]')?.textContent.trim() || '';
-      const savedDemo = /^DemoStage[123](?:$|[\s(])/.test(sceneName) &&
-        !button('Clear input') && input().value.trim() === '';
-      const known = savedDemo || STEPS.some(step => step.query === query) || query === 'DemoStage1' || query === 'DemoStage2';
-      if (!known) return { stage: null, count };
-      if (count === 4 && (query === 'DemoStage1' || savedDemo)) return { stage: 0, count };
-      return { stage: ({ 227: 1, 316: 2, 317: 3 })[count] ?? null, count };
-    }
     const loading = () => !!button('Cancel Query') || !!doc.querySelector('[role="status"][aria-label="Loading content"]');
     function state() {
       const currentIdentity = identity();
@@ -112,39 +89,43 @@
         error = '';
         previousIdentity = currentIdentity;
         confirmed = null;
-        candidate = '';
+        emptySince = null;
       }
-      const observed = observe();
-      if (!confirmed && !busy) {
-        const key = `${observed.stage}|${observed.count}`;
-        if (loading() || observed.stage === null) candidate = '';
-        else {
-          if (candidate !== key) { candidate = key; candidateSince = Date.now(); }
-          if (Date.now() - candidateSince >= timing.initial) confirmed = observed;
-        }
-      }
-      // Once recognized, a stage advances ONLY on a successful Next click.
-      // Scene restoration, manual searches and transient zero counters cannot
-      // silently replace the user's current step.
-      return { stage: confirmed?.stage ?? null, count: observed.count,
-        changed: !!confirmed && observed.count !== confirmed.count,
+      const count = total();
+      // A confirmed empty scene establishes a playback cursor.
+      // Restored contents, search chips and scene names never resume a demo.
+      return { stage: confirmed?.stage ?? null, count,
+        changed: !!confirmed && count !== confirmed.count,
         expectedCount: confirmed?.count ?? null };
     }
+
     function text(el, value) { if (el.textContent !== value) el.textContent = value; }
     function paint() {
       if (disposed) return;
       host.hidden = !isBloom() || !input();
-      const { stage, count, changed } = state();
+      let snapshot = state();
+      if (isBloom() && available(input()) && snapshot.count === 0 && !loading() &&
+          (!busy || active?.previousCount > 0)) {
+        emptySince ??= Date.now();
+        if (Date.now() - emptySince >= timing.settle && (snapshot.stage !== 0 || snapshot.changed)) {
+          active = null;
+          confirmed = { stage: 0, count: 0 };
+          error = '';
+          snapshot = state();
+        }
+      } else emptySince = null;
+      const { stage, count, changed } = snapshot;
       const next = STEPS[stage];
       const finished = stage === 3;
       text(ui.step, stage === null ? '— / 3' : `${stage} / 3`);
-      text(ui.title, busy ? (resetting ? 'Начинаем заново…' : 'Выполняется поиск…') : changed ? 'Содержимое сцены изменилось' : finished ? 'Все три этапа показаны' : stage === 0 ? 'Начало демонстрации' : next?.title || 'Определяю этап сцены…');
-      text(ui.status, error || (busy ? 'Дождитесь результата Bloom.' : changed ? 'Этап не переключён. Нажмите «Сначала», чтобы очистить сцену и начать с 0.' : finished ? 'Нажмите «Сначала» для нового показа с пустой сцены.' : stage === null ? 'Дождитесь загрузки демо или нажмите «Сначала», чтобы очистить текущую сцену.' : stage === 0 ? (count === 0 ? 'Пустая сцена · этап 0. Next покажет первую функцию.' : 'Узлы первого этапа уже есть. Next добавит их связи NEXT.') : `${STEPS[stage - 1].summary}. Next добавит следующий этап.`));
+      text(ui.title, stage === null ? 'Сцена сохранена' : busy ? 'Выполняется поиск…' : changed ? 'Содержимое сцены изменилось' : finished ? 'Все три этапа показаны' : stage === 0 ? 'Начало демонстрации' : next?.title || 'Подготовка…');
+      text(ui.status, error || (busy ? 'Дождитесь результата Bloom.' : changed || finished || stage === null ? 'Для показа с нуля выберите Clear Scene в Bloom. Расширение само сцену не очищает.' : stage === 0 ? 'Пустая сцена · этап 0. Next покажет первую функцию.' : `${count} элементов в сцене. Next добавит следующий этап.`));
       ui.status.classList.toggle('error', !!error);
       text(ui.query, next?.query || 'Демонстрация: DemoStage1 → DemoStage2 → VALUE_FROM');
-      text(ui.next, busy ? 'Выполняется…' : finished ? 'Готово ✓' : error ? 'Повторить Next →' : 'Next →');
-      ui.next.disabled = busy || finished || stage === null || changed || loading() || !available(input());
-      ui.restart.disabled = busy || loading() || !available(input()) || count === null;
+      text(ui.next, 'next');
+      const ready = isBloom() && available(input()) && count !== null && !loading();
+      ui.next.disabled = busy || !ready || finished || stage === null || changed;
+
     }
     const sleep = ms => new Promise(resolve => win.setTimeout(resolve, ms));
     function assertContext(context) {
@@ -171,10 +152,11 @@
     async function next() {
       if (busy || ui.next.disabled) return;
       const before = state();
+      if (before.stage === null) return;
       if (before.changed || loading()) { paint(); return; }
       const step = STEPS[before.stage];
       if (!step) return;
-      const context = { identity: identity() };
+      const context = { identity: identity(), previousCount: before.count };
       active = context;
       busy = true;
       error = '';
@@ -195,62 +177,39 @@
           'Bloom не подготовил поиск. Проверьте строку поиска и повторите Next.');
         assertContext(context);
         if (total() !== before.count) throw new Error('Содержимое сцены изменилось до запуска поиска. Повторите Next.');
+        const notices = () => Array.from(doc.querySelectorAll('[role="alert"], [role="status"]'))
+          .map(el => el.textContent.trim()).filter(Boolean);
+        const previousNotices = new Set(notices());
         button('Run Query').click();
         let stableSince = null;
+        let lastCount = null;
         await waitFor(() => {
-          const correct = total() === step.total && tokens() === step.query && !loading();
+          const failure = notices().find(message => !previousNotices.has(message) &&
+            /error|failed|failure|no results|no matches|nothing found|ошиб|не найден/iu.test(message));
+          if (failure) throw new Error(failure);
+          const count = total();
+          const correct = !loading() && available(button('Run Query')) &&
+            tokens() === step.query && input()?.value === '' && count > 0;
+          if (count !== lastCount) { stableSince = null; lastCount = count; }
           if (!correct) { stableSince = null; return false; }
           stableSince ??= Date.now();
           return Date.now() - stableSince >= timing.settle;
         }, timing.result, context, 'Ожидаемый результат не появился. Проверьте ошибку поиска в Bloom. Этап не переключён.');
-        confirmed = { stage: before.stage + 1, count: step.total };
-        if (ui.fit.checked && available(button('Fit all nodes'))) button('Fit all nodes').click();
+        confirmed = { stage: before.stage + 1, count: total() };
       } catch (cause) {
-        error = cause.message || 'Не удалось выполнить поиск.';
+        if (active === context) error = cause.message || 'Не удалось выполнить поиск.';
       } finally {
         busy = false;
         active = null;
         paint();
       }
     }
-    async function restart() {
-      if (busy || ui.restart.disabled) return;
-      const context = { identity: identity() };
-      active = context;
-      busy = true;
-      resetting = true;
-      error = '';
-      paint();
-      try {
-        if (total() !== 0) {
-          const graph = doc.querySelector('[aria-label="Graph visualization"]');
-          if (!graph) throw new Error('Область графа недоступна. Закройте окна Bloom.');
-          const rect = graph.getBoundingClientRect();
-          graph.dispatchEvent(new win.MouseEvent('contextmenu', { bubbles: true, cancelable: true,
-            button: 2, buttons: 2, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 }));
-          const clearScene = () => Array.from(doc.querySelectorAll('[role="menuitem"]'))
-            .find(el => Array.from(el.querySelectorAll('*')).some(child => child.textContent.trim() === 'Clear Scene') ||
-              /^Clear Scene(?:$|\s|Ctrl|⌘)/.test(el.textContent.trim()));
-          await waitFor(() => available(clearScene()), timing.ready, context, 'Не удалось открыть Clear Scene. Очистите сцену через меню Bloom.');
-          clearScene().click();
-        }
-        let stableSince = null;
-        await waitFor(() => {
-          if (total() !== 0 || loading()) { stableSince = null; return false; }
-          stableSince ??= Date.now();
-          return Date.now() - stableSince >= timing.settle;
-        }, timing.ready, context, 'Bloom не подтвердил пустую сцену. Этап не сброшен.');
-        confirmed = { stage: 0, count: 0 };
-      } catch (cause) { error = cause.message || 'Не удалось очистить сцену.'; }
-      finally { busy = false; resetting = false; active = null; paint(); }
-    }
     ui.next.addEventListener('click', next);
-    ui.restart.addEventListener('click', restart);
     // Poll only the small visible UI contract. Also handles Aura SPA navigation,
     // scene switches, manually run queries, expanded card lists and reloads.
-    const timer = win.setInterval(paint, 400);
+    const timer = win.setInterval(paint, timing.poll);
     paint();
-    return { state, next, restart, destroy() { disposed = true; active = null; win.clearInterval(timer); host.remove(); } };
+    return { state, next, destroy() { disposed = true; active = null; win.clearInterval(timer); host.remove(); } };
   }
 
   if (typeof module !== 'undefined' && module.exports) module.exports = { createBloomNext, STEPS };

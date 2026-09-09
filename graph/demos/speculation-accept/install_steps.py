@@ -14,6 +14,29 @@ FUNCTIONS = [('primary', 'REPL.onSubmit', 'screens/REPL.tsx:3142:31:3533:3'),
              ('secondary', 'PromptInput.onSubmit', 'components/PromptInput/PromptInput.tsx:984:31:1105:3')]
 
 
+def code_properties(node):
+    """A small, flat subset of the extractor contract, suitable for Bloom cards."""
+    fields = ('annotationKind', 'data_flow_role', 'flow_layer', 'argument_name',
+              'argument_index', 'callee_name', 'invocation_mode', 'response_mode',
+              'repo_relative_path', 'start_line', 'start_column', 'end_line', 'end_column')
+    props = {k: node['props'][k] for k in fields if k in node.get('props', {})}
+    content = node.get('actionTextRaw') or node.get('callTextRaw') or node.get('conditionRaw')
+    if not content:
+        lines = Path(node['filePath']).read_text(encoding='utf-8').splitlines(keepends=True)
+        start, end = node['startLine'] - 1, node['endLine'] - 1
+        # Extractor columns are zero-based TypeScript UTF-16 offsets.
+        def part(line, a=0, b=None):
+            return line.encode('utf-16-le')[a*2:None if b is None else b*2].decode('utf-16-le')
+        content = (part(lines[start], node['startColumn'], node['endColumn']) if start == end else
+                   part(lines[start], node['startColumn']) + ''.join(lines[start+1:end]) +
+                   part(lines[end], 0, node['endColumn']))
+    # Keep readable code excerpts, not a complete enclosing function body.
+    excerpt = '\n'.join(content.splitlines()[:24])[:3000]
+    props.update(content=excerpt, contentTruncated=excerpt != content.replace('\r\n', '\n'),
+                 labels=node.get('labels', []))
+    return props
+
+
 def project(payloads):
     lanes = []
     for stage, (payload, (key, title, owner)) in enumerate(zip(payloads, FUNCTIONS), 1):
@@ -23,7 +46,7 @@ def project(payloads):
                        key=lambda n: (n['startLine'], n['startColumn'], n['flowStepOrder'], n['stableId']))
         assert steps, owner
         fn = next(n for n in payload['functions'] if n['stableId'] == owner)
-        lane = [dict(key=key, name=title, sourceStableId=owner, visualKind='call',
+        lane = [dict(**code_properties(fn), key=key, name=title, sourceStableId=owner, visualKind='call',
                      line=fn['startLine'], nodeKind='function')]
         for step in steps:
             head = index[step['syntaxEntryStableId']]
@@ -40,10 +63,10 @@ def project(payloads):
                 objects = [n for n in payload['nodes'] if n.get('parentStepStableId') == step['stableId']
                            and n.get('startLine') == 1025 and {'ObjectBrace', 'Open'} <= set(n.get('labels', []))]
                 assert len(objects) == 1
-                lane.append(dict(key='object', name='{ state, speculationSessionTimeSavedMs, setAppState }',
+                lane.append(dict(**code_properties(objects[0]), key='object', name='{ state, speculationSessionTimeSavedMs, setAppState }',
                                  sourceStableId=objects[0]['stableId'], sourceStepStableId=step['stableId'],
                                  visualKind='value', nodeKind='origin', line=1025))
-            lane.append(dict(key=step_key, name=heading, sourceStableId=head['stableId'],
+            lane.append(dict(**code_properties(head), key=step_key, name=heading, sourceStableId=head['stableId'],
                              sourceStepStableId=step['stableId'], flowStepKind=step['flowStepKind'],
                              visualKind='value' if value else 'call', nodeKind='step', line=step['startLine']))
         for ordinal, node in enumerate(lane):
@@ -73,34 +96,34 @@ def install(data):
     assert all(p['source_revision'] == revision for p in data['provenance']), 'Re-extract changed source revision'
     with GraphDatabase.driver(settings['NEO4J_URI'], auth=(settings['NEO4J_USERNAME'], settings['NEO4J_PASSWORD'])) as driver:
         with driver.session(database=settings['NEO4J_DATABASE']) as session, session.begin_transaction() as tx:
-            backup = tx.run('MATCH (n:ColdKodeDemoNode {demoId:$demo}) RETURN properties(n) AS properties, labels(n) AS labels', demo=DEMO).data()
-            if not (HERE / 'before-steps.json').exists():
-                (HERE / 'before-steps.json').write_text(json.dumps(backup, ensure_ascii=False, indent=2), encoding='utf-8')
+            backup = tx.run('MATCH (n {demoId:$demo}) RETURN properties(n) AS properties, labels(n) AS labels', demo=DEMO).data()
+            if not (HERE / 'before-compact-properties.json').exists():
+                (HERE / 'before-compact-properties.json').write_text(json.dumps(backup, ensure_ascii=False, indent=2), encoding='utf-8')
             # Replace only this demo's presentation chain; extractor facts are never modified.
-            tx.run('MATCH (a:ColdKodeDemoNode {demoId:$demo})-[r]->(b:ColdKodeDemoNode {demoId:$demo}) DELETE r', demo=DEMO).consume()
-            tx.run('MATCH (n:ColdKodeDemoNode {demoId:$demo}) WHERE NOT n.key IN $keys DETACH DELETE n', demo=DEMO, keys=[n['key'] for n in data['nodes']]).consume()
-            tx.run('''UNWIND $nodes AS item MERGE (n:ColdKodeDemoNode {demoId:$demo, key:item.key})
-                SET n += item REMOVE n:DemoStage1:DemoStage2:DemoFunction:DemoParameter:DemoStep:DemoObject
+            tx.run('MATCH (a {demoId:$demo})-[r]->(b {demoId:$demo}) DELETE r', demo=DEMO).consume()
+            tx.run('MATCH (n {demoId:$demo}) WHERE NOT n.key IN $keys DETACH DELETE n', demo=DEMO, keys=[n['key'] for n in data['nodes']]).consume()
+            old_labels = sorted({label for row in backup for label in row['labels']})
+            for label in old_labels:
+                escaped = label.replace('`', '``')
+                tx.run(f'MATCH (n {{demoId:$demo}}) REMOVE n:`{escaped}`', demo=DEMO).consume()
+            tx.run('''UNWIND $nodes AS item MERGE (n {demoId:$demo, key:item.key})
+                SET n = item, n.demoId=$demo
                 FOREACH (_ IN CASE WHEN item.stage=1 THEN [1] ELSE [] END | SET n:DemoStage1)
                 FOREACH (_ IN CASE WHEN item.stage=2 THEN [1] ELSE [] END | SET n:DemoStage2)
-                FOREACH (_ IN CASE WHEN item.nodeKind='function' THEN [1] ELSE [] END | SET n:DemoFunction)
-                FOREACH (_ IN CASE WHEN item.nodeKind='step' THEN [1] ELSE [] END | SET n:DemoStep)
-                FOREACH (_ IN CASE WHEN item.nodeKind='origin' THEN [1] ELSE [] END | SET n:DemoObject)
-                FOREACH (_ IN CASE WHEN item.key IN ['input','helpers','specAcc'] THEN [1] ELSE [] END | SET n:DemoParameter)
             ''', nodes=data['nodes'], demo=DEMO).consume()
-            tx.run('''UNWIND $edges AS e MATCH (a:ColdKodeDemoNode {demoId:$demo,key:e.a}), (b:ColdKodeDemoNode {demoId:$demo,key:e.b})
+            tx.run('''UNWIND $edges AS e MATCH (a {demoId:$demo,key:e.a}), (b {demoId:$demo,key:e.b})
                 MERGE (a)-[r:NEXT]->(b) SET r.stage=e.stage, r.authored=true, r.meaning='Extractor header source order; not a runtime trace'
             ''', demo=DEMO, edges=data['edges']).consume()
-            tx.run('''MATCH (a:ColdKodeDemoNode {demoId:$demo,key:'specAcc'}), (b:ColdKodeDemoNode {demoId:$demo,key:'object'})
+            tx.run('''MATCH (a {demoId:$demo,key:'specAcc'}), (b {demoId:$demo,key:'object'})
                 MERGE (a)-[r:VALUE_FROM]->(b) SET r.stage=3, r.authored=true, r.derived=true,
                 r.meaning='Argument object construction at PromptInput.tsx:1025', r.argumentIndex=2
             ''', demo=DEMO).consume()
-            rows=tx.run('MATCH (n:ColdKodeDemoNode {demoId:$demo}) RETURN n.key AS key,n.x AS x,n.y AS y',demo=DEMO).data()
+            rows=tx.run('MATCH (n {demoId:$demo}) RETURN n.key AS key,n.x AS x,n.y AS y',demo=DEMO).data()
             assert len(rows)==len(data['nodes'])
             assert len({(n['x'],n['y']) for n in rows})==len(rows)
             bykey={n['key']:n for n in rows}
             assert bykey['specAcc']['y']==bykey['object']['y']
-            count=tx.run('MATCH (:ColdKodeDemoNode {demoId:$demo})-[r]->(:ColdKodeDemoNode {demoId:$demo}) RETURN count(r) AS n',demo=DEMO).single()['n']
+            count=tx.run('MATCH ( {demoId:$demo})-[r]->( {demoId:$demo}) RETURN count(r) AS n',demo=DEMO).single()['n']
             assert count==len(data['edges'])+1
             tx.commit()
     print(json.dumps(dict(nodes=len(data['nodes']), next=len(data['edges']), totals=data['counts'], alignedY=bykey['specAcc']['y'])))

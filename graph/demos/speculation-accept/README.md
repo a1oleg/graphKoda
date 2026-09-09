@@ -16,13 +16,15 @@ superseded by this projection.
   neighbouring headers are 180 coordinate units apart. The second lane is
   translated vertically to align the origin. Extractor stable IDs and provenance
   are stored on presentation nodes; the direct origin shortcut remains authored.
-- Bloom colors from `dev/localCoordinateDrawio.mjs`: calls/default `#DAE8FC`,
-  variables/parameters/object `#FFE6CC`, using `visualKind = value` as a color
-  rule on ColdKodeDemoNode. Styling is saved to Default Perspective.
-- Live scene zoom: 80%. X-layout scale: 501; Y-layout scale: 20000 so headers
-  do not overlap. Long axes are navigated by panning, not by fitting all nodes.
-- Next 1.0.4 expects totals **227 → 316 → 317** (nodes plus relationships).
-  Automatic Fit is disabled by default.
+- Bloom colors use the draw.io stroke palette: calls/default `#007FFF`,
+  variables/parameters/object `#BE7000`, with `visualKind = value` rules on
+  DemoStage1 and DemoStage2. Styling is saved to Default Perspective.
+- Only DemoStage1 / DemoStage2 remain as Neo4j labels. Extractor roles are
+  stored in the `labels` property, alongside compact code in `content`.
+  See [compact-properties.md](compact-properties.md) for the retained fields.
+- X-layout scale: 501; Y-layout scale: 20000. The extension does not control zoom.
+- Next 1.0.11 leaves restored scenes untouched. Clearing the scene in Bloom
+  resets the demo cursor to 0. No fixed result counts are required.
 
 Regenerate using the current extractor, then install atomically:
 
