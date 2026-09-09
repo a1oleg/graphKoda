@@ -22,7 +22,10 @@ superseded by this projection.
 - Only DemoStage1 / DemoStage2 remain as Neo4j labels. Extractor roles are
   stored in the `labels` property, alongside compact code in `content`.
   See [compact-properties.md](compact-properties.md) for the retained fields.
-- X-layout scale: 501; Y-layout scale: 9991 (halved from 19991 using Bloom's
+- Function entries (`nodeKind = function`) are green `#2EAD59` and use Bloom
+  size 1.5x. Size is interpolated by ordinal: -1 maps to 2x, +1 maps to 1x;
+  function ordinal 0 receives 1.5x, later headers retain 1x.
+- X-layout scale: 251 (halved from 501); Y-layout scale: 9991 (halved from 19991 using Bloom's
   slider step of 10). Stored coordinates stay unchanged; the vertical display
   spacing is halved. The extension does not control zoom.
 - Next 1.0.11 leaves restored scenes untouched. Clearing the scene in Bloom
