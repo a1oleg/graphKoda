@@ -14,6 +14,11 @@ function fixture(t, { total = 0, query = '', fail = false, clearDelay = 0, compl
     <div role="img" aria-label="Graph visualization"></div><button data-testid="card-panel-expand"></button><button aria-label="Fit all nodes">Fit</button>
   </main>`, { url: 'https://console.neo4j.io/projects/test/studio/bloom', pretendToBeVisual: true });
   const win = dom.window, doc = win.document;
+  let listener;
+  win.chrome = { runtime: { id: 'demo-extension', onMessage: {
+    addListener(fn) { listener = fn; }, removeListener(fn) { if (listener === fn) listener = null; }
+  } } };
+  const message = type => new Promise(resolve => listener({type}, {id:'demo-extension'}, resolve));
   const queries = [], uiEvents = [];
   let fits = 0;
   const counter = doc.querySelector('[data-testid="card-panel-expand"]');
@@ -78,13 +83,13 @@ function fixture(t, { total = 0, query = '', fail = false, clearDelay = 0, compl
   });
   const controller = createBloomNext(win, { initial, poll: 3, debounce: 10, settle: 5, ready: 100, result: 160 });
   t.after(() => { controller.destroy(); win.close(); });
-  const shadow = doc.getElementById('coldkode-bloom-next').shadowRoot;
-  return { win, doc, controller, queries, uiEvents, setTotal, shadow, fits: () => fits };
+
+  return { win, doc, controller, queries, uiEvents, setTotal, message, fits: () => fits };
 }
 
 async function idle(f) {
   for (let i=0;i<150;i++) {
-    if (!f.shadow.getElementById('next').disabled && f.controller.state().stage === 0) return;
+    if (!f.controller.view().disabled && f.controller.state().stage === 0) return;
     await pause(3);
   }
   assert.fail('automatic scene preparation did not finish');
@@ -94,8 +99,8 @@ test('startup preserves saved scene, search and the single next button', async t
   const f=fixture(t,{total:317,query:STEPS[2].query});await pause(40);
   assert.equal(f.controller.state().count,317);
   assert.equal(f.controller.state().stage,null);
-  assert.equal(f.shadow.querySelectorAll('button').length,1);
-  assert.equal(f.shadow.querySelector('button').textContent,'next');
+  assert.equal(f.doc.getElementById('coldkode-bloom-next'),null);
+
   assert.equal(f.doc.getElementById('chips').textContent,STEPS[2].query);
   assert.deepEqual(f.uiEvents,[]);
 });
@@ -109,7 +114,7 @@ test('native Bloom clear resets the cursor and three clicks reveal the stages', 
   const f=fixture(t,{total:317,query:STEPS[2].query});clearInBloom(f);await idle(f);
   for(let i=0;i<3;i++) {await f.controller.next();assert.equal(f.controller.state().stage,i+1);}
   assert.deepEqual(f.queries,STEPS.map(s=>s.query));
-  assert.equal(f.shadow.getElementById('next').disabled,true);
+  assert.equal(f.controller.view().disabled,true);
   clearInBloom(f);await idle(f);await f.controller.next();
   assert.equal(f.controller.state().stage,1);
   assert.equal(f.queries[3],STEPS[0].query);
@@ -125,7 +130,7 @@ test('reinjection never clears a saved scene', async t => {
 test('late restored contents are preserved and cannot jump to stage three', async t => {
   const f=fixture(t);await idle(f);f.setTotal(317);await pause(40);
   assert.equal(f.controller.state().count,317);assert.equal(f.controller.state().stage,0);
-  assert.equal(f.shadow.getElementById('next').disabled,true);
+  assert.equal(f.controller.view().disabled,true);
   assert.deepEqual(f.uiEvents,[]);
 });
 
@@ -145,8 +150,8 @@ test('double click submits only one search', async t => {
 test('failed search leaves the current stage and permits retry', async t => {
   const f=fixture(t,{fail:true});await idle(f);await f.controller.next();
   assert.equal(f.controller.state().stage,0);
-  assert.match(f.shadow.getElementById('status').textContent,/Search failed/);
-  assert.equal(f.shadow.getElementById('next').disabled,false);
+  assert.match(f.controller.view().status,/Search failed/);
+  assert.equal(f.controller.view().disabled,false);
 });
 
 test('arbitrary graph size and instant repeated results complete', async t => {
@@ -158,13 +163,27 @@ test('arbitrary graph size and instant repeated results complete', async t => {
 test('empty search result does not advance', async t => {
   const f=fixture(t,{resultTotal:0});await idle(f);await f.controller.next();
   assert.equal(f.controller.state().stage,0);
-  assert.equal(f.shadow.getElementById('next').disabled,false);
+  assert.equal(f.controller.view().disabled,false);
 });
 
 test('Bloom zoom remains untouched after Next', async t => {
   const f=fixture(t,{autoZoom:true});await idle(f);await f.controller.next();
   assert.equal(f.doc.querySelector('[aria-label="Reset zoom level"]').textContent,'1%');
   assert.equal(f.fits(),0);
+});
+
+test('toolbar command returns immediately and search survives popup closing', async t => {
+  const f=fixture(t,{completeDelay:25});await idle(f);
+  const start=await f.message('bloom-next');
+  assert.equal(start.disabled,true);
+  assert.equal(start.stage,0);
+  await f.message('bloom-next');
+  await pause(90);
+  const reopened=await f.message('bloom-state');
+  assert.equal(reopened.stage,1);
+  assert.equal(reopened.disabled,false);
+  assert.equal(f.queries.length,1);
+  assert.equal(f.doc.getElementById('coldkode-bloom-next'),null);
 });
 
 test('a scene change during search prevents submission', async t => {

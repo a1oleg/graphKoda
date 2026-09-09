@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'dist', 'bloom-demo-next');
-const files = ['manifest.json', 'content.js', 'README.md'];
+const files = ['manifest.json', 'content.js', 'README.md', 'popup.html', 'popup.css', 'popup.js', 'icon16.png', 'icon32.png'];
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
 if (manifest.manifest_version !== 3 || manifest.content_scripts[0].js.some(file => !files.includes(file))) {
   throw new Error('Invalid extension manifest');

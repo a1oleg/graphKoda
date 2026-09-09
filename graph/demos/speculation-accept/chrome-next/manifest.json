@@ -1,7 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Bloom Demo Next",
-  "version": "1.0.11",
+  "version": "1.0.12",
+  "action": {
+    "default_title": "Bloom Demo Next",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icon16.png", "32": "icon32.png" }
+  },
   "description": "Три этапа демонстрации speculationAccept в Neo4j Bloom одной кнопкой Next.",
   "content_scripts": [
     {

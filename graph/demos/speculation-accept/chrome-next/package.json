@@ -1,6 +1,6 @@
 {
   "name": "bloom-demo-next",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "private": true,
   "scripts": {
     "test": "node --test --test-timeout=10000 test/*.test.cjs",

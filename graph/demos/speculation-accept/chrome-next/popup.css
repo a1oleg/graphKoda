@@ -1,0 +1,11 @@
+:root { color-scheme: dark; font: 14px/1.45 system-ui, sans-serif; }
+body { width: 280px; margin: 0; padding: 16px; color: #e9edf0; background: #172125; }
+header { display: flex; justify-content: space-between; margin-bottom: 12px; }
+#step { color: #69e5bd; }
+#title { font-size: 17px; font-weight: 600; }
+#status { color: #b6c7cc; min-height: 40px; font-size: 12px; }
+#status.error { color: #ffb7a9; }
+button { width: 100%; padding: 10px; border: 0; border-radius: 9px;
+  background: #69e5bd; color: #102b23; font: 700 16px system-ui; cursor: pointer; }
+button:disabled { background: #314d46; color: #93b0a6; cursor: default; }
+button:focus-visible { outline: 2px solid white; outline-offset: 3px; }
