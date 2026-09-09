@@ -1,5 +1,6 @@
-"""Install and transactionally verify the authored Aura Browser demo."""
+"""Atomically install and verify the authored Bloom demo without APOC."""
 
+import json
 from pathlib import Path
 import subprocess
 
@@ -7,48 +8,87 @@ from dotenv import dotenv_values
 from neo4j import GraphDatabase
 
 
+def verify(tx, directory):
+    for filename, expected in [
+        ('bloom-stage-1.cypher', (4, 3)),
+        ('bloom-stage-2.cypher', (16, 14)),
+        ('run.cypher', (16, 15)),
+        ('reset.cypher', (4, 3)),
+    ]:
+        rows = list(tx.run((directory / filename).read_text(encoding='utf-8')))
+        nodes = {n.element_id for row in rows for n in (row['n'], row['m']) if n is not None}
+        edges = {row['r'].element_id for row in rows if row['r'] is not None}
+        assert (len(nodes), len(edges)) == expected, (filename, len(nodes), len(edges))
+        print(f'{filename}: {len(nodes)} nodes, {len(edges)} relationships; passed')
+    rows = list(tx.run("MATCH (n:ColdKodeDemoNode {demoId: 'speculation-accept'}) RETURN n"))
+    assert len(rows) == 16
+    assert len({(row['n']['x'], row['n']['y']) for row in rows}) == 16
+    for row in rows:
+        n = row['n']
+        assert n['x'] == (n['stage'] - 1) * 1000
+        assert n['y'] == n['ordinal'] * -180
+        assert n['revealTag'] == ('01_primary' if n['stage'] == 1 else '02_secondary')
+        assert ('DemoStage1' in n.labels) == (n['stage'] == 1)
+        assert ('DemoStage2' in n.labels) == (n['stage'] == 2)
+    primary = list(tx.run('MATCH (n:DemoStage1) RETURN n.key AS key'))
+    assert {row['key'] for row in primary} == {'primary', 'input', 'helpers', 'specAcc'}
+    assert len(primary) == 4
+    assert tx.run('MATCH (n:DemoStage2) RETURN count(n) AS total').single()['total'] == 12
+    edges = list(tx.run(
+        "MATCH (a:ColdKodeDemoNode {demoId: 'speculation-accept'})-[r]->"
+        "(b:ColdKodeDemoNode {demoId: 'speculation-accept'}) RETURN a, r, b"
+    ))
+    assert len(edges) == 15
+    for row in edges:
+        a, r, b = row['a'], row['r'], row['b']
+        if r.type == 'NEXT':
+            assert a['x'] == b['x'] and b['ordinal'] == a['ordinal'] + 1
+            assert r['revealTag'] == a['revealTag']
+        else:
+            assert r.type == 'VALUE_FROM'
+            assert (a['key'], b['key'], r['revealTag']) == ('specAcc', 'object', '03_origin')
+            assert r['derived'] and r['authored']
+
+
 def main():
     directory = Path(__file__).resolve().parent
     root = directory.parents[2]
     settings = dotenv_values(root / 'graph' / '.env')
-    source = root.parent / 'claude-code-source'
+    roots = json.loads(subprocess.check_output(
+        ['node', '-p', 'JSON.stringify(require("./dev/projectPaths.cjs"))'],
+        cwd=root, text=True,
+    ))
     revision = subprocess.check_output(
-        ['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True
+        ['git', '-C', roots['sourceRoot'], 'rev-parse', 'HEAD'], text=True
     ).strip()
-    query = (directory / 'step.cypher').read_text(encoding='utf-8')
-    runner = (directory / 'run.cypher').read_text(encoding='utf-8')
-    reset = (directory / 'reset.cypher').read_text(encoding='utf-8')
+    if revision != 'af272b9e82955330836f9354229c0a8453c3a3da':
+        raise RuntimeError('Review authored demo locations for this source revision')
+    query = (directory / 'bake.cypher').read_text(encoding='utf-8')
     with GraphDatabase.driver(
         settings['NEO4J_URI'],
         auth=(settings['NEO4J_USERNAME'], settings['NEO4J_PASSWORD']),
     ) as driver:
         with driver.session(database=settings['NEO4J_DATABASE']) as session:
-            session.run(
-                "MERGE (d:ColdKodeDemo {id: 'speculation-accept'}) "
-                "ON CREATE SET d.clicks = 0 "
-                "SET d.query = $script, d.sourceRevision = $revision, "
-                "d.authored = true, d.name = 'speculationAccept demo'",
-                script=query, revision=revision,
-            ).consume()
-            # Exercise writes and reset without advancing the user's demo.
             with session.begin_transaction() as tx:
-                tx.run(reset).consume()
-                for click, expected in enumerate([(4, 3), (16, 14), (16, 15), (16, 15)], 1):
-                    rows = list(tx.run(runner))
-                    nodes = {n.element_id for row in rows for n in (row['n'], row['m']) if n is not None}
-                    relationships = {row['r'].element_id for row in rows if row['r'] is not None}
-                    assert (len(nodes), len(relationships)) == expected, (click, len(nodes), len(relationships))
-                    assert {row['step'] for row in rows} == {min(click, 3)}
-                    origins = tx.run(
-                        "MATCH (:ColdKodeDemoNode {demoId: 'speculation-accept'})-[r]->() "
-                        "WHERE r.stage = 3 RETURN count(r) AS total"
-                    ).single()['total']
-                    assert origins == int(click >= 3)
-                    print(f'Click {click}: {len(nodes)} nodes, {len(relationships)} relationships; passed')
-                tx.run(reset).consume()
-                assert tx.run("MATCH (n:ColdKodeDemoNode {demoId: 'speculation-accept'}) RETURN count(n) AS total").single()['total'] == 0
-                tx.rollback()
-            print('Installed. Verification rolled back; existing demo progress preserved.')
+                tx.run(
+                    "MERGE (d:ColdKodeDemo {id: 'speculation-accept'}) "
+                    "SET d.sourceRevision = $revision, d.authored = true, "
+                    "d.name = 'speculationAccept demo'", revision=revision,
+                ).consume()
+                tx.run(query).consume()
+                verify(tx, directory)
+                before = {row['id'] for row in tx.run(
+                    "MATCH (n:ColdKodeDemoNode {demoId: 'speculation-accept'}) RETURN elementId(n) AS id"
+                )}
+                # Reinstall preserves node IDs used by saved Bloom Scenes.
+                tx.run(query).consume()
+                verify(tx, directory)
+                after = {row['id'] for row in tx.run(
+                    "MATCH (n:ColdKodeDemoNode {demoId: 'speculation-accept'}) RETURN elementId(n) AS id"
+                )}
+                assert before == after
+                tx.commit()
+            print('Installed: 16 nodes, 14 NEXT, 1 VALUE_FROM; no APOC required.')
 
 
 if __name__ == '__main__':

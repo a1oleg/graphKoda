@@ -1,6 +1,7 @@
 MATCH (demo:ColdKodeDemo {id: 'speculation-accept'})
-SET demo.clicks = coalesce(demo.clicks, 0) + 1
-WITH demo, CASE WHEN demo.clicks < 3 THEN demo.clicks ELSE 3 END AS step
+SET demo.presentation = 'bloom-coordinate-layout'
+REMOVE demo.query, demo.clicks
+WITH demo, 3 AS step
 FOREACH (_ IN CASE WHEN step >= 1 THEN [1] ELSE [] END |
   MERGE (entry:ColdKodeDemoNode {demoId: demo.id, key: 'primary'})
   SET entry:DemoFunction, entry.name = 'REPL.onSubmit', entry.stage = 1,
@@ -16,8 +17,7 @@ FOREACH (_ IN CASE WHEN step >= 1 THEN [1] ELSE [] END |
     SET parameter:DemoParameter, parameter.name = p.name, parameter.stage = 1,
         parameter.file = entry.file, parameter.line = 3142,
         parameter.sourceRevision = demo.sourceRevision, parameter.authored = true
-    MERGE (entry)-[r:HAS_PARAMETER]->(parameter)
-    SET r.index = p.index, r.stage = 1, r.authored = true
+    SET parameter.parameterIndex = p.index, parameter.ownerKey = 'primary'
   )
 )
 FOREACH (_ IN CASE WHEN step >= 2 THEN [1] ELSE [] END |
@@ -42,8 +42,22 @@ FOREACH (_ IN CASE WHEN step >= 2 THEN [1] ELSE [] END |
   )
 )
 WITH demo, step
-CALL {
-  WITH demo, step
+CALL (demo) {
+  MATCH (a:ColdKodeDemoNode {demoId: demo.id})-[r]->(b:ColdKodeDemoNode {demoId: demo.id})
+  WHERE type(r) IN ['HAS_PARAMETER', 'DEMO_NEXT', 'создаётся в...']
+  DELETE r
+  RETURN count(*) AS migrated
+}
+CALL (demo) {
+  UNWIND [['primary', 'input'], ['input', 'helpers'], ['helpers', 'specAcc']] AS pair
+  MATCH (a:ColdKodeDemoNode {demoId: demo.id, key: pair[0]})
+  MATCH (b:ColdKodeDemoNode {demoId: demo.id, key: pair[1]})
+  MERGE (a)-[r:NEXT]->(b)
+  SET r.stage = 1, r.revealTag = '01_primary', r.authored = true,
+      r.meaning = 'Parameter display order, not execution order'
+  RETURN count(*) AS parametersLinked
+}
+CALL (demo, step) {
   UNWIND CASE WHEN step >= 2 THEN [
     ['secondary', 'trim'], ['trim', 'readState'], ['readState', 'footerGuard'],
     ['footerGuard', 'agentGuard'], ['agentGuard', 'images'], ['images', 'suggestion'],
@@ -52,12 +66,12 @@ CALL {
   ] ELSE [] END AS pair
   MATCH (a:ColdKodeDemoNode {demoId: demo.id, key: pair[0]})
   MATCH (b:ColdKodeDemoNode {demoId: demo.id, key: pair[1]})
-  MERGE (a)-[r:DEMO_NEXT]->(b)
-  SET r.stage = 2, r.authored = true
+  MERGE (a)-[r:NEXT]->(b)
+  SET r.stage = 2, r.revealTag = '02_secondary', r.authored = true,
+      r.meaning = 'Summarized successful acceptance path; other branches omitted'
   RETURN count(*) AS linked
 }
-CALL {
-  WITH demo, step
+CALL (demo, step) {
   MATCH (n:ColdKodeDemoNode {demoId: demo.id})
   WHERE step >= 2
   FOREACH (_ IN CASE WHEN n.key = 'secondary' THEN [1] ELSE [] END | SET n:DemoFunction)
@@ -65,20 +79,34 @@ CALL {
   FOREACH (_ IN CASE WHEN NOT n.key IN ['primary', 'input', 'helpers', 'specAcc', 'secondary', 'object'] THEN [1] ELSE [] END | SET n:DemoStep)
   RETURN count(*) AS classified
 }
-CALL {
-  WITH demo, step
+CALL (demo, step) {
   MATCH (parameter:ColdKodeDemoNode {demoId: demo.id, key: 'specAcc'})
   MATCH (origin:ColdKodeDemoNode {demoId: demo.id, key: 'object'})
   WHERE step >= 3
-  MERGE (parameter)-[r:`создаётся в...`]->(origin)
-  SET r.stage = 3, r.authored = true, r.argumentIndex = 2,
+  MERGE (parameter)-[r:VALUE_FROM]->(origin)
+  SET r.stage = 3, r.revealTag = '03_origin', r.authored = true, r.derived = true, r.argumentIndex = 2,
       r.evidence = 'onSubmitProp(..., ..., object) -> REPL.onSubmit.speculationAccept',
       r.sourceFile = 'components/PromptInput/PromptInput.tsx',
       r.sourceLine = 1021, r.sourceRevision = demo.sourceRevision,
-      r.meaning = 'Object construction, not creation of the state stored inside it'
+      r.meaning = 'Authored origin summary; object construction, not creation of its state field',
+      r.evidencePath = 'parameter <- BINDS_TO_PARAMETER - argument - VALUE_FROM -> object'
   RETURN count(*) AS origins
 }
 WITH demo, step
+CALL (demo) {
+  UNWIND [
+    {keys: ['primary', 'input', 'helpers', 'specAcc'], x: 0, tag: '01_primary', axis: 'REPL.onSubmit'},
+    {keys: ['secondary', 'trim', 'readState', 'footerGuard', 'agentGuard', 'images', 'suggestion', 'acceptGuard', 'activeGuard', 'mark', 'log', 'object'], x: 1000, tag: '02_secondary', axis: 'PromptInput.onSubmit'}
+  ] AS lane
+  UNWIND range(0, size(lane.keys) - 1) AS ordinal
+  MATCH (n:ColdKodeDemoNode {demoId: demo.id, key: lane.keys[ordinal]})
+  SET n.x = lane.x, n.y = -180 * ordinal, n.ordinal = ordinal,
+      n.axis = lane.axis, n.revealTag = lane.tag
+  REMOVE n:DemoStage1:DemoStage2
+  FOREACH (_ IN CASE WHEN lane.x = 0 THEN [1] ELSE [] END | SET n:DemoStage1)
+  FOREACH (_ IN CASE WHEN lane.x = 1000 THEN [1] ELSE [] END | SET n:DemoStage2)
+  RETURN count(*) AS positioned
+}
 MATCH (n:ColdKodeDemoNode {demoId: demo.id})
 WHERE n.stage <= step
 OPTIONAL MATCH (n)-[r]->(m:ColdKodeDemoNode {demoId: demo.id})
