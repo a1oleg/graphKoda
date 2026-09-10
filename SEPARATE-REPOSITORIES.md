@@ -3,6 +3,21 @@
 The development checkout is `coldKode`. The analyzed source is an external Git
 checkout; do not install the overlay for this workflow.
 
+## Ownership
+
+`sourceRoot` means the application being analyzed: Claude Code's TypeScript,
+JavaScript, components, services and their dependencies. It does not mean every
+file historically located in the claude-code checkout.
+
+The extractor, annotator, renderer, extension and their diagrams belong to the
+tool checkout. All diagram documents, including hand-edited generated diagrams,
+live in `coldKode/graph/draw`, not `sourceRoot/graph/draw` or the data directory.
+The migration on 2026-09-10 moved all 22 files from the old `graph/draw` directory
+and verified their SHA-256 hashes. The old directory must not be recreated by
+running historical tool copies. `.drawio` files in `generated` are versioned;
+generated JSON reports remain ignored. Caches, databases and logs are separate
+from these diagram documents.
+
 ## Local Setup
 
 - Tool repository: `https://github.com/a1oleg/coldKode`.
@@ -51,7 +66,8 @@ tool and source checkouts. Source-coordinate IDs are relative to `sourceRoot`;
 absolute source paths remain available as location metadata.
 
 The existing source checkout stays in place with its current revision, local
-files and dependencies. Historical graph/dev/tmp files may still be present;
+files and dependencies, except for the explicitly migrated diagram documents.
+Historical graph/dev/tmp tool files may still be present;
 active tooling is run from coldKode, not from those historical copies. This
 migration does not delete source files, rewrite history, or move databases.
 

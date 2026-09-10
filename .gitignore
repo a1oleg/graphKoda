@@ -14,7 +14,8 @@ graph/.env.*
 graph/.runtime/
 graph/runtime/
 graph/globalFlowTxt/
-graph/draw/generated/
+graph/draw/generated/*
+!graph/draw/generated/*.drawio
 graph/vscode-extension/*.vsix
 *.log
 *.tmp
