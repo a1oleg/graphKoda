@@ -1,0 +1,375 @@
+[
+  {
+    "properties": {
+      "authored": true,
+      "omittedParameters": [
+        "options"
+      ],
+      "line": 3142,
+      "axis": "REPL.onSubmit",
+      "file": "screens/REPL.tsx",
+      "stage": 1,
+      "name": "REPL.onSubmit",
+      "x": 0,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": 0,
+      "key": "primary",
+      "revealTag": "01_primary",
+      "ordinal": 0
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoFunction",
+      "DemoStage1"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 3142,
+      "axis": "REPL.onSubmit",
+      "ownerKey": "primary",
+      "file": "screens/REPL.tsx",
+      "stage": 1,
+      "name": "input: string",
+      "x": 0,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -180,
+      "parameterIndex": 0,
+      "key": "input",
+      "revealTag": "01_primary",
+      "ordinal": 1
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoParameter",
+      "DemoStage1"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 3142,
+      "axis": "REPL.onSubmit",
+      "ownerKey": "primary",
+      "file": "screens/REPL.tsx",
+      "stage": 1,
+      "name": "helpers: PromptInputHelpers",
+      "x": 0,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -360,
+      "parameterIndex": 1,
+      "key": "helpers",
+      "revealTag": "01_primary",
+      "ordinal": 2
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoParameter",
+      "DemoStage1"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 3142,
+      "axis": "REPL.onSubmit",
+      "ownerKey": "primary",
+      "file": "screens/REPL.tsx",
+      "stage": 1,
+      "name": "speculationAccept?",
+      "x": 0,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -540,
+      "parameterIndex": 2,
+      "key": "specAcc",
+      "revealTag": "01_primary",
+      "ordinal": 3
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoParameter",
+      "DemoStage1"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 984,
+      "axis": "PromptInput.onSubmit",
+      "file": "components/PromptInput/PromptInput.tsx",
+      "stage": 2,
+      "scope": "Successful active-speculation acceptance path; other branches omitted",
+      "name": "PromptInput.onSubmit",
+      "x": 1000,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": 0,
+      "key": "secondary",
+      "revealTag": "02_secondary",
+      "ordinal": 0
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoFunction",
+      "DemoStage2"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 985,
+      "axis": "PromptInput.onSubmit",
+      "file": "components/PromptInput/PromptInput.tsx",
+      "stage": 2,
+      "scope": "Successful active-speculation acceptance path; other branches omitted",
+      "name": "inputParam.trimEnd()",
+      "x": 1000,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -180,
+      "key": "trim",
+      "revealTag": "02_secondary",
+      "ordinal": 1
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoStep",
+      "DemoStage2"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 992,
+      "axis": "PromptInput.onSubmit",
+      "file": "components/PromptInput/PromptInput.tsx",
+      "stage": 2,
+      "scope": "Successful active-speculation acceptance path; other branches omitted",
+      "name": "state = store.getState()",
+      "x": 1000,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -360,
+      "key": "readState",
+      "revealTag": "02_secondary",
+      "ordinal": 2
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoStep",
+      "DemoStage2"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 993,
+      "axis": "PromptInput.onSubmit",
+      "file": "components/PromptInput/PromptInput.tsx",
+      "stage": 2,
+      "scope": "Successful active-speculation acceptance path; other branches omitted",
+      "name": "footer selection does not block",
+      "x": 1000,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -540,
+      "key": "footerGuard",
+      "revealTag": "02_secondary",
+      "ordinal": 3
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoStep",
+      "DemoStage2"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 1000,
+      "axis": "PromptInput.onSubmit",
+      "file": "components/PromptInput/PromptInput.tsx",
+      "stage": 2,
+      "scope": "Successful active-speculation acceptance path; other branches omitted",
+      "name": "not selecting-agent",
+      "x": 1000,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -720,
+      "key": "agentGuard",
+      "revealTag": "02_secondary",
+      "ordinal": 4
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoStep",
+      "DemoStage2"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 1005,
+      "axis": "PromptInput.onSubmit",
+      "file": "components/PromptInput/PromptInput.tsx",
+      "stage": 2,
+      "scope": "Successful active-speculation acceptance path; other branches omitted",
+      "name": "hasImages = ...some(image)",
+      "x": 1000,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -900,
+      "key": "images",
+      "revealTag": "02_secondary",
+      "ordinal": 5
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoStep",
+      "DemoStage2"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 1011,
+      "axis": "PromptInput.onSubmit",
+      "file": "components/PromptInput/PromptInput.tsx",
+      "stage": 2,
+      "scope": "Successful active-speculation acceptance path; other branches omitted",
+      "name": "suggestionText; inputMatchesSuggestion",
+      "x": 1000,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -1080,
+      "key": "suggestion",
+      "revealTag": "02_secondary",
+      "ordinal": 6
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoStep",
+      "DemoStage2"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 1013,
+      "axis": "PromptInput.onSubmit",
+      "file": "components/PromptInput/PromptInput.tsx",
+      "stage": 2,
+      "scope": "Successful active-speculation acceptance path; other branches omitted",
+      "name": "matching suggestion, no images, leader view",
+      "x": 1000,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -1260,
+      "key": "acceptGuard",
+      "revealTag": "02_secondary",
+      "ordinal": 7
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoStep",
+      "DemoStage2"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 1015,
+      "axis": "PromptInput.onSubmit",
+      "file": "components/PromptInput/PromptInput.tsx",
+      "stage": 2,
+      "scope": "Successful active-speculation acceptance path; other branches omitted",
+      "name": "speculation.status === 'active'",
+      "x": 1000,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -1440,
+      "key": "activeGuard",
+      "revealTag": "02_secondary",
+      "ordinal": 8
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoStep",
+      "DemoStage2"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 1016,
+      "axis": "PromptInput.onSubmit",
+      "file": "components/PromptInput/PromptInput.tsx",
+      "stage": 2,
+      "scope": "Successful active-speculation acceptance path; other branches omitted",
+      "name": "markAccepted()",
+      "x": 1000,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -1620,
+      "key": "mark",
+      "revealTag": "02_secondary",
+      "ordinal": 9
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoStep",
+      "DemoStage2"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 1018,
+      "axis": "PromptInput.onSubmit",
+      "file": "components/PromptInput/PromptInput.tsx",
+      "stage": 2,
+      "scope": "Successful active-speculation acceptance path; other branches omitted",
+      "name": "logOutcomeAtSubmission(skipReset: true)",
+      "x": 1000,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -1800,
+      "key": "log",
+      "revealTag": "02_secondary",
+      "ordinal": 10
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoStep",
+      "DemoStage2"
+    ]
+  },
+  {
+    "properties": {
+      "authored": true,
+      "line": 1025,
+      "axis": "PromptInput.onSubmit",
+      "file": "components/PromptInput/PromptInput.tsx",
+      "stage": 2,
+      "scope": "Successful active-speculation acceptance path; other branches omitted",
+      "name": "{ state, speculationSessionTimeSavedMs, setAppState }",
+      "x": 1000,
+      "sourceRevision": "af272b9e82955330836f9354229c0a8453c3a3da",
+      "demoId": "speculation-accept",
+      "y": -1980,
+      "key": "object",
+      "revealTag": "02_secondary",
+      "ordinal": 11
+    },
+    "labels": [
+      "ColdKodeDemoNode",
+      "DemoObject",
+      "DemoStage2"
+    ]
+  }
+]
