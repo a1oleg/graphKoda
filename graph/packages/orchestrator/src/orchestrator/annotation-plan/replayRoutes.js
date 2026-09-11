@@ -3,7 +3,7 @@ import {speculationScenario} from './speculationReplay.js';
 
 export const replayRoutes = [
   {stableId: 'screens/REPL.tsx:3142:82:3146:3', model: speculationScenario},
-  {stableId: 'screens/REPL.tsx:3142:38:3142:51', model: scenario},
+  {stableId: 'screens/REPL.tsx:3142:38:3142:51', endpoint: '/api/annotations/input-context', model: scenario},
   {stableId: 'screens/REPL.tsx:3142:53:3142:80', endpoint: '/api/annotations/helpers-context', model: {root:'helpers', nodes:[{id:'helpers', title:'helpers.clearBuffer'}]}},
 ];
 

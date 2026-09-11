@@ -21,6 +21,9 @@ const definitions = [
     'React создаёт ref, изначально без таймера. Тип допускает дескриптор setTimeout или null; изменение current является присваиванием JavaScript.'],
 ];
 const timeout = prefix + '119:6:119:39';
+const hookId = prefix + '27:7:132:1';
+const componentId = 'components/PromptInput/PromptInput.tsx:194:0:2297:1';
+const hookCallId = 'components/PromptInput/PromptInput.tsx:838:6:841:4';
 const c = dotenv.parse(fs.readFileSync(new URL('../graph/.env', import.meta.url)));
 const driver = neo4j.driver(c.NEO4J_URI, neo4j.auth.basic(c.NEO4J_USERNAME, c.NEO4J_PASSWORD));
 const session = driver.session({ database: c.NEO4J_DATABASE });
@@ -50,11 +53,36 @@ try {
       const proof = await tx.run(`MATCH (r {stableId:$ref})-[:RESOLVES_TO]->(d {stableId:$id})
         -[e:${relation}]->(a {stableId:$api}) RETURN d.stableId AS id`, { ref, id, api });
       assert.equal(proof.records.length, 1);
-      nodes.push({ props: await read(id), title, text, kind: 'Локальное определение', system: false });
-      nodes.push({ props: await read(api), title: apiTitle, text: apiText, kind: 'Системный API', system: true, boundary: await boundary(api) });
+      const definition = { props: await read(id), title, text, kind: 'Локальное определение', system: false };
+      nodes.push(definition);
       edges.push({ from: fn, to: id, type: 'USES_BINDING', evidenceNodes: [fn, ref, id], evidenceRelations: ['LEXICAL_CONTAINMENT', 'RESOLVES_TO'] });
-      edges.push({ from: id, to: api, type: relation, evidenceNodes: [id, api], evidenceRelations: [relation] });
+      if (relation === 'READS_FROM') {
+        definition.inlineSystem = apiTitle;
+        definition.inlineSystemId = api;
+        definition.boundary = await boundary(api);
+        definition.text = title === 'setBuffer'
+          ? 'Сеттер buffer в экземпляре useInputBuffer компонента PromptInput. buffer хранит снимки для Undo: текст, курсор, вставленные материалы и время. clearBuffer удаляет снимки, но не текст поля и не историю запросов.'
+          : 'Сеттер позиции в Undo-буфере useInputBuffer. При очистке получает -1: выбранного снимка нет. Назначение индекса подтверждается чтением в undo.';
+        const state = await tx.run('MATCH (d {stableId:$id})-[:WRITES_TO]->(s) RETURN properties(s) AS props', { id });
+        assert.equal(state.records.length, 1);
+        const stateProps = state.records[0].get('props');
+        const hook = await read(hookId);
+        assert.equal(stateProps.repoRelativePath, hook.repoRelativePath);
+        assert.ok(Number(stateProps.startLine) >= Number(hook.startLine) && Number(stateProps.endLine) <= Number(hook.endLine));
+        edges.push({ from: id, to: hookId, type: 'STATE_OWNER_CONTEXT', evidenceNodes: [id, stateProps.stableId, hookId], evidenceRelations: ['WRITES_TO', 'LEXICAL_CONTAINMENT_REVERSE'] });
+      } else {
+        nodes.push({ props: await read(api), title: apiTitle, text: apiText, kind: 'Системный API', system: true, boundary: await boundary(api) });
+        edges.push({ from: id, to: api, type: relation, evidenceNodes: [id, api], evidenceRelations: [relation] });
+      }
     }
+    const callOwner = await tx.run(`MATCH (call {stableId:$hookCallId})-[:CALLS]->(hook {stableId:$hookId}),
+      (call)-[:ENCLOSED_BY]->(component {stableId:$componentId}) RETURN call.stableId AS id`, { hookCallId, hookId, componentId });
+    assert.equal(callOwner.records.length, 1);
+    nodes.push({ props: await read(hookId), title: 'useInputBuffer', kind: 'Владелец состояния', system: false, label: 'FunctionImplementation',
+      text: 'Хук ведёт Undo-буфер поля ввода. pushToBuffer сохраняет снимки текста, курсора и вставленных материалов, ограничивая размер и частоту добавления. undo выбирает предыдущий снимок. clearBuffer очищает этот буфер. Состояние принадлежит экземпляру хука, вызванному из PromptInput.' });
+    nodes.push({ props: await read(componentId), title: 'PromptInput', kind: 'Компонент поля ввода', system: false, label: 'FunctionImplementation',
+      text: 'Компонент подключает useInputBuffer для отмены редактирования: до 50 снимков, интервал добавления 1000 мс. При Undo восстанавливает текст, положение курсора и вставленные материалы. clearBuffer передаётся в helpers при отправке сообщения.' });
+    edges.push({ from: hookId, to: componentId, type: 'USED_IN_COMPONENT', evidenceNodes: [hookId, hookCallId, componentId], evidenceRelations: ['CALLS_REVERSE', 'ENCLOSED_BY'] });
     const call = await read(timeout); inside(call);
     nodes.push({ props: call, title: 'clearTimeout(pendingPush.current)', kind: 'Системный API', system: true,
       boundary: await boundary(timeout), text: 'При наличии pendingPush.current отменяет ожидающий таймер. Выполняется только в ветке if. Граница внешнего API: в графе доступна его декларация, не реализация таймеров.' });
@@ -65,15 +93,20 @@ try {
   await aura.session.executeWrite(async tx => {
     const parent = await tx.run('MATCH (n {stableId:$fn}) RETURN n', { fn });
     assert.equal(parent.records.length, 1, 'Materialize helpers first');
+    // Keep API facts, but remove their separate axes from this context route.
+    await tx.run(`MATCH (d)-[r:READS_FROM]->(api) WHERE d.stableId IN $setters AND r.contextScope=$scope
+      REMOVE r.contextScope, r.contextOrder SET r.contextInline=true`,
+    { setters: definitions.filter(d => d[4] === 'READS_FROM').map(d => prefix + d[0]), scope: helpersScope });
     for (const node of nodes) {
       const props = Object.fromEntries(Object.entries(node.props).filter(([k]) => ['stableId','name','syntax','repoRelativePath','startLine','startColumn','endLine','endColumn','source_state_id'].includes(k)));
       Object.assign(props, { contextTitle: node.title, contextKind: node.kind, contextQuestion: node.system ? 'Где заканчивается разработческий код?' : 'Что определено и что меняет callback?',
         contextAnnotation: node.text, contextAnnotationSource: 'prepared-from-source', contextSystemBoundary: node.system,
-        contextBoundaryDeclarationId: node.boundary || null });
+        contextBoundaryDeclarationId: node.boundary || null,
+        contextInlineSystem: node.inlineSystem || null, contextInlineSystemStableId: node.inlineSystemId || null });
       const id = node.props.stableId;
       const check = await tx.run('MATCH (n {stableId:$id}) RETURN count(n) AS count', { id });
       assert.ok(check.records[0].get('count').toNumber() <= 1);
-      const label = node.system ? 'CallSite' : 'ValueDeclaration';
+      const label = node.label || (node.system ? 'CallSite' : 'ValueDeclaration');
       await tx.run(`MERGE (n {stableId:$id}) SET n:CodeEntity:${label}, n += $props`, { id, props });
     }
     for (const [order, edge] of edges.entries()) {
@@ -85,7 +118,8 @@ try {
   });
   const model = await loadHelpersContext();
   assert.equal(model.nodes.length, 13);
-  assert.equal(model.nodes.filter(n => n.system).length, 5);
+  assert.equal(model.nodes.filter(n => n.system).length, 3);
+  assert.ok(!model.nodes.some(n => n.stableId === prefix + '31:30:31:57' || n.stableId === prefix + '32:42:32:54'));
   console.log(JSON.stringify({ nodes: model.nodes.length, edges: model.nodes.reduce((sum,n) => sum+n.deps.length,0), boundaries: model.nodes.filter(n=>n.system).map(n=>n.title) }));
 } finally {
   await session.close(); await driver.close();
