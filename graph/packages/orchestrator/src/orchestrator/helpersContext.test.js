@@ -16,3 +16,13 @@ test('graph-backed context preserves IDs and supports descent and return', () =>
   assert.throws(() => contextModel(nodes, [{ from: helpersRoot, to: 'missing' }]));
   assert.equal(replayLaunch(helpersRoot, 'http://localhost').body.mode, 'graph');
 });
+
+test('context rejects cycles and disconnected nodes, preserves API boundaries', () => {
+  const nodes = [helpersRoot, 'api'].map(stableId => ({ stableId, contextSystemBoundary: stableId === 'api' }));
+  const edges = [{ from: helpersRoot, to: 'api', type: 'USES_BINDING' }];
+  const model = contextModel(nodes, edges);
+  assert.equal(model.nodes[1].system, true);
+  assert.equal(buildFrames(model).filter(f => f.kind === 'boundary').length, 1);
+  assert.throws(() => contextModel(nodes, [...edges, { from: 'api', to: helpersRoot }]), /cycle/);
+  assert.throws(() => contextModel(nodes, []), /Disconnected/);
+});

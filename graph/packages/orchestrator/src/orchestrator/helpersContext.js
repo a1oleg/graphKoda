@@ -15,15 +15,26 @@ export function contextModel(nodes, edges) {
   const ids = new Set(nodes.map(n => n.stableId));
   if (!ids.has(helpersRoot) || ids.size !== nodes.length) throw new Error('Invalid context nodes');
   for (const e of edges) if (!ids.has(e.from) || !ids.has(e.to)) throw new Error('Missing context endpoint');
+  const visiting = new Set(), visited = new Set();
+  function visit(id) {
+    if (visiting.has(id)) throw new Error('Context cycle');
+    if (visited.has(id)) return;
+    visiting.add(id);
+    for (const edge of edges.filter(e => e.from === id)) visit(edge.to);
+    visiting.delete(id); visited.add(id);
+  }
+  visit(helpersRoot);
+  if (visited.size !== ids.size) throw new Error('Disconnected context nodes');
   return { root: helpersRoot, title: 'helpers.clearBuffer',
     task: 'Зачем после отправки очищается буфер редактирования?',
     completion: 'Контекст clearBuffer собран',
     assumptions: 'Обычная отправка из PromptInput. Выбрана ветка clearBuffer. Маршрут загружен из Aura; тексты аннотаций подготовлены по коду.',
     nodes: nodes.map(n => ({ id: n.stableId, stableId: n.stableId,
       title: n.contextTitle, file: n.repoRelativePath, line: Number(n.startLine),
+      system: n.contextSystemBoundary === true,
       deps: edges.filter(e => e.from === n.stableId).map(e => e.to),
       relations: Object.fromEntries(edges.filter(e => e.from === n.stableId).map(e => [e.to, e.type])),
-      syntax: { description: n.contextKind, parts: [[n.contextTitle, 'value']] },
+      syntax: { description: n.contextKind, parts: [[n.contextTitle, n.contextSystemBoundary ? 'type' : 'value']] },
       need: n.contextQuestion, result: n.contextAnnotation,
     })) };
 }
@@ -39,7 +50,7 @@ export async function loadHelpersContext() {
         nodes.set(a.stableId, a); nodes.set(b.stableId, b);
         edges.push({ from: a.stableId, to: b.stableId, type: row.get('type') });
       }
-      if (nodes.size !== 4 || edges.length !== 3) throw new Error('Incomplete helpers context in Aura');
+      if (!nodes.size || !edges.length) throw new Error('Missing helpers context in Aura');
       return contextModel([...nodes.values()], edges);
     });
   } finally { await session.close(); await driver.close(); }
