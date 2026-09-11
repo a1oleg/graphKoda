@@ -1,7 +1,8 @@
 {
   "folders": [
     { "name": "coldKode", "path": "." },
-    { "name": "Source (claude-code)", "path": "../claude-code" }
+    { "name": "Source (claude-code)", "path": "../claude-code" },
+    { "name": "Fisher-Yates", "path": "../fisher-yates" }
   ],
   "settings": {}
 }

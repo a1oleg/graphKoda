@@ -20,13 +20,18 @@ from these diagram documents.
 
 ## Local Setup
 
+The independent Fisher-Yates example and its standalone annotation visualizer
+live in `../fisher-yates`, a separate local Git repository added to the workspace.
+It has its own dependencies and ignored Aura configuration; it does not change
+the Claude Code source root. Start it with `npm start` there (port 8793).
+
 - Tool repository: `https://github.com/a1oleg/coldKode`.
 - Source repository: `https://github.com/a1oleg/claude-code`.
 - Both existing GitHub repositories are private (verified through authenticated
   GitHub repository metadata on 2026-09-09). No repository rename is required.
 - Local tool checkout: `C:\GitHub\coldKode`.
 - Local source checkout: the existing `C:\GitHub\claude-code`.
-- Use these two checkouts only. Do not create `claude-code-source`, detach the
+- Use these two checkouts for Claude Code analysis. Do not create `claude-code-source`, detach the
   existing source at STUB, or change its revision as part of this migration.
 - Migration input: tool files from `claude-code` commit
   `0a5a922cff7a3e43b027174c70e13017177b5478`.
