@@ -2,7 +2,7 @@ import {scenario as inputScenario,buildFrames,buildSequence,accumulatedContexts}
 import {speculationScenario} from './speculationReplay.js';
 import {resolveReplayRoute,replayRoutes} from './replayRoutes.js';
 const params=new URLSearchParams(location.search);
-const scenario = params.has('stableId') ? resolveReplayRoute(params.get('stableId'))?.model
+let scenario = params.has('stableId') ? resolveReplayRoute(params.get('stableId'))?.model
   : params.get('scenario') === 'speculation' ? speculationScenario : inputScenario;
 function start() {
 if(!scenario){document.body.textContent='Для этого узла нет подготовленного маршрута аннотатора.';return;}
@@ -196,4 +196,15 @@ $('timeline').max=frames.length-1;$('timeline').oninput=e=>{index=Number(e.targe
 new ResizeObserver(()=>cy.resize()).observe($('graph'));
 window.lucide?.createIcons();render();
 }
-if(document.readyState==='complete')start();else window.addEventListener('load',start,{once:true});
+async function initialize() {
+  try {
+    const route=resolveReplayRoute(params.get('stableId'));
+    if(route?.endpoint){
+      const response=await fetch(route.endpoint);
+      if(!response.ok)throw new Error(`Aura context: HTTP ${response.status}`);
+      scenario=await response.json();
+    }
+    start();
+  } catch(error) { document.body.textContent=error.message; }
+}
+if(document.readyState==='complete')initialize();else window.addEventListener('load',initialize,{once:true});

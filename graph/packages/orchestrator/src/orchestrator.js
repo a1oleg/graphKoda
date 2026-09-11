@@ -3,6 +3,7 @@
 import neo4j from 'neo4j-driver';
 import { serveAnnotationPlanUi } from './orchestrator/annotationPlanUi.js';
 import { replayLaunch } from './orchestrator/annotation-plan/replayRoutes.js';
+import { loadHelpersContext } from './orchestrator/helpersContext.js';
 import { executeAnnotationGraphql, annotationSchemaSDL } from './orchestrator/annotationGraphql.js';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -1427,6 +1428,10 @@ function readRelativeGeometryWithinAncestor(xml, cellXml, ancestorId) {
 
 async function handleGet(requestUrl, response, context) {
   const { searchParams, pathname } = requestUrl;
+  if (pathname === '/api/annotations/helpers-context') {
+    sendJson(response, 200, await loadHelpersContext());
+    return;
+  }
   if (pathname === '/api/annotations/visualizer') {
     const result = replayLaunch(searchParams.get('stableId'), context.baseUrl);
     sendJson(response, result.status, result.body);
