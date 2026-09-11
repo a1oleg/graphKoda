@@ -6,7 +6,7 @@ const { createBloomNext, STEPS } = require('../content.js');
 const TOTALS = [227, 316, 317];
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-function fixture(t, { total = 0, query = '', fail = false, clearDelay = 0, completeDelay = 8, initial = 0, resultTotal, instant = false, autoZoom = false } = {}) {
+function fixture(t, { total = 0, query = '', fail = false, clearDelay = 0, completeDelay = 8, initial = 0, resultTotal, instant = false, autoZoom = false, earlyReady = false } = {}) {
   const dom = new JSDOM(`<!doctype html><main>
     <button aria-label="Database: demo">demo</button><h2 title="DemoStage1">DemoStage1</h2>
     <div id="search"><span id="chips"></span><label><input data-testid="search-input" aria-label="search input"></label>
@@ -52,6 +52,7 @@ function fixture(t, { total = 0, query = '', fail = false, clearDelay = 0, compl
         renderActions(); return;
       }
       actions.replaceChildren(); newButton('Cancel Query', () => {}, 'search-query-button');
+      if (earlyReady) renderActions();
       win.setTimeout(() => {
         if (!fail) setTotal(resultTotal ?? TOTALS[STEPS.findIndex(s => s.query === q)]);
         else { const alert = doc.createElement('div'); alert.setAttribute('role', 'alert'); alert.textContent = 'Search failed'; doc.body.append(alert); }
@@ -154,10 +155,27 @@ test('failed search leaves the current stage and permits retry', async t => {
   assert.equal(f.controller.view().disabled,false);
 });
 
-test('arbitrary graph size and instant repeated results complete', async t => {
+test('arbitrary graph size completes but unchanged results do not advance', async t => {
   const f=fixture(t,{instant:true,resultTotal:19});await idle(f);
   await f.controller.next();await f.controller.next();
-  assert.equal(f.controller.state().stage,2);assert.equal(f.controller.state().count,19);
+  assert.equal(f.controller.state().stage,1);assert.equal(f.controller.state().count,19);
+  assert.equal(f.controller.view().disabled,false);
+  assert.equal(f.controller.view().error,true);
+});
+
+test('updated chips before delayed scene insertion cannot confirm the old count', async t => {
+  const f=fixture(t,{earlyReady:true,completeDelay:60});await idle(f);
+  await f.controller.next();
+  const pending=f.controller.next();
+  await pause(30);
+  assert.equal(f.controller.state().stage,1);
+  assert.equal(f.controller.state().count,227);
+  await pending;
+  assert.equal(f.controller.state().stage,2);
+  assert.equal(f.controller.state().expectedCount,316);
+  assert.equal(f.controller.view().disabled,false);
+  await f.controller.next();
+  assert.equal(f.controller.state().stage,3);
 });
 
 test('empty search result does not advance', async t => {

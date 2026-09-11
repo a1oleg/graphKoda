@@ -151,7 +151,9 @@
           if (failure) throw new Error(failure);
           const count = total();
           const correct = !loading() && available(button('Run Query')) &&
-            tokens() === step.query && input()?.value === '' && count > 0;
+            tokens() === step.query && input()?.value === '' && count > before.count;
+          // Search chips and Run Query can update before Bloom inserts results.
+          // Every demo stage adds elements; unchanged contents prove no progress.
           if (count !== lastCount) { stableSince = null; lastCount = count; }
           if (!correct) { stableSince = null; return false; }
           stableSince ??= Date.now();
