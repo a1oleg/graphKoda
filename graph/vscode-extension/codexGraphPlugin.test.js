@@ -85,6 +85,8 @@ function loadMenu(attributes, options = {}) {
   const tabContainer = { style: { display: '' } };
   const ui = {
     editor: { graph },
+    shapesVisible: true,
+    toggleShapesPanel(visible) { this.shapesVisible = visible; },
     tabContainer,
     tabContainerVisible: true,
     isTabContainerVisible() { return this.tabContainerVisible; },
@@ -167,6 +169,14 @@ function loadMenu(attributes, options = {}) {
     dispatchWindowMessage: (data) => windowMessageListeners.forEach((listener) => listener({ data })),
   };
 }
+
+test('Shapes starts hidden for graph documents but remains available to reopen', () => {
+  const result = loadMenu({}, { rootFunctionStableId: 'example.ts:1:0:8:1' });
+  assert.equal(result.ui.shapesVisible, false);
+  result.ui.toggleShapesPanel(true);
+  assert.equal(result.ui.shapesVisible, true);
+  assert.equal(loadMenu({}).ui.shapesVisible, true);
+});
 
 test('page tab bar stays hidden because every diagram is a separate file', () => {
   const result = loadMenu({ graphKind: 'Value', graphLabel: 'input' });

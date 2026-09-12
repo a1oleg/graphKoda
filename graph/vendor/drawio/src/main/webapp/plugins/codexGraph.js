@@ -255,6 +255,24 @@ Draw.loadPlugin(function(ui) {
     return;
   }
   var model = graph.getModel();
+  var shapesHiddenForRoot = null;
+  function hideShapesForGraphDocument() {
+    var root = typeof model.getRoot === 'function' ? model.getRoot() : model.cells;
+    if (root === shapesHiddenForRoot) return;
+    var cells = model.cells || {};
+    var isGraphDocument = Object.keys(cells).some(function(id) {
+      return Boolean(getAttribute(cells[id], 'graphKind') || getAttribute(cells[id], 'functionStableId'));
+    });
+    if (!isGraphDocument) return;
+    shapesHiddenForRoot = root;
+    if (ui.sidebarWindow && ui.sidebarWindow.window) {
+      ui.sidebarWindow.window.setVisible(false);
+    } else if (typeof ui.toggleShapesPanel === 'function') {
+      ui.toggleShapesPanel(false);
+    }
+  }
+  model.addListener(mxEvent.CHANGE, hideShapesForGraphDocument);
+  hideShapesForGraphDocument();
   var runtimeOriginalStyles = {};
   var runtimeOutlines = [];
   var runtimeTraceActive = false;
