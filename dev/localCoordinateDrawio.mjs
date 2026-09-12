@@ -1067,7 +1067,7 @@ function structuredContainerOverlayMethodIndex(layout) {
   if (!layout) return -1;
   const callableIndex = layout.overlays.findLastIndex((part) => (
     part.kind === 'method'
-    && !(part.labels || []).some((label) => label === 'Keyword' || label === 'Await')
+    && !(part.labels || []).some((label) => ['Keyword', 'Await', 'CallBoundary'].includes(label))
   ));
   return callableIndex >= 0
     ? callableIndex
@@ -1321,7 +1321,7 @@ function structuredContainerOverlaySiblingPartBoxes(node, box, activeStableId) {
   const layout = structuredContainerOverlaySize(node);
   if (!layout || !box || !activeStableId) return [];
   const activeIndex = layout.overlays.findIndex((part) => part.stableId === activeStableId);
-  if (activeIndex < 0) return [];
+  if (activeIndex < 0 && layout.container.stableId !== activeStableId) return [];
   const scaleX = box.width / layout.width;
   const scaleY = box.height / layout.height;
   let precedingWidth = 0;
@@ -1394,6 +1394,7 @@ function containerOverlayEndpointPart(node, edge, endpoint) {
     && (node.labels.includes('Set') || node.labels.includes('ContainerMethod'));
   const controlEdge = flowLayer === 'control'
     || ['NEXT', 'ASYNC', 'CATCH', 'TRUE', 'FALSE', 'REJOINS', 'REPEATS', 'ENTERS'].includes(edgeType);
+  if (hasLabel(node, 'IndexedWrite') && controlEdge) return 'container';
   const controlThroughMethod = !node.labels.includes('Branch') && (node.labels.includes('Collection')
     || node.labels.includes('Storage')
     || node.labels.includes('Store')
@@ -6138,8 +6139,9 @@ export function alignHorizontalArgumentFamilies(nodes, edges, nodeBoxes) {
     // Final pixel geometry is authoritative. Keep an even family's central
     // axis in the gap between its middle pair instead of letting collision
     // separation leave one sibling on the call axis.
-    const activeFamilySourceBox = isExpandedOperationProviderCall(source)
-      ? structuredContainerOverlayPartBox(source, sourceBox, 'method')
+    const familySourcePart = containerOverlayEndpointPart(source, argumentEdges[0], 'source');
+    const activeFamilySourceBox = familySourcePart
+      ? structuredContainerOverlayPartBox(source, sourceBox, familySourcePart)
       : sourceBox;
     const familyAxisY = activeFamilySourceBox
       ? activeFamilySourceBox.y + activeFamilySourceBox.height / 2
@@ -8089,6 +8091,22 @@ export function buildObjectFamilyRouteObstacles(nodes, edges, nodeBoxes) {
 }
 
 function buildRenderableEdges(edges, nodes, positions, scale) {
+  const partOwners = new Map();
+  for (const node of nodes) {
+    const parts = renderPartsForNode(node);
+    for (const part of parts) {
+      if (part.stableId) partOwners.set(part.stableId,
+        partOwners.has(part.stableId) ? null : node.id);
+    }
+  }
+  edges = edges.map((edge) => {
+    const partId = edge.props?.sourceRenderPartStableId || edge.props?.source_render_part_stable_id;
+    const owner = partOwners.get(partId);
+    return owner && owner !== edge.start ? { ...edge, start: owner, props: {
+      ...edge.props, stableId: edge.props?.stableId || edge.start,
+      layoutEffectiveSourceStableId: owner, lockRoutePoints: true,
+    } } : edge;
+  });
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const routedGroups = new Map();
   const normalEdges = [];
@@ -8837,7 +8855,7 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
   };
   const routingNodeBoxes = new Map([...scale.nodeBoxes.entries()].filter(([nodeId]) => (
     isRoutingObstacle(nodeId)
-    && (!relevantFoldGroups.size || relevantFoldGroups.has(scale.foldGroupByNodeId?.get(nodeId)))
+    && (edge.props?.layoutEffectiveSourceStableId || !relevantFoldGroups.size || relevantFoldGroups.has(scale.foldGroupByNodeId?.get(nodeId)))
   )));
   const assignmentScopeBounds = assignmentReturn && producerRouteRole !== 'return-top'
     ? (() => {
@@ -8949,7 +8967,7 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
       top: rawSourceBox.y,
       bottom: rawSourceBox.y + rawSourceBox.height,
     } : null,
-    iterationRepeat && targetOverlayPart === 'method' ? (() => {
+    (iterationRepeat || edge.props?.layoutEffectiveSourceStableId) && targetOverlayPart === 'method' ? (() => {
       const targetContainerBox = structuredContainerOverlayPartBox(targetNode, rawTargetBox, 'container');
       return targetContainerBox ? {
         id: `repeat-target-container:${edge.end}`,
@@ -9035,7 +9053,9 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
     // Folding changes the nodes' effective vertical order. Once that order
     // selects the boundary-facing ports, do not let raw graph coordinates
     // reopen the candidate set and replace them with a farther side port.
-    explicitSourcePorts: producerEntry
+    explicitSourcePorts: lockPortCandidates && lockedSourcePortCandidates?.length
+      ? lockedSourcePortCandidates
+      : producerEntry
       ? ['right']
       : iterationExhaustion
       ? ['bottom']
@@ -9066,7 +9086,9 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
       : lockPortCandidates
       ? lockedSourcePortCandidates
       : crossFoldSourcePort ? [crossFoldSourcePort] : undefined,
-    explicitTargetPorts: producerEntry
+    explicitTargetPorts: lockPortCandidates && lockedTargetPortCandidates?.length
+      ? lockedTargetPortCandidates
+      : producerEntry
       ? ['left']
       : closingCallBoundaryTarget
       ? ['left']
@@ -9191,7 +9213,9 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
     if (!sourcePoint || !targetPoint) continue;
     if (selectedRoute?.ok
       && manhattanDistance(sourcePoint, targetPoint) > selectedRoute.routeLength) continue;
-    let [sourceStub, targetStub] = isFanoutEdge(edge)
+    const relocatedSource = edge.props?.layoutEffectiveSourceStableId
+      && edge.props.layoutEffectiveSourceStableId !== edge.props.stableId;
+    let [sourceStub, targetStub] = isFanoutEdge(edge) && !relocatedSource
       ? fanoutPortStubPoints(edge.start, sourcePoint, attempt.sourcePort, targetPoint, attempt.targetPort, stubGap, routeState)
       : pairedPortStubPoints(
         sourcePoint,
@@ -9258,11 +9282,12 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
       ? targetStub.x
       : baseFanoutTurnX;
     let routeCore = (isFanoutEdge(edge) || localVisualResponse)
+      && !relocatedSource
       && !directMosaicDataJoin
       && !edge.props?.compactCallStubJoin
       ? fanoutRouteCore(routeStart, routeEnd, fanoutTurnX)
       : findOrthogonalRoute(routeStart, routeEnd, nodeCenters, routedCorridors, routeContext);
-    if (iterationRepeat || assignmentReturn) {
+    if (iterationRepeat || assignmentReturn || relocatedSource) {
       const routeBounds = [
         ...routeCoreNodeObstacles,
         ...(assignmentScopeBounds ? [assignmentScopeBounds] : []),

@@ -5203,19 +5203,26 @@ class FunctionFlowGraphBuilder {
       }
       if (ts.isElementAccessExpression(current)) {
         const receiverParts = visit(current.expression);
+        const receiverType = this.checker.getTypeAtLocation(current.expression);
+        const arrayRead = receiverParts.length === 1
+          && (this.checker.isArrayType(receiverType) || this.checker.isTupleType(receiverType));
+        if (arrayRead) receiverParts[0] = {
+          ...receiverParts[0], kind: 'collection-container',
+          labels: uniqueStrings([...(receiverParts[0].labels || []), 'Collection']), fillState: 'filled',
+        };
         return [
           ...receiverParts,
           {
             text: '[',
-            kind: 'punctuation',
-            labels: ['Op', 'Operand'],
+            kind: arrayRead ? 'method' : 'punctuation',
+            labels: arrayRead ? ['Method', 'Virtual', 'IndexedRead'] : ['Op', 'Operand'],
             sourceStableId: getExtendedStableId(this.sourceFile, current),
           },
           ...(current.argumentExpression ? visit(current.argumentExpression) : []),
           {
             text: ']',
-            kind: 'punctuation',
-            labels: ['Op', 'Operand'],
+            kind: arrayRead ? 'method' : 'punctuation',
+            labels: arrayRead ? ['Method', 'Virtual', 'CallBoundary'] : ['Op', 'Operand'],
             sourceStableId: getExtendedStableId(this.sourceFile, current),
             canonicalStableId: this.canonicalStableIdForExpression(current),
             bindingStableId: this.bindingNodeStableIdForExpression(current),
@@ -17932,7 +17939,105 @@ class FunctionFlowGraphBuilder {
     };
   }
 
+  private materializeIndexedArrayAssignment(statement: ts.Statement, incomingExits: PendingExit[]): BuildResult | undefined {
+    if (!ts.isExpressionStatement(statement)) return undefined;
+    const expression = unwrapExpression(statement.expression);
+    if (!isSimpleAssignmentExpression(expression)) return undefined;
+    const target = unwrapExpression(expression.left);
+    if (!ts.isElementAccessExpression(target) || !target.argumentExpression) return undefined;
+    const isArray = (value: ts.Expression) => {
+      const type = this.checker.getTypeAtLocation(value);
+      return this.checker.isArrayType(type) || this.checker.isTupleType(type);
+    };
+    const simple = (value: ts.Expression) => ts.isIdentifier(unwrapExpression(value)) || isLiteralInlineCallArgument(unwrapExpression(value));
+    // Complex receivers/indices keep their existing evaluation-order expansion.
+    if (!isArray(target.expression) || !simple(target.expression) || !simple(target.argumentExpression)) return undefined;
+    const value = unwrapExpression(expression.right);
+    const indexedRead = ts.isElementAccessExpression(value) && value.argumentExpression
+      && isArray(value.expression) && simple(value.expression) && simple(value.argumentExpression) ? value : undefined;
+    if (!indexedRead && !simple(value)) return undefined;
+    const assignmentId = getExtendedStableId(this.sourceFile, statement);
+    const valueId = getExtendedStableId(this.sourceFile, value);
+    const partsForAccess = (access: ts.ElementAccessExpression, owner: string, write: boolean): RenderPartDescriptor[] => [
+      { stableId: `${owner}:container`, text: access.expression.getText(this.sourceFile), kind: 'collection-container',
+        labels: ['Value', 'Variable', 'Collection'], order: 0, fillState: 'filled', sourceStableId: getExtendedStableId(this.sourceFile, access.expression) },
+      { stableId: `${owner}:${write ? 'set' : 'get'}`, text: write ? 'setAt(' : '[', kind: 'method',
+        labels: ['Method', 'Virtual', write ? 'Set' : 'IndexedRead'], order: 1, sourceStableId: getExtendedStableId(this.sourceFile, access) },
+      { stableId: `${owner}:index`, text: access.argumentExpression!.getText(this.sourceFile), kind: 'value',
+        labels: ['Value', 'ValueAccess'], order: 2, sourceStableId: getExtendedStableId(this.sourceFile, access.argumentExpression!) },
+      { stableId: `${owner}:close`, text: write ? ')' : ']', kind: 'method',
+        labels: ['Method', 'Virtual', 'CallBoundary'], order: 3, sourceStableId: getExtendedStableId(this.sourceFile, access) },
+    ];
+    const assignment = this.createActionNodeFromStatements([statement], incomingExits, undefined, {
+      labels: ['Value', 'Collection', 'Assignment', 'ContainerMethod', 'Set', 'IndexedWrite', 'Call'],
+      diaName: target.expression.getText(this.sourceFile), containerState: 'filled', containerMethodKind: 'set',
+      callBoundaryDesign: 'split', callBoundaryRole: 'open', callHasArguments: true,
+      renderPartsLayout: 'container-overlay-side', renderPrimaryPartIndex: 0,
+      renderPartsJson: JSON.stringify(partsForAccess(target, assignmentId, true).slice(0, 2)),
+    });
+    const closeId = `${assignmentId}:complete`;
+    this.createNode('FnVisualProxy', 'indexed write complete', statement, {
+      labels: ['VisualProxy', 'FnVisualProxy', 'Arg', 'Join', 'Call', 'Method', 'Virtual'],
+      diaName: ')', synthetic: true, sourceCallStableId: assignmentId,
+      callBoundaryDesign: 'split', callBoundaryRole: 'close', callBoundaryPeerStableId: assignmentId,
+      renderPartsLayout: 'single', renderPrimaryPartIndex: 0,
+      renderPartsJson: JSON.stringify([{ stableId: closeId, text: ')', kind: 'method',
+        labels: ['Method', 'Virtual', 'CallBoundary'], order: 0 }]),
+    }, closeId);
+    assignment.callBoundaryPeerStableId = closeId;
+    const indexId = this.createNode('Arg', 'index argument', target.argumentExpression, {
+      labels: ['Value', 'ValueAccess'], diaName: target.argumentExpression.getText(this.sourceFile), argumentIndex: 0,
+    });
+    const slotId = indexedRead ? `${assignmentId}:value-slot` : valueId;
+    this.createNode('Arg', 'value argument', value, {
+      labels: indexedRead ? ['Value', 'Variable', 'Virtual', 'ResultTarget', 'ContainerMethod', 'Set'] : ['Value', 'ValueAccess'],
+      diaName: indexedRead ? '' : value.getText(this.sourceFile), argumentIndex: 1,
+      ...(indexedRead ? { synthetic: true, containerState: 'empty' as const,
+        renderPartsLayout: 'container-overlay-side' as const, renderPrimaryPartIndex: 0,
+        renderPartsJson: JSON.stringify([
+          { stableId: slotId, text: '', kind: 'value-container', labels: ['Value', 'Variable', 'Virtual'], fillState: 'empty', order: 0 },
+          { stableId: `${slotId}:set`, text: 'set', kind: 'method', labels: ['Method', 'Virtual', 'Set'], order: 1 },
+        ]) } : {}),
+    }, slotId);
+    [indexId, slotId].forEach((id, argumentIndex) => {
+      this.addEdge(undefined, assignmentId, undefined, id, 'ARG', {
+        label: '', argumentIndex, flowLayer: 'data', sourceRenderPartStableId: `${assignmentId}:set`,
+      });
+      this.addEdge(undefined, id, undefined, closeId, 'ArgJoin', {
+        label: '', argumentIndex, flowLayer: 'data', callSiteStableId: assignmentId,
+      });
+    });
+    if (indexedRead) {
+      const producer = this.createNode('Op', 'indexed assignment value', value, {
+        labels: ['Value', 'Collection', 'IndexedRead', 'ContainerMethod'],
+        diaName: indexedRead.expression.getText(this.sourceFile), containerState: 'filled',
+        renderPartsLayout: 'container-overlay-side', renderPrimaryPartIndex: 0,
+        renderPartsJson: JSON.stringify(partsForAccess(indexedRead, valueId, false)),
+      });
+      this.addEdge(undefined, slotId, undefined, producer, 'EVAL', {
+        label: 'eval', displayLabel: 'eval', flowLayer: 'mixed', oneWay: true,
+        sourceRenderPartStableId: `${assignmentId}:container`,
+        sourcePort: 'right', targetPort: 'left',
+        sourcePortCandidates: ['right'], targetPortCandidates: ['left'], lockPortCandidates: true,
+      });
+      this.addEdge(undefined, producer, undefined, slotId, 'ASSIGNS_VALUE', {
+        label: 'value', displayLabel: 'value', flowLayer: 'data',
+        producerRouteRole: 'return-bottom', protocolRole: 'assignment-return',
+        sourcePort: 'bottom', targetPort: 'bottom',
+        sourcePortCandidates: ['bottom'], targetPortCandidates: ['bottom'], lockPortCandidates: true,
+        targetRenderPartStableId: `${slotId}:set`, sourceRenderPartStableId: `${valueId}:get`,
+      });
+    }
+    return { firstNodeId: assignment.stableId, openExits: [{
+      ...this.createPendingExit(undefined, closeId, 'NEXT'),
+      sourceRenderPartStableId: `${assignmentId}:container`,
+    }],
+      pendingBreaks: [], pendingContinues: [], pendingThrows: [] };
+  }
+
   private materializeLinearStatement(statement: ts.Statement, incomingExits: PendingExit[]): BuildResult {
+    const indexedAssignment = this.materializeIndexedArrayAssignment(statement, incomingExits);
+    if (indexedAssignment) return indexedAssignment;
     if (ts.isVariableStatement(statement)) {
       const localFunctionResult = this.materializeLocalFunctionDeclaration(statement, incomingExits);
       if (localFunctionResult) {

@@ -974,6 +974,7 @@ function slotEdgesFromTypes(byType, preferredTypes = ['FIELD', 'ARG', 'VALUE']) 
 }
 
 function isCurrentNodeObjectSlot(node) {
+  if (hasLabel(node, 'IndexedWrite')) return false;
   if (isArgJoinNode(node) || isFieldJoinNode(node)) return false;
   return hasLabel(node, 'Object')
     || hasLabel(node, 'ObjectConstruction')
