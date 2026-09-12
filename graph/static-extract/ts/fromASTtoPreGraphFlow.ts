@@ -5069,6 +5069,23 @@ class FunctionFlowGraphBuilder {
         return [boundary('('), ...visit(expression.expression), boundary(')')];
       }
       const current = unwrapExpression(expression);
+      if (ts.isBinaryExpression(current) && current.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+        const target = unwrapExpression(current.left);
+        if (ts.isElementAccessExpression(target) && target.argumentExpression) {
+          const type = this.checker.getTypeAtLocation(target.expression);
+          if (this.checker.isArrayType(type) || this.checker.isTupleType(type)) {
+            const sourceStableId = getExtendedStableId(this.sourceFile, target);
+            return [
+              ...visit(target.expression),
+              { text: 'setAt(', kind: 'method', labels: ['Method', 'Virtual', 'Set', 'IndexedWrite'], primary: true, sourceStableId },
+              ...visit(target.argumentExpression),
+              { text: ',', kind: 'punctuation', labels: ['ArgumentSeparator'], sourceStableId },
+              ...visit(current.right),
+              { text: ')', kind: 'method', labels: ['Method', 'Virtual', 'Set', 'CallBoundary'], sourceStableId },
+            ];
+          }
+        }
+      }
       if (ts.isAwaitExpression(current)) {
         return [{
           text: 'await',
@@ -13819,6 +13836,7 @@ class FunctionFlowGraphBuilder {
     return {
       callTextRaw: callExpression.getText(this.sourceFile),
       calleeStableId: target.stableId,
+      sourceCallStableId: getExtendedStableId(this.sourceFile, callExpression),
       calleeName: target.name,
       moduleSpecifier: target.moduleSpecifier,
       resolvedModulePath: target.resolvedModulePath,

@@ -153,8 +153,12 @@ function readEnvFile(envPath) {
   return env;
 }
 
-function localNeo4jConfig() {
+function localNeo4jConfig(aura = false) {
   const env = readEnvFile(path.resolve(process.cwd(), 'graph', '.env'));
+  if (aura) {
+    if (!env.AURA_NEO4J_URI || !env.AURA_NEO4J_PASSWORD) throw new Error('Configure AURA_NEO4J_* in graph/.env');
+    return { uri: env.AURA_NEO4J_URI, user: env.AURA_NEO4J_USERNAME || 'neo4j', password: env.AURA_NEO4J_PASSWORD, database: env.AURA_NEO4J_DATABASE || 'neo4j' };
+  }
   const uri = env.NEO4J_URI || env.GRAPH_NEO4J_URI || 'neo4j://127.0.0.1:7687';
   const user = env.NEO4J_USERNAME || env.NEO4J_USER || 'neo4j';
   const password = env.NEO4J_PASSWORD;
@@ -213,7 +217,8 @@ function parseArgs(argv) {
   };
   for (let index = 2; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === '--output') result.outputPath = argv[++index] || result.outputPath;
+    if (arg === '--aura') result.aura = true;
+    else if (arg === '--output') result.outputPath = argv[++index] || result.outputPath;
     else if (arg === '--fn-stable-id') result.fnStableId = argv[++index] || result.fnStableId;
     else if (arg === '--step-stable-id') result.stepStableId = argv[++index] || result.stepStableId;
     else if (arg === '--local-function-stable-id') result.localFunctionStableId = argv[++index] || result.localFunctionStableId;
@@ -8344,7 +8349,7 @@ async function main() {
   const args = parseArgs(process.argv);
   const existingAnnotationCells = readExistingAnnotationCells(args.outputPath);
   const outputGeneration = claimOutputGeneration(args.outputPath);
-  const config = localNeo4jConfig();
+  const config = localNeo4jConfig(args.aura);
   const driver = neo4j.driver(config.uri, neo4j.auth.basic(config.user, config.password));
   const startedAt = Date.now();
   try {

@@ -8,6 +8,10 @@
     "npm": "^10.8 || ^11"
   },
   "scripts": {
+    "fisher:example": "node --import tsx examples/fisher-yates/src/main.ts",
+    "fisher:test": "node --import tsx --test examples/fisher-yates/src/shuffle.test.ts dev/fisherYates.test.mjs",
+    "fisher:import": "node --import tsx dev/importFisherYates.mjs && node dev/materializeFisherYatesContext.mjs",
+    "fisher:draw": "node dev/exportFisherYatesDrawio.mjs",
     "test": "node --test graph/packages/orchestrator/src/orchestrator/*.test.js graph/packages/runtime-relay/src/*.test.mjs graph/vscode-extension/*.test.js dev/functionDiagramScope.structure.test.mjs dev/runtimePathDrawio.test.mjs dev/runtimeSetValues.test.mjs dev/runtimeTraceStableId.test.mjs dev/stableId.test.mjs",
     "test:instrumentation": "node --test dev/nodePassInstrumentationCompile.test.mjs",
     "test:renderer": "node --test dev/localCoordinateDrawio.structure.test.mjs",
@@ -38,6 +42,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@playwright/test": "^1.58.2",
     "@vitejs/plugin-react": "^6.0.2",
+    "@xmldom/xmldom": "^0.9.12",
     "chokidar": "^5.0.0",
     "cors": "^2.8.6",
     "cytoscape": "^3.34.3",

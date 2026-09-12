@@ -20,10 +20,13 @@ from these diagram documents.
 
 ## Local Setup
 
-The independent Fisher-Yates example and its standalone annotation visualizer
-live in `../fisher-yates`, a separate local Git repository added to the workspace.
-It has its own dependencies and ignored Aura configuration; it does not change
-the Claude Code source root. Start it with `npm start` there (port 8793).
+The Fisher-Yates source and tests live in `coldKode/examples/fisher-yates`.
+Its extraction and draw.io export belong to coldKode (`npm run fisher:import`
+and `npm run fisher:draw`). This scoped example overrides the source root only
+inside its extractor process; the Claude Code source root is unchanged.
+The standalone UI lives in `../fisher-yates`, kept at its existing local path;
+its GitHub repository is `a1oleg/annotation-visualizer`. It has its own ignored
+Aura configuration. Start it with `npm start` there (port 8793).
 
 - Tool repository: `https://github.com/a1oleg/coldKode`.
 - Source repository: `https://github.com/a1oleg/claude-code`.

@@ -86,14 +86,6 @@ class GraphExplorerProvider {
     if (node) return [];
     return [
       new GraphNode('action', {
-        label: 'Annotation: speculationAccept',
-        stableId: 'screens/REPL.tsx:3142:82:3146:3',
-        tooltip: 'Open the authored annotation route in Graph Explorer',
-        icon: 'comment-discussion',
-        command: 'coldKodeGraphExplorer.openAnnotationVisualizer',
-        commandTitle: 'Open Annotation Visualizer',
-      }),
-      new GraphNode('action', {
         label: 'Run app (stub)',
         description: 'response: заглушка',
         tooltip: 'Launch the interactive app without model API calls',
@@ -102,12 +94,12 @@ class GraphExplorerProvider {
         commandTitle: 'Run App (Stub)',
       }),
       new GraphNode('action', {
-        label: 'Draw helpers functional segment',
-        description: 'draw.io',
-        tooltip: `Build the functional segment rooted at ${HELPERS_FUNCTIONAL_SEGMENT.stableId}`,
+        label: 'Нарисовать Фишера',
+        description: 'Aura → draw.io',
+        tooltip: 'Фишер-Йетс: раскрыть вызываемые функции на одной диаграмме',
         icon: 'type-hierarchy-sub',
-        command: 'coldKodeGraphExplorer.openHelpersFunctionalSegment',
-        commandTitle: 'Draw Helpers Functional Segment',
+        command: 'coldKodeGraphExplorer.openFisherYates',
+        commandTitle: 'Нарисовать Фишера',
       }),
       ...FUNCTION_DIAGRAMS.map((diagram) => new GraphNode('function', {
       ...diagram,
@@ -164,6 +156,17 @@ async function activate(context) {
       provider.refresh();
     }),
     vscode.commands.registerCommand('coldKodeGraphExplorer.openNode', (node) => openNodeDiagram(context, workspaceRoot, node)),
+    vscode.commands.registerCommand('coldKodeGraphExplorer.openFisherYates', async () => {
+      try {
+        const outputPath = path.join(workspaceRoot, 'graph/draw/generated/Fisher-Yates.drawio');
+        await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Фишер-Йетс из Aura' }, () => new Promise((resolve, reject) => {
+          execFile(process.platform === 'win32' ? 'node.exe' : 'node', ['dev/exportFisherYatesDrawio.mjs', '--output', outputPath], {
+            cwd: workspaceRoot, env: { ...process.env }, encoding: 'utf8', windowsHide: true, timeout: 180000, maxBuffer: 16 * 1024 * 1024,
+          }, (error, stdout, stderr) => error ? reject(new Error([error.message, stderr, stdout].filter(Boolean).join('\n'))) : resolve());
+        }));
+        await openDrawioFile(outputPath);
+      } catch (error) { vscode.window.showErrorMessage(`Fisher-Yates: ${error?.message || error}`); }
+    }),
     vscode.commands.registerCommand('coldKodeGraphExplorer.openRuntimeAnalysis', (item) => openRuntimeAnalysis(context, workspaceRoot, item || {})),
     vscode.commands.registerCommand('coldKodeGraphExplorer.openAnnotationVisualizer', async (item) => {
       try {
