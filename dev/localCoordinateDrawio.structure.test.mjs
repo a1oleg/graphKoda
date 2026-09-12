@@ -212,6 +212,26 @@ test('a split call closure matches call height, curves inward, and uses regular 
   assert.doesNotMatch(decodeURIComponent(closingCell), /M 0 24\.975 H/u);
 });
 
+test('virtual split call closures retain hatched fill without ContainerMethod labels', () => {
+  const closing = node('fixture:close', ['Fn', 'Arg', 'Join', 'VisualProxy', 'Virtual'], {
+    displayX: 0, displayY: 0, diaName: ')',
+    splitCallBoundary: 'end', callBoundaryDesign: 'split', callBoundaryRole: 'close',
+  });
+  const xml = makeDrawio([closing], [], { semanticNodes });
+  const cell = xml.match(/<mxCell id="n1"[\s\S]+?<\/mxCell>/u)?.[0] || '';
+  assert.match(decodeURIComponent(cell), /clipPath/u);
+});
+
+test('value access arguments use ordinary variable tiles', () => {
+  const argument = node('fixture:argument', ['Arg', 'Value', 'ValueAccess'], {
+    displayX: 0, displayY: 0, diaName: 'first',
+  });
+  const xml = makeDrawio([argument], [], { semanticNodes });
+  const cell = xml.match(/<mxCell id="n1"[\s\S]+?<\/mxCell>/u)?.[0] || '';
+  assert.match(cell, /fillColor=#FFE6CC;strokeColor=#BE7000/u);
+  assert.doesNotMatch(cell, /shape=image|fontStyle=1/u);
+});
+
 test('split call boundaries curve outward at family edges, inward at the gap, and stay flat at mosaic seams', () => {
   const ownerId = 'fixture.ts:2:1:2:90:mosaic';
   const nodes = [

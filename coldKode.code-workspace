@@ -1,8 +1,24 @@
 {
   "folders": [
-    { "name": "coldKode", "path": "." },
-    { "name": "Source (claude-code)", "path": "../claude-code" },
-    { "name": "Annotation Visualizer", "path": "../fisher-yates" }
+    {
+      "name": "coldKode",
+      "path": "."
+    },
+    {
+      "name": "Source (claude-code)",
+      "path": "../claude-code"
+    },
+    {
+      "name": "Annotation Visualizer",
+      "path": "../fisher-yates"
+    },
+    {
+      "name": "drawio-inspector",
+      "path": "../drawio-inspector"
+    },
+    {
+      "path": "../coldKode-presenter"
+    }
   ],
   "settings": {}
 }

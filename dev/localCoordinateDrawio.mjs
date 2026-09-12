@@ -599,7 +599,7 @@ function splitCallBoundaryStyle(node, width) {
       ? horizontalMosaicImage(side, fillColor, strokeColor, true, width)
       : splitCallBoundaryImage(side, fillColor, strokeColor, true, width, flatOuter)
     : methodMosaicImage(flatOuter ? 'torn-left' : methodSide, fillColor, strokeColor, {
-        sketch: isVirtualContainerMethodNode(node),
+        sketch: isVirtualContainerMethodNode(node) || hasLabel(node, 'Virtual'),
         torn: !flatOuter && Boolean(extractedSide),
         width,
       });
@@ -1996,6 +1996,10 @@ function styleForNode(node, box) {
   }
   if (isStandaloneVariableNode(node)) {
     return variableRectangleStyle({ empty: isEmptyContainer(node), bold: true });
+  }
+  if (hasLabels(node, 'Arg', 'ValueAccess')
+    && !['Join', 'Method', 'Call', 'Literal', 'ContainerMethod'].some(label => hasLabel(node, label))) {
+    return variableRectangleStyle({ empty: false, bold: false });
   }
   if (node.labels.includes('EndProxy')) return 'ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;dashed=1;fontColor=#000000;fontStyle=1;';
   if (node.labels.includes('ResourceProxy') && isUiNode(node)) return 'rounded=1;whiteSpace=wrap;html=1;fillColor=#eaf3ff;strokeColor=#6c8ebf;dashed=1;fontColor=#000000;';
@@ -6146,11 +6150,18 @@ export function alignHorizontalArgumentFamilies(nodes, edges, nodeBoxes) {
     const familyAxisY = activeFamilySourceBox
       ? activeFamilySourceBox.y + activeFamilySourceBox.height / 2
       : null;
+    const containerPartId = structuredContainerOverlaySize(source)?.container?.stableId;
+    const familyEvaluations = edges.filter(edge => edge.type === 'EVAL'
+      && containerPartId
+      && (edge.props?.sourceRenderPartStableId || edge.props?.source_render_part_stable_id) === containerPartId
+      && branches.some(branch => branch.memberIds.has(edge.start)));
     if (Number.isFinite(familyAxisY)) {
       const branchHeights = branches.map((branch) => branch.bottom - branch.top);
       const totalHeight = branchHeights.reduce((sum, height) => sum + height, 0)
         + RENDERED_NODE_GAP * (branches.length - 1);
-      let desiredTop = familyAxisY - totalHeight / 2;
+      let desiredTop = familyEvaluations.length
+        ? familyAxisY - branchHeights[0] / 2
+        : familyAxisY - totalHeight / 2;
       branches.forEach((branch, index) => {
         const deltaY = Math.round(desiredTop - branch.top);
         if (deltaY) {
@@ -6163,6 +6174,15 @@ export function alignHorizontalArgumentFamilies(nodes, edges, nodeBoxes) {
         }
         desiredTop += branchHeights[index] + RENDERED_NODE_GAP;
       });
+    }
+
+    for (const edge of familyEvaluations) {
+      const target = nodeById.get(edge.end);
+      const targetBox = nodeBoxes.get(edge.end);
+      if (!target || !targetBox || !sourceBox) continue;
+      const from = structuredContainerOverlayPartBox(source, sourceBox, 'container');
+      const to = structuredContainerOverlayPartBox(target, targetBox, 'container');
+      targetBox.y += (from.y + from.height / 2) - (to.y + to.height / 2);
     }
 
     const closingTargetSets = branches.map((branch) => new Set(

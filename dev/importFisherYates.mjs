@@ -28,6 +28,8 @@ try {
     // Replace only the example's flow relationships. Context routes and annotations survive.
     await tx.run('MATCH ()-[r {extractionScope: $scope}]->() DELETE r', { scope: 'fisher-yates-flow' });
     const nodeGroups = Map.groupBy([...nodes.values()], n => n.labels.slice().sort().join(':') || 'CodeEntity');
+    const ordinaryParameters = [...nodes.values()].filter(n => n.labels.includes('Parameter') && !n.labels.includes('OperationProvider')).map(n => n.id);
+    await tx.run('MATCH (n) WHERE n.stableId IN $ids REMOVE n:OperationProvider:CapabilityBundle', { ids: ordinaryParameters });
     for (const [labels, rows] of nodeGroups) await tx.run(`UNWIND $rows AS row MERGE (n {stableId:row.id}) SET n:${labels}, n += row.props`, { rows });
     const edgeGroups = Map.groupBy([...edges.values()], e => e.type);
     for (const [type, rows] of edgeGroups) await tx.run(`UNWIND $rows AS row MATCH (a {stableId:row.from}), (b {stableId:row.to})

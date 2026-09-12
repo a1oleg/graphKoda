@@ -5696,7 +5696,7 @@ class FunctionFlowGraphBuilder {
     return this.createNode('BreakStop', 'break', anchor, {}, stableId);
   }
 
-  private createReturnNode(statement: ts.ReturnStatement) {
+  private createReturnNode(statement: ts.ReturnStatement, valueMaterialized = false) {
     const { startLine, startColumn, endLine, endColumn } = getRange(this.sourceFile, statement);
     const sourceStableId = `${buildStableIdFromCoordinates({
       filePath: toPosix(path.resolve(this.sourceFile.fileName)),
@@ -5709,6 +5709,11 @@ class FunctionFlowGraphBuilder {
     return this.createNode('Return', 'return', statement, {
       diaName: 'Return',
       actionTextRaw: statement.getText(this.sourceFile),
+      ...(valueMaterialized ? {
+        renderPartsLayout: 'single' as const, renderPrimaryPartIndex: 0,
+        renderPartsJson: JSON.stringify([{ stableId, text: 'Return', kind: 'value',
+          labels: ['Return', 'System', 'Keyword'], order: 0, sourceStableId }]),
+      } : {}),
     }, stableId);
   }
 
@@ -9459,6 +9464,7 @@ class FunctionFlowGraphBuilder {
 
   private isOperationProviderTypeAtLocation(node: ts.Node) {
     const type = this.checker.getNonNullableType(this.checker.getTypeAtLocation(node));
+    if (!(type.flags & ts.TypeFlags.Object)) return false;
     const members = type.getProperties().filter((member) => !member.name.startsWith('__'));
     return members.length > 0 && members.every((member) => {
       const declaration = member.valueDeclaration || member.declarations?.[0] || node;
@@ -18017,6 +18023,7 @@ class FunctionFlowGraphBuilder {
       this.addEdge(undefined, slotId, undefined, producer, 'EVAL', {
         label: 'eval', displayLabel: 'eval', flowLayer: 'mixed', oneWay: true,
         sourceRenderPartStableId: `${assignmentId}:container`,
+        targetRenderPartStableId: `${valueId}:container`,
         sourcePort: 'right', targetPort: 'left',
         sourcePortCandidates: ['right'], targetPortCandidates: ['left'], lockPortCandidates: true,
       });
@@ -18304,7 +18311,7 @@ class FunctionFlowGraphBuilder {
       pending = expressionSteps.pending;
 
       if (firstNodeId) {
-        const returnNodeId = this.createReturnNode(statement);
+        const returnNodeId = this.createReturnNode(statement, true);
         this.connectPendingToNode(pending, returnNodeId);
         this.captureCallbackReturn(returnNodeId);
 

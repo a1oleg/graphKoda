@@ -3617,6 +3617,16 @@ function newStraightDrawio(nodes, edges, fnStableId, options = {}) {
     return false;
   }
 
+  function explicitSourcePartPosition(edge) {
+    const id = edge.props?.sourceRenderPartStableId || edge.props?.source_render_part_stable_id;
+    if (!id) return null;
+    const owner = [...nodeByKey.values()].find(node => {
+      const raw = node.props?.render_parts_json || node.props?.renderPartsJson;
+      return raw && (typeof raw === 'string' ? JSON.parse(raw) : raw).some(part => part.stableId === id);
+    });
+    return owner ? positions.get(owner.key) : null;
+  }
+
   function pushRenderEdge(edge) {
     if (isHiddenRenderEdge(edge)) return;
     if (edge.type === 'RESPONSE' && edge.props?.renderCompactResponse !== true) return;
@@ -4692,7 +4702,7 @@ function newStraightDrawio(nodes, edges, fnStableId, options = {}) {
         placeNode(
           positions,
           child,
-          resultEdge ? currentPos.x + horizontalStepForNode(current) : currentPos.x,
+          resultEdge ? currentPos.x + horizontalStepForNode(current) : (explicitSourcePartPosition(nextEdge)?.x ?? currentPos.x),
           resultEdge ? currentPos.y : currentPos.y + 1,
           resultEdge
             ? `newStraightDrawio: materialized call result follows closing proxy ${current.key}`
@@ -7589,7 +7599,8 @@ function newStraightDrawio(nodes, edges, fnStableId, options = {}) {
           : startsCollectionStage
             ? collectionPreviousPos.y + 0.5
             : currentPos.y + 1;
-    const requestedX = callbackResultPlacement
+    const terminalSourceX = hasLabel(child, 'FunctionEnd') ? explicitSourcePartPosition(edge)?.x : undefined;
+    const requestedX = Number.isFinite(terminalSourceX) ? terminalSourceX : callbackResultPlacement
       ? callbackResultPlacement.x
       : startsFunctionParameter
       ? 0

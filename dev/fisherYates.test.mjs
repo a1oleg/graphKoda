@@ -27,6 +27,16 @@ test('indexed array writes use virtual setAt, reads and object assignments do no
 test('Fisher extracts both writes and preserves source identity of nested calls', () => {
   const p = extract(['examples/fisher-yates/src/main.ts', 'examples/fisher-yates/src/shuffle.ts']);
   assert.equal(p.functions.length, 4);
+  const mathReturn = p.nodes.find(n => n.stableId === 'examples/fisher-yates/src/shuffle.ts:14:2:14:44:return');
+  assert.deepEqual(JSON.parse(mathReturn.renderPartsJson).map(part => part.text), ['Return']);
+  assert.equal(p.nodes.filter(n => !n.labels.includes('Step')
+    && n.renderPartsJson?.includes('floor(')).length, 1);
+  for (const name of ['length', 'first', 'second']) {
+    const parameter = p.nodes.find(n => n.labels.includes('Parameter') && n.diaName === name);
+    assert(parameter, name);
+    assert(!parameter.labels.includes('OperationProvider'), name);
+    assert.equal(JSON.parse(parameter.renderPartsJson)[0].kind, 'value-container');
+  }
   assert.equal(p.nodes.filter(n => n.labels.includes('Action') && n.renderPartsJson?.includes('setAt(')).length, 2);
   const write = p.nodes.find(n => n.stableId === 'examples/fisher-yates/src/shuffle.ts:19:2:19:31');
   const reads = p.nodes.filter(n => n.stableId === 'examples/fisher-yates/src/shuffle.ts:19:17:19:30');
