@@ -1,0 +1,44 @@
+MATCH (fn:Fn {stableId: 'screens/REPL.tsx:3142:31:3533:3'})
+
+MATCH (n)
+WHERE n.parentFnStableId = fn.stableId
+  AND NOT n:Fn
+
+WITH
+  fn,
+  collect(DISTINCT n) AS localNodes,
+  collect(DISTINCT n.stableId) AS localStableIds
+
+OPTIONAL MATCH (n)-[r]->(m)
+WHERE n IN localNodes
+  AND (
+    m:Fn
+    OR m.parentFnStableId = fn.stableId
+    OR m.createdByStepStableId IN localStableIds
+    OR m.ownerStableId IN localStableIds
+    OR m.ownerStableId = fn.stableId
+  )
+
+WITH
+  fn,
+  localNodes,
+  collect(DISTINCT r) AS edges,
+  collect(DISTINCT m) AS edgeTargets
+
+WITH
+  fn,
+  [edge IN edges WHERE edge IS NOT NULL] AS edgesUntilNextFns,
+  [node IN localNodes + edgeTargets WHERE node IS NOT NULL] AS rawNodes
+
+UNWIND rawNodes AS node
+
+WITH
+  fn,
+  edgesUntilNextFns,
+  collect(DISTINCT node) AS nodesUntilNextFns
+
+RETURN
+  fn,
+  nodesUntilNextFns,
+  edgesUntilNextFns,
+  [node IN nodesUntilNextFns WHERE node:Fn] AS nextFns

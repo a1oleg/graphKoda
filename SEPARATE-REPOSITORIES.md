@@ -58,9 +58,13 @@ node --import tsx graph/static-extract/ts/fromASTtoPreGraphFlow.ts --fn-stable-i
 
 The second command extracts without writing to Neo4j. Full importer defaults put
 DuckDB/Parquet under `dataRoot/cache`; CodeQL uses `dataRoot/codeql`. Service logs
-use `dataRoot/logs`. Existing caches and databases are not moved or reimported.
-Some legacy runtime/repro/rendering utilities still have tool-local cache/output
-paths; those workflows require a separate audit before retiring the old checkout.
+use `dataRoot/logs`. The 2026-09-13 cleanup moved the historical source checkout's
+`graph`, `dev`, `.cache`, `tmp`, Redis compose file and analysis notes directly
+into coldKode. Unique files were moved with SHA-256 verification; duplicate files
+were removed from the source checkout. Existing coldKode versions won conflicts
+with clean, Git-versioned historical tool files. No third archive was created.
+Existing external dataRoot catalogs were not moved or reimported. Legacy runtime
+utilities retain their tool-local output paths in coldKode.
 
 Open `coldKode.code-workspace` to keep the tool folder first for Graph Explorer.
 Source navigation in the extension reads the same project configuration.
@@ -73,11 +77,18 @@ through `/api/status/gateway`. Extension 0.0.413 supports the separate source ro
 tool and source checkouts. Source-coordinate IDs are relative to `sourceRoot`;
 absolute source paths remain available as location metadata.
 
-The existing source checkout stays in place with its current revision, local
-files and dependencies, except for the explicitly migrated diagram documents.
-Historical graph/dev/tmp tool files may still be present;
-active tooling is run from coldKode, not from those historical copies. This
-migration does not delete source files, rewrite history, or move databases.
+The source checkout stays at its current revision; application `.ts` and `.tsx`
+files are unchanged. Tool npm commands and tool-only dependencies were removed
+from its package manifest. Commands, VS Code MCP settings and draw.io plugin
+settings now belong to coldKode. The local configuration uses the existing
+`claude-code` checkout, not `claude-code-source`.
+
+Python dependencies from the old environment are installed in `coldKode/.venv`;
+`pip check` passes. The old `claude-code/.venv` is still present: command execution
+policy blocked its removal. It is not the configured MCP environment and must be
+removed manually to finish filesystem cleanup. Reload VS Code to reconnect MCP
+using the updated configuration. Git history is retained; no commit or push was
+performed by the cleanup.
 
 Extraction now persists the passport in DuckDB `extraction_provenance` and
 `provenance.parquet`. Every node/relationship row has a `provenance_id` column.

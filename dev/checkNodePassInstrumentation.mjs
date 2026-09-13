@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import projectPaths from './projectPaths.cjs';
 
 import { getNodePassTargetsForFile, instrumentNodePassSource } from './instrumentNodePassSource.mjs';
 import { createNodePassPayload } from './runtimeNodePassReporter.mjs';
 
-const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const root = projectPaths.sourceRoot;
 const filePath = path.join(root, 'screens', 'REPL.tsx');
 const source = readFileSync(filePath, 'utf8');
 const transformed = await instrumentNodePassSource(source, filePath);

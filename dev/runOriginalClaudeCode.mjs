@@ -3,6 +3,7 @@ import { appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { config as loadDotEnv } from 'dotenv';
+import projectPaths from './projectPaths.cjs';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const loaderImport =
@@ -50,7 +51,7 @@ const args = [
   './dev/originalAppGlobals.mjs',
   '--import',
   loaderImport,
-  'entrypoints/cli.tsx',
+  path.join(projectPaths.sourceRoot, 'entrypoints', 'cli.tsx'),
   ...passthroughArgs,
 ];
 

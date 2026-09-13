@@ -1,0 +1,1639 @@
+{
+  "schemaVersion": 1,
+  "modelId": "on-submit-hybrid-flow-v1",
+  "title": "onSubmit hybrid control/data flow reference",
+  "sourceDrawio": "graph/draw/new.drawio",
+  "functionStableId": "screens/REPL.tsx:3142:31:3533:3",
+  "scenarios": [
+    {
+      "id": "matching-command-find",
+      "title": "Assign the first command accepted by a predicate",
+      "protocol": "collection-search",
+      "method": "find",
+      "sourceSpan": "screens/REPL.tsx:3173:30:3173:180",
+      "entities": [
+        {
+          "role": "target",
+          "semanticKind": "Binding",
+          "actualStableId": "screens/REPL.tsx:3173:12:3173:27",
+          "labelsAll": ["ValueSlot", "LocalBinding"],
+          "sourceCellIds": ["n3"]
+        },
+        {
+          "role": "assign",
+          "semanticKind": "Assign",
+          "actualStableId": "screens/REPL.tsx:3173:12:3173:27:assign",
+          "labelsAll": ["Primitive", "Assign"],
+          "sourceCellIds": ["59"]
+        },
+        {
+          "role": "call",
+          "semanticKind": "IteratorCall",
+          "actualStableId": "screens/REPL.tsx:3173:30:3173:180:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Op", "Collection"],
+          "properties": {
+            "collectionMethod": "find",
+            "semantic_expansion": "collection-iteration",
+            "execution_scope_kind": "collection-call"
+          },
+          "sourceCellIds": ["matching-command-iterator-label"]
+        },
+        {
+          "role": "iterator",
+          "semanticKind": "Iterator",
+          "actualStableId": "screens/REPL.tsx:3173:30:3173:180:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop",
+          "labelsAll": ["Iterator", "Primitive", "Iterate"],
+          "sourceCellIds": ["matching-command-iterator-axis"]
+        },
+        {
+          "role": "source",
+          "semanticKind": "Collection",
+          "actualStableId": "screens/REPL.tsx:3173:30:3173:180:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:receiver",
+          "labelsAll": ["Collection", "Receiver"],
+          "sourceCellIds": ["data-flow-participant-collection-group"]
+        },
+        {
+          "role": "pull",
+          "semanticKind": "Pull",
+          "actualStableId": "screens/REPL.tsx:3173:30:3173:180:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:pull",
+          "labelsAll": ["Primitive", "Pull"],
+          "sourceCellIds": ["34"]
+        },
+        {
+          "role": "pulledCandidate",
+          "semanticKind": "CandidateValue",
+          "actualStableId": "screens/REPL.tsx:3173:30:3173:180:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:pull:value",
+          "labelsAll": ["Value", "CandidateValue"],
+          "sourceCellIds": ["36"]
+        },
+        {
+          "role": "bind",
+          "semanticKind": "Bind",
+          "actualStableId": "screens/REPL.tsx:3173:30:3173:180:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration",
+          "labelsAll": ["Primitive", "Bind"],
+          "sourceCellIds": ["37"]
+        },
+        {
+          "role": "item",
+          "semanticKind": "IterationVariable",
+          "actualStableId": "screens/REPL.tsx:3173:30:3173:180:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration:value",
+          "labelsAll": ["Value", "Element"],
+          "sourceCellIds": []
+        },
+        {
+          "role": "commandNameBinding",
+          "semanticKind": "Binding",
+          "actualStableId": "screens/REPL.tsx:3167:12:3167:23",
+          "labelsAll": ["ValueSlot", "LocalBinding"],
+          "sourceCellIds": []
+        },
+        {
+          "role": "enabledPredicate",
+          "semanticKind": "Predicate",
+          "actualStableId": "screens/REPL.tsx:3173:51:3173:72:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:call:0:165509",
+          "labelsAll": ["Request", "OperandEvaluation"],
+          "sourceCellIds": ["data-flow-decision-stage-1"]
+        },
+        {
+          "role": "enabledArgument",
+          "semanticKind": "OperandOccurrence",
+          "actualStableId": "screens/REPL.tsx:3173:51:3173:72:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:operand:1:arg0",
+          "labelsAll": ["Occurrence", "OperandValue"],
+          "sourceCellIds": ["37"]
+        },
+        {
+          "role": "namePredicate",
+          "semanticKind": "Predicate",
+          "actualStableId": "screens/REPL.tsx:3173:77:3173:101:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Branch", "Operand"],
+          "sourceCellIds": ["data-flow-decision-stage-2"]
+        },
+        {
+          "role": "nameLeftOperand",
+          "semanticKind": "OperandOccurrence",
+          "actualStableId": "screens/REPL.tsx:3173:77:3173:101:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:operand:0:left",
+          "labelsAll": ["Occurrence", "OperandValue"],
+          "sourceCellIds": ["42"]
+        },
+        {
+          "role": "nameRightOperand",
+          "semanticKind": "OperandOccurrence",
+          "actualStableId": "screens/REPL.tsx:3173:77:3173:101:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:operand:1:right",
+          "labelsAll": ["Occurrence", "OperandValue"],
+          "sourceCellIds": ["44"]
+        },
+        {
+          "role": "aliasPredicate",
+          "semanticKind": "Predicate",
+          "actualStableId": "screens/REPL.tsx:3173:105:3173:139:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:call:0:165563",
+          "labelsAll": ["Call", "Method", "OperandEvaluation"],
+          "sourceCellIds": ["data-flow-decision-stage-3-method"]
+        },
+        {
+          "role": "aliasReceiver",
+          "semanticKind": "CollectionOccurrence",
+          "actualStableId": "screens/REPL.tsx:3173:105:3173:139:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:call:0:165563:receiver",
+          "labelsAll": ["Collection", "Receiver", "Occurrence"],
+          "sourceCellIds": ["51"]
+        },
+        {
+          "role": "aliasArgument",
+          "semanticKind": "OperandOccurrence",
+          "actualStableId": "screens/REPL.tsx:3173:105:3173:139:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:operand:1:arg0",
+          "labelsAll": ["Occurrence", "OperandValue"],
+          "sourceCellIds": ["38"]
+        },
+        {
+          "role": "derivedNamePredicate",
+          "semanticKind": "Predicate",
+          "actualStableId": "screens/REPL.tsx:3173:143:3173:178:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Branch", "Operand"],
+          "sourceCellIds": ["data-flow-decision-stage-4-result"]
+        },
+        {
+          "role": "derivedNameCall",
+          "semanticKind": "ValueProducer",
+          "actualStableId": "screens/REPL.tsx:3173:143:3173:178:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:call:0:165601",
+          "labelsAll": ["Request", "OperandEvaluation"],
+          "sourceCellIds": ["32"]
+        },
+        {
+          "role": "derivedArgument",
+          "semanticKind": "OperandOccurrence",
+          "actualStableId": "screens/REPL.tsx:3173:143:3173:178:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:operand:1:arg0",
+          "labelsAll": ["Occurrence", "OperandValue"],
+          "sourceCellIds": ["39"]
+        },
+        {
+          "role": "derivedRightOperand",
+          "semanticKind": "OperandOccurrence",
+          "actualStableId": "screens/REPL.tsx:3173:143:3173:178:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:operand:1:right",
+          "labelsAll": ["Occurrence", "OperandValue"],
+          "sourceCellIds": ["46"]
+        },
+        {
+          "role": "selectedItem",
+          "semanticKind": "ValueOccurrence",
+          "actualStableId": "screens/REPL.tsx:3173:30:3173:180:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration:selected-value",
+          "labelsAll": ["Value", "Iteration"],
+          "sourceCellIds": ["matching-command-value-cmd"]
+        },
+        {
+          "role": "exhausted",
+          "semanticKind": "Outcome",
+          "actualStableId": "screens/REPL.tsx:3173:30:3173:180:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:outcome:exhausted",
+          "labelsAll": ["Outcome", "Exhausted"],
+          "sourceCellIds": ["matching-command-item-end"]
+        }
+      ],
+      "relations": [
+        {"from": "target", "type": "EVAL", "to": "call", "layer": "control"},
+        {"from": "call", "type": "ITERATES_VALUE", "to": "iterator", "layer": "control"},
+        {"from": "iterator", "type": "PULLS_VALUE", "to": "pull", "layer": "control"},
+        {"from": "pull", "type": "YIELDS_VALUE", "to": "pulledCandidate", "layer": "data"},
+        {"from": "pulledCandidate", "type": "ITEM_AVAILABLE", "to": "bind", "layer": "control"},
+        {"from": "bind", "type": "EXTRACTS_VALUE", "to": "item", "layer": "data"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "enabledArgument", "layer": "data"},
+        {"from": "enabledArgument", "type": "PASSES_VALUE", "to": "enabledPredicate", "layer": "data"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "nameLeftOperand", "layer": "data"},
+        {"from": "commandNameBinding", "type": "PASSES_VALUE", "to": "nameRightOperand", "layer": "data"},
+        {"from": "nameLeftOperand", "type": "READS_VALUE", "to": "namePredicate", "layer": "data"},
+        {"from": "nameRightOperand", "type": "READS_VALUE", "to": "namePredicate", "layer": "data"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "aliasReceiver", "layer": "data"},
+        {"from": "commandNameBinding", "type": "PASSES_VALUE", "to": "aliasArgument", "layer": "data"},
+        {"from": "aliasArgument", "type": "PASSES_VALUE", "to": "aliasPredicate", "layer": "data"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "derivedArgument", "layer": "data"},
+        {"from": "derivedArgument", "type": "PASSES_VALUE", "to": "derivedNameCall", "layer": "data"},
+        {"from": "commandNameBinding", "type": "PASSES_VALUE", "to": "derivedRightOperand", "layer": "data"},
+        {"from": "derivedRightOperand", "type": "READS_VALUE", "to": "derivedNamePredicate", "layer": "data"},
+        {"from": "enabledPredicate", "type": "FALSE", "to": "call", "layer": "control"},
+        {"from": "enabledPredicate", "type": "TRUE", "to": "namePredicate", "layer": "control"},
+        {"from": "namePredicate", "type": "TRUE", "to": "selectedItem", "layer": "control"},
+        {"from": "namePredicate", "type": "FALSE", "to": "aliasArgument", "layer": "control"},
+        {"from": "aliasPredicate", "type": "TRUE", "to": "selectedItem", "layer": "control"},
+        {"from": "aliasPredicate", "type": "FALSE", "to": "derivedArgument", "layer": "control"},
+        {"from": "derivedNamePredicate", "type": "TRUE", "to": "selectedItem", "layer": "control"},
+        {"from": "derivedNamePredicate", "type": "FALSE", "to": "call", "layer": "control"},
+        {"from": "pull", "type": "EXHAUSTED", "to": "exhausted", "layer": "control"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "selectedItem", "layer": "data"},
+        {"from": "selectedItem", "type": "ASSIGNS_VALUE", "to": "assign", "layer": "data"},
+        {"from": "assign", "type": "TARGETS_VALUE", "to": "target", "layer": "data"}
+      ],
+      "forbiddenEntities": [
+        {
+          "actualStableId": "screens/REPL.tsx:3173:30:3173:180:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:result",
+          "reason": "find assigns the selected item directly"
+        },
+        {
+          "actualStableId": "screens/REPL.tsx:3173:30:3173:180:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:complete",
+          "reason": "completion is an outcome, not a static node"
+        },
+        {
+          "actualStableId": "screens/REPL.tsx:3173:30:3173:180:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration:result",
+          "reason": "the selected element flows directly to Assign"
+        }
+      ],
+      "composition": {
+        "lanes": [
+          {
+            "owner": "iterator",
+            "direction": "vertical",
+            "visualKind": "functional-column",
+            "headerRole": "call",
+            "hideInternalChain": true,
+            "orderedRoles": ["call", "bind", "enabledPredicate", "namePredicate", "aliasPredicate", "derivedNamePredicate"]
+          }
+        ],
+        "constraints": [
+          {"type": "LEFT_OF", "subject": "target", "object": "iterator"},
+          {"type": "RIGHT_OF", "subject": "source", "object": "iterator"},
+          {"type": "HEADS_COLUMN", "subject": "call", "object": "iterator"},
+          {"type": "OVERLAYS", "subject": "pull", "object": "source"},
+          {"type": "COMPOSES", "subject": "exhausted", "object": "source"},
+          {"type": "OVERLAYS", "subject": "assign", "object": "target"},
+          {"type": "OVERLAYS", "subject": "nameLeftOperand", "object": "namePredicate"},
+          {"type": "OVERLAYS", "subject": "nameRightOperand", "object": "namePredicate"},
+          {"type": "OVERLAYS", "subject": "aliasPredicate", "object": "aliasReceiver"},
+          {"type": "OVERLAYS", "subject": "derivedRightOperand", "object": "derivedNamePredicate"},
+          {"type": "OVERLAYS", "subject": "namePredicate", "object": "iterator"},
+          {"type": "OVERLAYS", "subject": "derivedNamePredicate", "object": "derivedNameCall"},
+          {"type": "BELOW", "subject": "bind", "object": "call"},
+          {"type": "BELOW", "subject": "assign", "object": "target"},
+          {"type": "ROUTE", "subject": "selectedItem", "object": "assign", "policy": "data-to-consumer"},
+          {"type": "ROUTE", "subject": "derivedNamePredicate", "object": "call", "policy": "repeat-corridor"}
+        ]
+      }
+    },
+    {
+      "id": "pasted-text-refs-filter",
+      "title": "Collect references accepted by a predicate",
+      "protocol": "collection-select",
+      "method": "filter",
+      "sourceSpan": "screens/REPL.tsx:3195:31:3195:104",
+      "entities": [
+        {
+          "role": "target",
+          "semanticKind": "Binding",
+          "actualStableId": "screens/REPL.tsx:3195:14:3195:28",
+          "labelsAll": ["ValueSlot", "LocalBinding"],
+          "sourceCellIds": ["4"]
+        },
+        {
+          "role": "assign",
+          "semanticKind": "Assign",
+          "actualStableId": "screens/REPL.tsx:3195:14:3195:28:assign",
+          "labelsAll": ["Primitive", "Assign"],
+          "sourceCellIds": []
+        },
+        {
+          "role": "inputBinding",
+          "semanticKind": "Binding",
+          "actualStableId": "screens/REPL.tsx:3142:38:3142:43",
+          "labelsAll": ["ValueSlot", "ParameterBinding"],
+          "sourceCellIds": []
+        },
+        {
+          "role": "inputArgument",
+          "semanticKind": "ArgumentOccurrence",
+          "actualStableId": "screens/REPL.tsx:3195:47:3195:52:arg0:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Arg", "ValuePass"],
+          "sourceCellIds": ["62"]
+        },
+        {
+          "role": "producerCall",
+          "semanticKind": "ValueProducerCall",
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:53:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Request", "Start"],
+          "properties": {
+            "diaName": "parseReferences("
+          },
+          "sourceCellIds": ["6"]
+        },
+        {
+          "role": "producerFunction",
+          "semanticKind": "Function",
+          "actualStableId": "history.ts:62:7:75:1",
+          "labelsAll": ["Fn"],
+          "properties": {
+            "diaName": "parseReferences"
+          },
+          "sourceCellIds": []
+        },
+        {
+          "role": "source",
+          "semanticKind": "CollectionValue",
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:53:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:result",
+          "labelsAll": ["Value", "Collection", "Result"],
+          "properties": {
+            "diaName": "parseReferences result"
+          },
+          "sourceCellIds": ["filter-source-group"]
+        },
+        {
+          "role": "call",
+          "semanticKind": "IteratorCall",
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:104:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Op", "Collection"],
+          "properties": {
+            "collectionMethod": "filter",
+            "semantic_expansion": "collection-iteration",
+            "execution_scope_kind": "collection-call"
+          },
+          "sourceCellIds": ["filter-head"]
+        },
+        {
+          "role": "iterator",
+          "semanticKind": "Iterator",
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:104:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop",
+          "labelsAll": ["Iterator", "Primitive", "Iterate"],
+          "sourceCellIds": ["filter-axis"]
+        },
+        {
+          "role": "pull",
+          "semanticKind": "Pull",
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:104:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:pull",
+          "labelsAll": ["Primitive", "Pull"],
+          "sourceCellIds": ["filter-next"]
+        },
+        {
+          "role": "pulledCandidate",
+          "semanticKind": "CandidateValue",
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:104:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:pull:value",
+          "labelsAll": ["Value", "CandidateValue"],
+          "sourceCellIds": ["13"]
+        },
+        {
+          "role": "bind",
+          "semanticKind": "Bind",
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:104:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration",
+          "labelsAll": ["Primitive", "Bind"],
+          "sourceCellIds": []
+        },
+        {
+          "role": "item",
+          "semanticKind": "IterationVariable",
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:104:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration:value",
+          "labelsAll": ["Value", "Element"],
+          "sourceCellIds": ["filter-read-r"]
+        },
+        {
+          "role": "callback",
+          "semanticKind": "PredicateFunction",
+          "actualStableId": "screens/REPL.tsx:3195:61:3195:103:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:parameters",
+          "labelsAll": ["Predicate", "CallbackFn"],
+          "properties": {
+            "diaName": "r =>"
+          },
+          "sourceCellIds": []
+        },
+        {
+          "role": "predicateSource",
+          "semanticKind": "Storage",
+          "actualStableId": "screens/REPL.tsx:1423:9:1423:23",
+          "labelsAll": ["ValueSlot", "Storage", "Cell", "Collection"],
+          "properties": {
+            "diaName": "pastedContents"
+          },
+          "sourceCellIds": ["filter-read-group"]
+        },
+        {
+          "role": "predicateAccess",
+          "semanticKind": "OperandOccurrence",
+          "actualStableId": "screens/REPL.tsx:3195:66:3195:103:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:operand:0:left",
+          "labelsAll": ["Occurrence", "OperandValue", "ValueAccess"],
+          "properties": {
+            "diaName": "[r.id]?.type"
+          },
+          "sourceCellIds": ["18"]
+        },
+        {
+          "role": "predicateLiteral",
+          "semanticKind": "OperandOccurrence",
+          "actualStableId": "screens/REPL.tsx:3195:66:3195:103:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:operand:1:right",
+          "labelsAll": ["Occurrence", "OperandValue", "Literal"],
+          "properties": {
+            "diaName": "'text'"
+          },
+          "sourceCellIds": []
+        },
+        {
+          "role": "predicate",
+          "semanticKind": "Predicate",
+          "actualStableId": "screens/REPL.tsx:3195:66:3195:103:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Branch", "Operand"],
+          "properties": {
+            "diaName": "=== 'text'"
+          },
+          "sourceCellIds": ["19"]
+        },
+        {
+          "role": "truthy",
+          "semanticKind": "Outcome",
+          "actualStableId": "screens/REPL.tsx:3195:61:3195:103:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:parameters:outcome:truthy",
+          "labelsAll": ["ValueOutcome", "TruthyOutcome"],
+          "sourceCellIds": []
+        },
+        {
+          "role": "falsy",
+          "semanticKind": "Outcome",
+          "actualStableId": "screens/REPL.tsx:3195:61:3195:103:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:parameters:outcome:falsy",
+          "labelsAll": ["ValueOutcome", "FalsyOutcome"],
+          "sourceCellIds": []
+        },
+        {
+          "role": "acceptedItem",
+          "semanticKind": "AcceptedValue",
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:104:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration:accepted-value",
+          "labelsAll": ["Value", "Iteration", "Occurrence"],
+          "properties": {
+            "diaName": "r"
+          },
+          "sourceCellIds": ["pasted-refs-value-r"]
+        },
+        {
+          "role": "emit",
+          "semanticKind": "Emit",
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:104:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration:emit",
+          "labelsAll": ["Primitive", "Emit"],
+          "sourceCellIds": ["filter-action"]
+        },
+        {
+          "role": "exhausted",
+          "semanticKind": "Outcome",
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:104:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:outcome:exhausted",
+          "labelsAll": ["Outcome", "Exhausted"],
+          "sourceCellIds": ["65"]
+        }
+      ],
+      "relations": [
+        {"from": "target", "type": "EVAL", "to": "inputArgument", "layer": "control"},
+        {"from": "inputBinding", "type": "PASSES_VALUE", "to": "inputArgument", "layer": "data"},
+        {"from": "inputArgument", "type": "PASSES_VALUE", "to": "producerCall", "layer": "data"},
+        {"from": "producerCall", "type": "INVOKES", "to": "producerFunction", "layer": "control"},
+        {"from": "producerCall", "type": "PRODUCES_VALUE", "to": "source", "layer": "data"},
+        {"from": "producerFunction", "type": "PRODUCES_VALUE", "to": "source", "layer": "data"},
+        {"from": "source", "type": "READS_VALUE", "to": "iterator", "layer": "data"},
+        {"from": "call", "type": "ITERATES_VALUE", "to": "iterator", "layer": "control"},
+        {"from": "iterator", "type": "PULLS_VALUE", "to": "pull", "layer": "control"},
+        {"from": "pull", "type": "YIELDS_VALUE", "to": "pulledCandidate", "layer": "data"},
+        {"from": "pulledCandidate", "type": "ITEM_AVAILABLE", "to": "bind", "layer": "control"},
+        {"from": "bind", "type": "EXTRACTS_VALUE", "to": "item", "layer": "data"},
+        {"from": "pull", "type": "EXHAUSTED", "to": "exhausted", "layer": "control"},
+        {"from": "call", "type": "ARG", "to": "callback", "layer": "data"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "callback", "layer": "data"},
+        {"from": "callback", "type": "ARROW", "to": "predicate", "layer": "control"},
+        {"from": "predicateSource", "type": "PASSES_VALUE", "to": "predicateAccess", "layer": "data"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "predicateAccess", "layer": "data"},
+        {"from": "predicateAccess", "type": "READS_VALUE", "to": "predicate", "layer": "data"},
+        {"from": "predicateLiteral", "type": "READS_VALUE", "to": "predicate", "layer": "data"},
+        {"from": "predicate", "type": "TRUE", "to": "truthy", "layer": "control"},
+        {"from": "predicate", "type": "FALSE", "to": "falsy", "layer": "control"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "acceptedItem", "layer": "data"},
+        {"from": "truthy", "type": "TRUE", "to": "acceptedItem", "layer": "control"},
+        {"from": "acceptedItem", "type": "PASSES_VALUE", "to": "emit", "layer": "data"},
+        {"from": "falsy", "type": "REPEATS", "to": "call", "layer": "control"},
+        {"from": "emit", "type": "REPEATS", "to": "call", "layer": "control"},
+        {"from": "emit", "type": "EMITS_VALUE", "to": "assign", "layer": "data"},
+        {"from": "assign", "type": "TARGETS_VALUE", "to": "target", "layer": "data"}
+      ],
+      "forbiddenEntities": [
+        {
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:104:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration:result",
+          "reason": "accepted items flow directly into Emit"
+        },
+        {
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:104:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:complete",
+          "reason": "exhaustion is the terminal outcome"
+        },
+        {
+          "actualStableId": "screens/REPL.tsx:3195:31:3195:104:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:result",
+          "reason": "filter has no generic result between Emit and the consumer"
+        }
+      ],
+      "composition": {
+        "lanes": [
+          {
+            "owner": "iterator",
+            "direction": "vertical",
+            "visualKind": "functional-column",
+            "headerRole": "call",
+            "hideInternalChain": true,
+            "orderedRoles": ["call", "bind", "callback", "predicate"]
+          }
+        ],
+        "constraints": [
+          {"type": "LEFT_OF", "subject": "target", "object": "producerCall"},
+          {"type": "LEFT_OF", "subject": "producerCall", "object": "iterator"},
+          {"type": "RIGHT_OF", "subject": "source", "object": "iterator"},
+          {"type": "HEADS_COLUMN", "subject": "call", "object": "iterator"},
+          {"type": "OVERLAYS", "subject": "pull", "object": "source"},
+          {"type": "OVERLAYS", "subject": "predicateAccess", "object": "predicateSource"},
+          {"type": "OVERLAYS", "subject": "predicate", "object": "predicateAccess"},
+          {"type": "OVERLAYS", "subject": "emit", "object": "target"},
+          {"type": "BELOW", "subject": "bind", "object": "call"},
+          {"type": "BELOW", "subject": "acceptedItem", "object": "target"},
+          {"type": "ROUTE", "subject": "predicate", "object": "call", "policy": "repeat-corridor"},
+          {"type": "ROUTE", "subject": "emit", "object": "call", "policy": "repeat-corridor"}
+        ]
+      }
+    },
+    {
+      "id": "pasted-text-bytes-reduce",
+      "title": "Accumulate content length across references",
+      "protocol": "collection-accumulate",
+      "method": "reduce",
+      "sourceSpan": "screens/REPL.tsx:3197:32:3197:119",
+      "entities": [
+        {
+          "role": "target",
+          "semanticKind": "Binding",
+          "actualStableId": "screens/REPL.tsx:3197:14:3197:29",
+          "labelsAll": ["ValueSlot", "LocalBinding"],
+          "properties": {
+            "diaName": "pastedTextBytes"
+          },
+          "sourceCellIds": ["reduce-assignment"]
+        },
+        {
+          "role": "assign",
+          "semanticKind": "Assign",
+          "actualStableId": "screens/REPL.tsx:3197:14:3197:29:assign",
+          "labelsAll": ["Primitive", "Assign"],
+          "sourceCellIds": []
+        },
+        {
+          "role": "receiver",
+          "semanticKind": "Collection",
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:receiver",
+          "labelsAll": ["Collection", "Receiver"],
+          "properties": {
+            "diaName": "pastedTextRefs"
+          },
+          "sourceCellIds": ["reduce-source-group"]
+        },
+        {
+          "role": "call",
+          "semanticKind": "IteratorCall",
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Op", "Collection"],
+          "properties": {
+            "collectionMethod": "reduce",
+            "semantic_expansion": "collection-iteration",
+            "execution_scope_kind": "collection-call"
+          },
+          "sourceCellIds": ["reduce-head"]
+        },
+        {
+          "role": "iterator",
+          "semanticKind": "Iterator",
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop",
+          "labelsAll": ["Iterator", "Primitive", "Iterate"],
+          "sourceCellIds": ["reduce-axis"]
+        },
+        {
+          "role": "pull",
+          "semanticKind": "Pull",
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:pull",
+          "labelsAll": ["Primitive", "Pull"],
+          "sourceCellIds": ["reduce-next"]
+        },
+        {
+          "role": "pulledCandidate",
+          "semanticKind": "CandidateValue",
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:pull:value",
+          "labelsAll": ["Value", "CandidateValue"],
+          "properties": {
+            "diaName": "r?"
+          },
+          "sourceCellIds": ["reduce-callback"]
+        },
+        {
+          "role": "bind",
+          "semanticKind": "Bind",
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration",
+          "labelsAll": ["Primitive", "Bind"],
+          "sourceCellIds": []
+        },
+        {
+          "role": "item",
+          "semanticKind": "IterationVariable",
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration:value",
+          "labelsAll": ["Value", "Element"],
+          "properties": {
+            "diaName": "r"
+          },
+          "sourceCellIds": ["reduce-read-r"]
+        },
+        {
+          "role": "callback",
+          "semanticKind": "ReducerFunction",
+          "actualStableId": "screens/REPL.tsx:3197:54:3197:115:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:parameters",
+          "labelsAll": ["CallbackFn", "Reducer"],
+          "properties": {
+            "diaName": "(sum, r) =>"
+          },
+          "sourceCellIds": []
+        },
+        {
+          "role": "seed",
+          "semanticKind": "Literal",
+          "actualStableId": "screens/REPL.tsx:3197:117:3197:118:arg1:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Arg"],
+          "properties": {
+            "diaName": "0"
+          },
+          "sourceCellIds": ["reduce-seed"]
+        },
+        {
+          "role": "accumulatorState",
+          "semanticKind": "AccumulatorState",
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:accumulator-state",
+          "labelsAll": ["Value", "Accumulator", "State"],
+          "properties": {
+            "diaName": "sum"
+          },
+          "sourceCellIds": []
+        },
+        {
+          "role": "predicateSource",
+          "semanticKind": "Storage",
+          "actualStableId": "screens/REPL.tsx:1423:9:1423:23",
+          "labelsAll": ["ValueSlot", "Storage", "Cell", "Collection"],
+          "properties": {
+            "diaName": "pastedContents"
+          },
+          "sourceCellIds": ["reduce-read-group"]
+        },
+        {
+          "role": "contentAccess",
+          "semanticKind": "OperandOccurrence",
+          "actualStableId": "screens/REPL.tsx:3197:73:3197:109:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Read", "Operand", "Alternative"],
+          "properties": {
+            "diaName": "[r.id]?.content.length"
+          },
+          "sourceCellIds": ["reduce-content-read"]
+        },
+        {
+          "role": "fallback",
+          "semanticKind": "LiteralAlternative",
+          "actualStableId": "screens/REPL.tsx:3197:113:3197:114:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Operand", "Alternative"],
+          "properties": {
+            "diaName": "0"
+          },
+          "sourceCellIds": []
+        },
+        {
+          "role": "coalesce",
+          "semanticKind": "NullishChoice",
+          "actualStableId": "screens/REPL.tsx:3197:73:3197:114:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Branch", "Operand"],
+          "properties": {
+            "diaName": "?? 0"
+          },
+          "sourceCellIds": ["reduce-nullish-branch"]
+        },
+        {
+          "role": "contribution",
+          "semanticKind": "ContributionValue",
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration:contribution",
+          "labelsAll": ["Value", "Iteration", "Contribution"],
+          "properties": {
+            "diaName": "value"
+          },
+          "sourceCellIds": ["reduce-assignment-r"]
+        },
+        {
+          "role": "accumulate",
+          "semanticKind": "Accumulate",
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration:accumulate",
+          "labelsAll": ["Primitive", "Accumulate"],
+          "properties": {
+            "diaName": "add"
+          },
+          "sourceCellIds": ["reduce-action"]
+        },
+        {
+          "role": "exhausted",
+          "semanticKind": "Outcome",
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:outcome:exhausted",
+          "labelsAll": ["Outcome", "Exhausted"],
+          "sourceCellIds": ["68"]
+        }
+      ],
+      "relations": [
+        {"from": "target", "type": "EVAL", "to": "seed", "layer": "control"},
+        {"from": "seed", "type": "INITIALIZES_VALUE", "to": "accumulatorState", "layer": "data"},
+        {"from": "call", "type": "ARG", "to": "callback", "layer": "data"},
+        {"from": "call", "type": "ARG", "to": "seed", "layer": "data"},
+        {"from": "receiver", "type": "READS_VALUE", "to": "iterator", "layer": "data"},
+        {"from": "call", "type": "ITERATES_VALUE", "to": "iterator", "layer": "control"},
+        {"from": "iterator", "type": "PULLS_VALUE", "to": "pull", "layer": "control"},
+        {"from": "pull", "type": "YIELDS_VALUE", "to": "pulledCandidate", "layer": "data"},
+        {"from": "pulledCandidate", "type": "ITEM_AVAILABLE", "to": "bind", "layer": "control"},
+        {"from": "bind", "type": "EXTRACTS_VALUE", "to": "item", "layer": "data"},
+        {"from": "pull", "type": "EXHAUSTED", "to": "exhausted", "layer": "control"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "callback", "layer": "data"},
+        {"from": "callback", "type": "ARROW", "to": "coalesce", "layer": "control"},
+        {"from": "predicateSource", "type": "PASSES_VALUE", "to": "contentAccess", "layer": "data"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "contentAccess", "layer": "data"},
+        {"from": "contentAccess", "type": "COALESCE_INPUT", "to": "coalesce", "layer": "data"},
+        {"from": "fallback", "type": "FALLBACK_VALUE", "to": "coalesce", "layer": "data"},
+        {"from": "coalesce", "type": "PRODUCES_VALUE", "to": "contribution", "layer": "data"},
+        {"from": "accumulatorState", "type": "PASSES_VALUE", "to": "accumulate", "layer": "data"},
+        {"from": "contribution", "type": "PASSES_VALUE", "to": "accumulate", "layer": "data"},
+        {"from": "accumulate", "type": "UPDATES_VALUE", "to": "accumulatorState", "layer": "data"},
+        {"from": "accumulate", "type": "REPEATS", "to": "call", "layer": "control"},
+        {"from": "exhausted", "type": "COMPLETES_VALUE", "to": "accumulatorState", "layer": "control"},
+        {"from": "accumulatorState", "type": "ACCUMULATES_VALUE", "to": "assign", "layer": "data"},
+        {"from": "assign", "type": "TARGETS_VALUE", "to": "target", "layer": "data"}
+      ],
+      "forbiddenEntities": [
+        {
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:iteration:result",
+          "reason": "the callback value flows directly into Accumulate"
+        },
+        {
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:collection-loop:complete",
+          "reason": "exhaustion is the terminal outcome"
+        },
+        {
+          "actualStableId": "screens/REPL.tsx:3197:32:3197:119:horizontal-owner-screens/REPL.tsx-3142-31-3533-3:result",
+          "reason": "reduce has no generic result between Accumulate and the consumer"
+        }
+      ],
+      "composition": {
+        "lanes": [
+          {
+            "owner": "iterator",
+            "direction": "vertical",
+            "visualKind": "functional-column",
+            "headerRole": "call",
+            "hideInternalChain": true,
+            "orderedRoles": ["call", "bind", "callback", "coalesce"]
+          }
+        ],
+        "constraints": [
+          {"type": "LEFT_OF", "subject": "target", "object": "iterator"},
+          {"type": "RIGHT_OF", "subject": "receiver", "object": "iterator"},
+          {"type": "HEADS_COLUMN", "subject": "call", "object": "iterator"},
+          {"type": "OVERLAYS", "subject": "pull", "object": "receiver"},
+          {"type": "OVERLAYS", "subject": "contentAccess", "object": "predicateSource"},
+          {"type": "OVERLAYS", "subject": "coalesce", "object": "contentAccess"},
+          {"type": "OVERLAYS", "subject": "accumulate", "object": "target"},
+          {"type": "COMPOSES", "subject": "accumulatorState", "object": "iterator"},
+          {"type": "BELOW", "subject": "bind", "object": "call"},
+          {"type": "BELOW", "subject": "contribution", "object": "target"},
+          {"type": "ROUTE", "subject": "accumulate", "object": "call", "policy": "repeat-corridor"}
+        ]
+      }
+    },
+    {
+      "id": "pasted-values-for-of",
+      "title": "Dispatch pasted values into local and remote content collections",
+      "protocol": "collection-dispatch-effects",
+      "method": "for",
+      "sourceSpan": "screens/REPL.tsx:3443:8:3468:9",
+      "entities": [
+        {
+          "role": "loopHeader",
+          "semanticKind": "LoopHeader",
+          "actualStableId": "screens/REPL.tsx:3443:8:3468:9",
+          "labelsAll": ["Loop"],
+          "properties": {"diaName": "for"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "iterator",
+          "semanticKind": "Iterator",
+          "actualStableId": "screens/REPL.tsx:3443:8:3468:9:iterator:primitive",
+          "labelsAll": ["Iterator", "Primitive", "Iterate"],
+          "properties": {
+            "diaName": "",
+            "primitiveKind": "iterate",
+            "executionScopeKind": "collection-iterator"
+          },
+          "sourceCellIds": []
+        },
+        {
+          "role": "source",
+          "semanticKind": "Collection",
+          "actualStableId": "screens/REPL.tsx:3443:29:3443:41:collection",
+          "labelsAll": ["Value", "Collection", "Receiver"],
+          "properties": {"diaName": "pastedValues"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "pull",
+          "semanticKind": "Pull",
+          "actualStableId": "screens/REPL.tsx:3443:8:3468:9:pull",
+          "labelsAll": ["Primitive", "Pull"],
+          "properties": {"diaName": "nextOrNull"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "pulledCandidate",
+          "semanticKind": "CandidateValue",
+          "actualStableId": "screens/REPL.tsx:3443:8:3468:9:pull:value",
+          "labelsAll": ["Value", "CandidateValue"],
+          "properties": {"diaName": "pasted?"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "bind",
+          "semanticKind": "Bind",
+          "actualStableId": "screens/REPL.tsx:3443:8:3468:9:bind",
+          "labelsAll": ["Primitive", "Bind"],
+          "sourceCellIds": []
+        },
+        {
+          "role": "item",
+          "semanticKind": "IterationVariable",
+          "actualStableId": "screens/REPL.tsx:3443:13:3443:25:iterator",
+          "labelsAll": ["Value", "Element", "Iterator"],
+          "properties": {"diaName": "pasted"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "exhausted",
+          "semanticKind": "Outcome",
+          "actualStableId": "screens/REPL.tsx:3443:8:3468:9:outcome:exhausted",
+          "labelsAll": ["Outcome", "Exhausted"],
+          "sourceCellIds": []
+        },
+        {
+          "role": "typePredicate",
+          "semanticKind": "Predicate",
+          "actualStableId": "screens/REPL.tsx:3444:14:3444:37",
+          "labelsAll": ["Branch", "Operand"],
+          "properties": {"diaName": "pasted.type === 'image'"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageHeader",
+          "semanticKind": "BranchEntry",
+          "actualStableId": "screens/REPL.tsx:3444:39:3458:11:branch:true:header",
+          "labelsAll": ["Branch", "Alternative"],
+          "properties": {"diaName": "if"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageBranch",
+          "semanticKind": "BranchBody",
+          "actualStableId": "screens/REPL.tsx:3444:39:3458:11:branch:true",
+          "labelsAll": ["Primitive", "BranchBody", "Alternative"],
+          "properties": {"diaName": ""},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textHeader",
+          "semanticKind": "BranchEntry",
+          "actualStableId": "screens/REPL.tsx:3458:17:3467:11:branch:false:header",
+          "labelsAll": ["Branch", "Alternative"],
+          "properties": {"diaName": "else"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textBranch",
+          "semanticKind": "BranchBody",
+          "actualStableId": "screens/REPL.tsx:3458:17:3467:11:branch:false",
+          "labelsAll": ["Primitive", "BranchBody", "Alternative"],
+          "properties": {"diaName": ""},
+          "sourceCellIds": []
+        },
+        {
+          "role": "sourceCreateStage",
+          "semanticKind": "SequenceStage",
+          "actualStableId": "screens/REPL.tsx:3444:39:3458:11:branch:true:stage:source-create",
+          "labelsAll": ["Primitive", "SequenceStage", "EffectStage"],
+          "properties": {"primitiveKind": "create-value"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageContentStage",
+          "semanticKind": "SequenceStage",
+          "actualStableId": "screens/REPL.tsx:3444:39:3458:11:branch:true:stage:content-blocks-append",
+          "labelsAll": ["Primitive", "SequenceStage", "EffectStage"],
+          "properties": {"primitiveKind": "dispatch-effect"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageRemoteStage",
+          "semanticKind": "SequenceStage",
+          "actualStableId": "screens/REPL.tsx:3444:39:3458:11:branch:true:stage:remote-blocks-append",
+          "labelsAll": ["Primitive", "SequenceStage", "EffectStage"],
+          "properties": {"primitiveKind": "dispatch-effect"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textContentStage",
+          "semanticKind": "SequenceStage",
+          "actualStableId": "screens/REPL.tsx:3458:17:3467:11:branch:false:stage:content-blocks-append",
+          "labelsAll": ["Primitive", "SequenceStage", "EffectStage"],
+          "properties": {"primitiveKind": "dispatch-effect"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textRemoteStage",
+          "semanticKind": "SequenceStage",
+          "actualStableId": "screens/REPL.tsx:3458:17:3467:11:branch:false:stage:remote-blocks-append",
+          "labelsAll": ["Primitive", "SequenceStage", "EffectStage"],
+          "properties": {"primitiveKind": "dispatch-effect"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "sourceTarget",
+          "semanticKind": "Binding",
+          "actualStableId": "screens/REPL.tsx:3445:18:3445:24",
+          "labelsAll": ["ValueSlot", "LocalBinding"],
+          "properties": {"diaName": "source"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "sourceAssign",
+          "semanticKind": "Assign",
+          "actualStableId": "screens/REPL.tsx:3445:18:3445:24:assign",
+          "labelsAll": ["Primitive", "Assign"],
+          "properties": {"diaName": "set"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "sourceObject",
+          "semanticKind": "ObjectValue",
+          "actualStableId": "flow:object-value:screens/REPL.tsx:3445:27:3449:13:screens/REPL.tsx-3445-18-3445-24",
+          "labelsAll": ["Object", "Value"],
+          "properties": {"diaName": "{..."},
+          "sourceCellIds": []
+        },
+        {
+          "role": "sourceTypeField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:screens/REPL.tsx:3446:14:3446:37:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field"],
+          "properties": {"diaName": "type", "valueText": "'base64'"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "sourceMediaField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:screens/REPL.tsx:3447:14:3447:118:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field"],
+          "properties": {
+            "diaName": "media_type",
+            "valueText": "pasted.mediaType ?? 'image/png'"
+          },
+          "sourceCellIds": []
+        },
+        {
+          "role": "mediaRead",
+          "semanticKind": "OperandOccurrence",
+          "actualStableId": "screens/REPL.tsx:3447:27:3447:43:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Operand", "Alternative", "ValueRead"],
+          "properties": {"diaName": "pasted.mediaType"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "mediaFallback",
+          "semanticKind": "LiteralAlternative",
+          "actualStableId": "screens/REPL.tsx:3447:47:3447:58:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Operand", "Alternative", "Literal"],
+          "properties": {"diaName": "'image/png'"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "mediaChoice",
+          "semanticKind": "NullishChoice",
+          "actualStableId": "screens/REPL.tsx:3447:27:3447:58:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Branch", "Field", "Operand"],
+          "properties": {"diaName": "??"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "sourceDataField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:screens/REPL.tsx:3448:14:3448:34:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field", "ValueRead"],
+          "properties": {"diaName": "data", "valueText": "pasted.content"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "sourceObjectComplete",
+          "semanticKind": "ObjectComplete",
+          "actualStableId": "flow:field-join:screens/REPL.tsx:3445:27:3449:13",
+          "labelsAll": ["Field", "Join"],
+          "properties": {"diaName": "...}"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageContentObject",
+          "semanticKind": "ObjectValue",
+          "actualStableId": "flow:object:screens/REPL.tsx:3450:31:3453:13:arg0:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Arg", "Object"],
+          "properties": {"diaName": "{..."},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageContentTypeField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:screens/REPL.tsx:3451:14:3451:27:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field"],
+          "properties": {"diaName": "type", "valueText": "'image'"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageContentSourceField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:screens/REPL.tsx:3452:14:3452:20:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field", "ValueRead"],
+          "properties": {"diaName": "source", "valueText": "source"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageContentComplete",
+          "semanticKind": "ObjectComplete",
+          "actualStableId": "flow:field-join:screens/REPL.tsx:3450:31:3453:13:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field", "Join"],
+          "properties": {"diaName": "...}"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageContentPush",
+          "semanticKind": "Append",
+          "actualStableId": "visual:fn:screens/REPL.tsx-3450-12-3453-14->system-push",
+          "labelsAll": ["Op", "Method", "Collection", "Primitive", "Append"],
+          "properties": {"diaName": "push"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageContentReceiver",
+          "semanticKind": "CollectionOccurrence",
+          "actualStableId": "screens/REPL.tsx:3450:12:3453:14:receiver",
+          "labelsAll": ["Collection", "Receiver", "Occurrence"],
+          "properties": {"diaName": "contentBlocks"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageRemoteObject",
+          "semanticKind": "ObjectValue",
+          "actualStableId": "flow:object:screens/REPL.tsx:3454:30:3457:13:arg0:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Arg", "Object"],
+          "properties": {"diaName": "{..."},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageRemoteTypeField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:screens/REPL.tsx:3455:14:3455:27:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field"],
+          "properties": {"diaName": "type", "valueText": "'image'"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageRemoteSourceField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:screens/REPL.tsx:3456:14:3456:20:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field", "ValueRead"],
+          "properties": {"diaName": "source", "valueText": "source"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageRemoteComplete",
+          "semanticKind": "ObjectComplete",
+          "actualStableId": "flow:field-join:screens/REPL.tsx:3454:30:3457:13:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field", "Join"],
+          "properties": {"diaName": "...}"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageRemotePush",
+          "semanticKind": "Append",
+          "actualStableId": "visual:fn:screens/REPL.tsx-3454-12-3457-14->system-push",
+          "labelsAll": ["Op", "Method", "Collection", "Primitive", "Append"],
+          "properties": {"diaName": "push"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "imageRemoteReceiver",
+          "semanticKind": "CollectionOccurrence",
+          "actualStableId": "screens/REPL.tsx:3454:12:3457:14:receiver",
+          "labelsAll": ["Collection", "Receiver", "Occurrence"],
+          "properties": {"diaName": "remoteBlocks"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textContentObject",
+          "semanticKind": "ObjectValue",
+          "actualStableId": "flow:object:screens/REPL.tsx:3459:31:3462:13:arg0:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Arg", "Object"],
+          "properties": {"diaName": "{..."},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textContentTypeField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:screens/REPL.tsx:3460:14:3460:26:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field"],
+          "properties": {"diaName": "type", "valueText": "'text'"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textContentTextField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:screens/REPL.tsx:3461:14:3461:34:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field", "ValueRead"],
+          "properties": {"diaName": "text", "valueText": "pasted.content"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textContentComplete",
+          "semanticKind": "ObjectComplete",
+          "actualStableId": "flow:field-join:screens/REPL.tsx:3459:31:3462:13:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field", "Join"],
+          "properties": {"diaName": "...}"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textContentPush",
+          "semanticKind": "Append",
+          "actualStableId": "visual:fn:screens/REPL.tsx-3459-12-3462-14->system-push",
+          "labelsAll": ["Op", "Method", "Collection", "Primitive", "Append"],
+          "properties": {"diaName": "push"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textContentReceiver",
+          "semanticKind": "CollectionOccurrence",
+          "actualStableId": "screens/REPL.tsx:3459:12:3462:14:receiver",
+          "labelsAll": ["Collection", "Receiver", "Occurrence"],
+          "properties": {"diaName": "contentBlocks"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textRemoteObject",
+          "semanticKind": "ObjectValue",
+          "actualStableId": "flow:object:screens/REPL.tsx:3463:30:3466:13:arg0:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Arg", "Object"],
+          "properties": {"diaName": "{..."},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textRemoteTypeField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:screens/REPL.tsx:3464:14:3464:26:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field"],
+          "properties": {"diaName": "type", "valueText": "'text'"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textRemoteTextField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:screens/REPL.tsx:3465:14:3465:34:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field", "ValueRead"],
+          "properties": {"diaName": "text", "valueText": "pasted.content"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textRemoteComplete",
+          "semanticKind": "ObjectComplete",
+          "actualStableId": "flow:field-join:screens/REPL.tsx:3463:30:3466:13:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Field", "Join"],
+          "properties": {"diaName": "...}"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textRemotePush",
+          "semanticKind": "Append",
+          "actualStableId": "visual:fn:screens/REPL.tsx-3463-12-3466-14->system-push",
+          "labelsAll": ["Op", "Method", "Collection", "Primitive", "Append"],
+          "properties": {"diaName": "push"},
+          "sourceCellIds": []
+        },
+        {
+          "role": "textRemoteReceiver",
+          "semanticKind": "CollectionOccurrence",
+          "actualStableId": "screens/REPL.tsx:3463:12:3466:14:receiver",
+          "labelsAll": ["Collection", "Receiver", "Occurrence"],
+          "properties": {"diaName": "remoteBlocks"},
+          "sourceCellIds": []
+        }
+      ],
+      "relations": [
+        {"from": "loopHeader", "type": "ITERATES_VALUE", "to": "iterator", "layer": "control"},
+        {"from": "source", "type": "READS_VALUE", "to": "iterator", "layer": "data"},
+        {"from": "iterator", "type": "PULLS_VALUE", "to": "pull", "layer": "control"},
+        {"from": "pull", "type": "YIELDS_VALUE", "to": "pulledCandidate", "layer": "data"},
+        {"from": "pulledCandidate", "type": "ITEM_AVAILABLE", "to": "bind", "layer": "control"},
+        {"from": "bind", "type": "EXTRACTS_VALUE", "to": "item", "layer": "data"},
+        {"from": "pull", "type": "EXHAUSTED", "to": "exhausted", "layer": "control"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "typePredicate", "layer": "data"},
+        {"from": "typePredicate", "type": "TRUE", "to": "imageHeader", "layer": "control"},
+        {"from": "typePredicate", "type": "FALSE", "to": "textHeader", "layer": "control"},
+        {"from": "imageHeader", "type": "ENTERS", "to": "imageBranch", "layer": "control"},
+        {"from": "textHeader", "type": "ENTERS", "to": "textBranch", "layer": "control"},
+        {"from": "imageBranch", "type": "NEXT", "to": "sourceCreateStage", "layer": "control"},
+        {"from": "sourceCreateStage", "type": "NEXT", "to": "imageContentStage", "layer": "control"},
+        {"from": "imageContentStage", "type": "NEXT", "to": "imageRemoteStage", "layer": "control"},
+        {"from": "textBranch", "type": "NEXT", "to": "textContentStage", "layer": "control"},
+        {"from": "textContentStage", "type": "NEXT", "to": "textRemoteStage", "layer": "control"},
+        {"from": "sourceCreateStage", "type": "EMITS_EFFECT", "to": "sourceObject", "layer": "control"},
+        {"from": "sourceObjectComplete", "type": "ASSIGNS_VALUE", "to": "sourceAssign", "layer": "data"},
+        {"from": "sourceAssign", "type": "TARGETS_VALUE", "to": "sourceTarget", "layer": "data"},
+        {"from": "sourceObject", "type": "FIELD", "to": "sourceTypeField", "layer": "data", "name": "type"},
+        {"from": "sourceObject", "type": "FIELD", "to": "sourceMediaField", "layer": "data", "name": "media_type"},
+        {"from": "sourceObject", "type": "FIELD", "to": "sourceDataField", "layer": "data", "name": "data"},
+        {"from": "sourceTypeField", "type": "FieldJoin", "to": "sourceObjectComplete", "layer": "data"},
+        {"from": "sourceMediaField", "type": "FieldJoin", "to": "sourceObjectComplete", "layer": "data"},
+        {"from": "sourceDataField", "type": "FieldJoin", "to": "sourceObjectComplete", "layer": "data"},
+        {"from": "mediaRead", "type": "COALESCE_INPUT", "to": "mediaChoice", "layer": "data"},
+        {"from": "mediaFallback", "type": "FALLBACK_VALUE", "to": "mediaChoice", "layer": "data"},
+        {"from": "mediaChoice", "type": "PRODUCES_VALUE", "to": "sourceMediaField", "layer": "data"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "sourceDataField", "layer": "data"},
+        {"from": "imageContentStage", "type": "EMITS_EFFECT", "to": "imageContentObject", "layer": "control"},
+        {"from": "imageRemoteStage", "type": "EMITS_EFFECT", "to": "imageRemoteObject", "layer": "control"},
+        {"from": "imageContentObject", "type": "FIELD", "to": "imageContentTypeField", "layer": "data", "name": "type"},
+        {"from": "imageContentObject", "type": "FIELD", "to": "imageContentSourceField", "layer": "data", "name": "source"},
+        {"from": "imageContentTypeField", "type": "FieldJoin", "to": "imageContentComplete", "layer": "data"},
+        {"from": "imageContentSourceField", "type": "FieldJoin", "to": "imageContentComplete", "layer": "data"},
+        {"from": "imageContentComplete", "type": "ARG", "to": "imageContentPush", "layer": "data", "name": "item"},
+        {"from": "imageContentReceiver", "type": "READS_VALUE", "to": "imageContentPush", "layer": "data"},
+        {"from": "imageContentPush", "type": "APPENDS_TO", "to": "imageContentReceiver", "layer": "data"},
+        {"from": "imageRemoteObject", "type": "FIELD", "to": "imageRemoteTypeField", "layer": "data", "name": "type"},
+        {"from": "imageRemoteObject", "type": "FIELD", "to": "imageRemoteSourceField", "layer": "data", "name": "source"},
+        {"from": "imageRemoteTypeField", "type": "FieldJoin", "to": "imageRemoteComplete", "layer": "data"},
+        {"from": "imageRemoteSourceField", "type": "FieldJoin", "to": "imageRemoteComplete", "layer": "data"},
+        {"from": "imageRemoteComplete", "type": "ARG", "to": "imageRemotePush", "layer": "data", "name": "item"},
+        {"from": "imageRemoteReceiver", "type": "READS_VALUE", "to": "imageRemotePush", "layer": "data"},
+        {"from": "imageRemotePush", "type": "APPENDS_TO", "to": "imageRemoteReceiver", "layer": "data"},
+        {"from": "textContentStage", "type": "EMITS_EFFECT", "to": "textContentObject", "layer": "control"},
+        {"from": "textRemoteStage", "type": "EMITS_EFFECT", "to": "textRemoteObject", "layer": "control"},
+        {"from": "textContentObject", "type": "FIELD", "to": "textContentTypeField", "layer": "data", "name": "type"},
+        {"from": "textContentObject", "type": "FIELD", "to": "textContentTextField", "layer": "data", "name": "text"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "textContentTextField", "layer": "data"},
+        {"from": "textContentTypeField", "type": "FieldJoin", "to": "textContentComplete", "layer": "data"},
+        {"from": "textContentTextField", "type": "FieldJoin", "to": "textContentComplete", "layer": "data"},
+        {"from": "textContentComplete", "type": "ARG", "to": "textContentPush", "layer": "data", "name": "item"},
+        {"from": "textContentReceiver", "type": "READS_VALUE", "to": "textContentPush", "layer": "data"},
+        {"from": "textContentPush", "type": "APPENDS_TO", "to": "textContentReceiver", "layer": "data"},
+        {"from": "textRemoteObject", "type": "FIELD", "to": "textRemoteTypeField", "layer": "data", "name": "type"},
+        {"from": "textRemoteObject", "type": "FIELD", "to": "textRemoteTextField", "layer": "data", "name": "text"},
+        {"from": "item", "type": "PASSES_VALUE", "to": "textRemoteTextField", "layer": "data"},
+        {"from": "textRemoteTypeField", "type": "FieldJoin", "to": "textRemoteComplete", "layer": "data"},
+        {"from": "textRemoteTextField", "type": "FieldJoin", "to": "textRemoteComplete", "layer": "data"},
+        {"from": "textRemoteComplete", "type": "ARG", "to": "textRemotePush", "layer": "data", "name": "item"},
+        {"from": "textRemoteReceiver", "type": "READS_VALUE", "to": "textRemotePush", "layer": "data"},
+        {"from": "textRemotePush", "type": "APPENDS_TO", "to": "textRemoteReceiver", "layer": "data"},
+        {"from": "imageContentPush", "type": "REPEATS", "to": "iterator", "layer": "control"},
+        {"from": "imageRemotePush", "type": "REPEATS", "to": "iterator", "layer": "control"},
+        {"from": "textContentPush", "type": "REPEATS", "to": "iterator", "layer": "control"},
+        {"from": "textRemotePush", "type": "REPEATS", "to": "iterator", "layer": "control"}
+      ],
+      "forbiddenEntities": [
+        {
+          "actualStableId": "screens/REPL.tsx:3467:11:3467:34",
+          "reason": "both alternatives repeat directly; no synthetic loop-tail FlowJoin is required"
+        }
+      ],
+      "composition": {
+        "lanes": [
+          {
+            "owner": "iterator",
+            "direction": "vertical",
+            "visualKind": "functional-column",
+            "headerRole": "loopHeader",
+            "hideInternalChain": true,
+            "orderedRoles": ["loopHeader", "iterator", "bind", "typePredicate"]
+          },
+          {
+            "owner": "imageBranch",
+            "direction": "vertical",
+            "visualKind": "functional-column",
+            "headerRole": "imageHeader",
+            "hideInternalChain": true,
+            "orderedRoles": [
+              "imageHeader",
+              "imageBranch",
+              "sourceCreateStage",
+              "imageContentStage",
+              "imageRemoteStage"
+            ]
+          },
+          {
+            "owner": "textBranch",
+            "direction": "vertical",
+            "visualKind": "functional-column",
+            "headerRole": "textHeader",
+            "hideInternalChain": true,
+            "orderedRoles": [
+              "textHeader",
+              "textBranch",
+              "textContentStage",
+              "textRemoteStage"
+            ]
+          }
+        ],
+        "constraints": [
+          {"type": "RIGHT_OF", "subject": "source", "object": "iterator"},
+          {"type": "OVERLAYS", "subject": "pull", "object": "source"},
+          {"type": "BELOW", "subject": "typePredicate", "object": "iterator"},
+          {"type": "HEADS_COLUMN", "subject": "loopHeader", "object": "iterator"},
+          {"type": "HEADS_COLUMN", "subject": "imageHeader", "object": "imageBranch"},
+          {"type": "HEADS_COLUMN", "subject": "textHeader", "object": "textBranch"},
+          {"type": "BELOW", "subject": "imageHeader", "object": "typePredicate"},
+          {"type": "BELOW", "subject": "textHeader", "object": "imageHeader"},
+          {"type": "OVERLAYS", "subject": "imageContentPush", "object": "imageContentReceiver"},
+          {"type": "OVERLAYS", "subject": "imageRemotePush", "object": "imageRemoteReceiver"},
+          {"type": "OVERLAYS", "subject": "textContentPush", "object": "textContentReceiver"},
+          {"type": "OVERLAYS", "subject": "textRemotePush", "object": "textRemoteReceiver"},
+          {"type": "COMPOSES", "subject": "sourceTypeField", "object": "sourceObject"},
+          {"type": "COMPOSES", "subject": "sourceMediaField", "object": "sourceObject"},
+          {"type": "COMPOSES", "subject": "sourceDataField", "object": "sourceObject"},
+          {"type": "COMPOSES", "subject": "imageContentTypeField", "object": "imageContentObject"},
+          {"type": "COMPOSES", "subject": "imageContentSourceField", "object": "imageContentObject"},
+          {"type": "COMPOSES", "subject": "imageRemoteTypeField", "object": "imageRemoteObject"},
+          {"type": "COMPOSES", "subject": "imageRemoteSourceField", "object": "imageRemoteObject"},
+          {"type": "COMPOSES", "subject": "textContentTypeField", "object": "textContentObject"},
+          {"type": "COMPOSES", "subject": "textContentTextField", "object": "textContentObject"},
+          {"type": "COMPOSES", "subject": "textRemoteTypeField", "object": "textRemoteObject"},
+          {"type": "COMPOSES", "subject": "textRemoteTextField", "object": "textRemoteObject"},
+          {"type": "ROUTE", "subject": "imageContentPush", "object": "iterator", "policy": "repeat-corridor"},
+          {"type": "ROUTE", "subject": "imageRemotePush", "object": "iterator", "policy": "repeat-corridor"},
+          {"type": "ROUTE", "subject": "textContentPush", "object": "iterator", "policy": "repeat-corridor"},
+          {"type": "ROUTE", "subject": "textRemotePush", "object": "iterator", "policy": "repeat-corridor"}
+        ]
+      }
+    },
+    {
+      "id": "set-app-state-attribution-snapshot",
+      "title": "Update attribution state and persist the generated snapshot",
+      "protocol": "state-update-with-callback-effect",
+      "sourceSpan": "screens/REPL.tsx:3380:8:3387:11",
+      "entities": [
+        {
+          "role": "stateUpdateCall",
+          "semanticKind": "StateUpdate",
+          "actualStableId": "screens/REPL.tsx:3380:8:3387:11",
+          "labelsAll": ["Call", "StateUpdate", "Start"],
+          "properties": {"diaName": "setAppState"}
+        },
+        {
+          "role": "stateUpdater",
+          "semanticKind": "Updater",
+          "actualStableId": "screens/REPL.tsx:3380:20:3387:10:arg0:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["CallbackFn", "StateUpdater"],
+          "properties": {"diaName": "prev"}
+        },
+        {
+          "role": "previousAttribution",
+          "semanticKind": "ArgumentOccurrence",
+          "actualStableId": "screens/REPL.tsx:3382:44:3382:60",
+          "labelsAll": ["Arg", "ValueRead", "ValuePass"],
+          "properties": {
+            "diaName": "prev.attribution",
+            "bindingStableId": "screens/REPL.tsx:3380:20:3387:10:arg0"
+          }
+        },
+        {
+          "role": "incrementCall",
+          "semanticKind": "ValueProducer",
+          "actualStableId": "screens/REPL.tsx:3382:23:3386:12:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Request", "Start"],
+          "properties": {"diaName": "incrementPromptCount"}
+        },
+        {
+          "role": "incrementFunction",
+          "semanticKind": "Function",
+          "actualStableId": "utils/commitAttribution.ts:950:7:961:1",
+          "labelsAll": ["Fn"],
+          "properties": {"diaName": "incrementPromptCount"}
+        },
+        {
+          "role": "newAttribution",
+          "semanticKind": "Binding",
+          "actualStableId": "utils/commitAttribution.ts:954:8:954:22",
+          "labelsAll": ["Value", "ValueSlot", "LocalBinding"],
+          "properties": {"diaName": "newAttribution"}
+        },
+        {
+          "role": "attributionSpread",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:utils/commitAttribution.ts:955:4:955:18:horizontal-owner-utils/commitAttribution.ts-950-7-961-1",
+          "labelsAll": ["Field", "ValueRead"],
+          "properties": {"diaName": "attribution"}
+        },
+        {
+          "role": "promptCount",
+          "semanticKind": "ObjectField",
+          "actualStableId": "flow:object-field:utils/commitAttribution.ts:956:4:956:44:horizontal-owner-utils/commitAttribution.ts-950-7-961-1",
+          "labelsAll": ["Field", "ValueRead"],
+          "properties": {"diaName": "attribution.promptCount + 1"}
+        },
+        {
+          "role": "snapshot",
+          "semanticKind": "Binding",
+          "actualStableId": "utils/commitAttribution.ts:958:8:958:16",
+          "labelsAll": ["Value", "ValueSlot", "LocalBinding"],
+          "properties": {"diaName": "snapshot"}
+        },
+        {
+          "role": "returnedAttribution",
+          "semanticKind": "ReturnOccurrence",
+          "actualStableId": "utils/commitAttribution.ts:960:9:960:23:return-value",
+          "labelsAll": ["Value", "ValueRead", "ValuePass", "Return"],
+          "properties": {
+            "diaName": "newAttribution",
+            "bindingStableId": "utils/commitAttribution.ts:954:8:954:22"
+          }
+        },
+        {
+          "role": "recordSnapshotArgument",
+          "semanticKind": "ArgumentOccurrence",
+          "actualStableId": "screens/REPL.tsx:3383:43:3383:51",
+          "labelsAll": ["Arg", "ValueRead", "ValuePass"],
+          "properties": {
+            "diaName": "snapshot",
+            "bindingStableId": "utils/commitAttribution.ts:958:8:958:16"
+          }
+        },
+        {
+          "role": "persistSnapshotArgument",
+          "semanticKind": "ArgumentOccurrence",
+          "actualStableId": "utils/sessionStorage.ts:1491:47:1491:55",
+          "labelsAll": ["Arg", "ValueRead", "ValuePass"],
+          "properties": {
+            "diaName": "snapshot",
+            "bindingStableId": "utils/commitAttribution.ts:958:8:958:16"
+          }
+        },
+        {
+          "role": "recordCall",
+          "semanticKind": "EffectCall",
+          "actualStableId": "screens/REPL.tsx:3383:17:3383:52:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Request", "Start"],
+          "properties": {"diaName": "recordAttributionSnapshot"}
+        },
+        {
+          "role": "recordFunction",
+          "semanticKind": "Function",
+          "actualStableId": "utils/sessionStorage.ts:1488:7:1492:1",
+          "labelsAll": ["Fn", "Async"],
+          "properties": {"diaName": "recordAttributionSnapshot"}
+        },
+        {
+          "role": "sessionWrite",
+          "semanticKind": "StoreWrite",
+          "actualStableId": "visual:fn:utils/sessionStorage.ts-1491-8-1491-56->utils/sessionStorage.ts-1107-2-1111-3",
+          "labelsAll": ["Method", "Write"],
+          "properties": {"diaName": "write"}
+        },
+        {
+          "role": "sessionStore",
+          "semanticKind": "Store",
+          "actualStableId": "store:session-jsonl",
+          "labelsAll": ["Store", "External"],
+          "properties": {"diaName": "Session JSONL"}
+        },
+        {
+          "role": "caughtError",
+          "semanticKind": "FailureBinding",
+          "actualStableId": "screens/REPL.tsx:3383:59:3383:64",
+          "labelsAll": ["Value", "Failure", "Parameter"],
+          "properties": {
+            "diaName": "error",
+            "bindingStableId": "screens/REPL.tsx:3383:59:3383:64"
+          }
+        },
+        {
+          "role": "errorArgument",
+          "semanticKind": "ArgumentOccurrence",
+          "actualStableId": "screens/REPL.tsx:3384:71:3384:76",
+          "labelsAll": ["Arg", "ValueRead", "ValuePass", "Failure"],
+          "properties": {
+            "diaName": "error",
+            "bindingStableId": "screens/REPL.tsx:3383:59:3383:64"
+          }
+        },
+        {
+          "role": "logCall",
+          "semanticKind": "EffectCall",
+          "actualStableId": "screens/REPL.tsx:3384:14:3384:79:horizontal-owner-screens/REPL.tsx-3142-31-3533-3",
+          "labelsAll": ["Request", "Start"],
+          "properties": {"diaName": "logForDebugging"}
+        },
+        {
+          "role": "nextState",
+          "semanticKind": "ObjectValue",
+          "actualStableId": "screens/REPL.tsx:3380:20:3387:10:arg0:next-state",
+          "labelsAll": ["Object", "StateValue"],
+          "properties": {"diaName": "{..."}
+        },
+        {
+          "role": "previousStateField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "screens/REPL.tsx:3380:20:3387:10:arg0:next-state:field:prev",
+          "labelsAll": ["Field", "ValueRead"],
+          "properties": {"diaName": "prev"}
+        },
+        {
+          "role": "attributionField",
+          "semanticKind": "ObjectField",
+          "actualStableId": "screens/REPL.tsx:3380:20:3387:10:arg0:next-state:field:attribution",
+          "labelsAll": ["Field", "ValueRead"],
+          "properties": {"diaName": "newAttribution"}
+        },
+        {
+          "role": "nextStateComplete",
+          "semanticKind": "ObjectComplete",
+          "actualStableId": "screens/REPL.tsx:3380:20:3387:10:arg0:next-state:complete",
+          "labelsAll": ["Field", "Join"],
+          "properties": {"diaName": "...}"}
+        },
+        {
+          "role": "stateWrite",
+          "semanticKind": "StoreWrite",
+          "actualStableId": "system:setAppState:write",
+          "labelsAll": ["Primitive", "Write"],
+          "properties": {"diaName": "write"}
+        },
+        {
+          "role": "appStateStore",
+          "semanticKind": "Store",
+          "actualStableId": "store:app-state",
+          "labelsAll": ["Store", "UiState"],
+          "properties": {"diaName": "AppState store"}
+        }
+      ],
+      "relations": [
+        {"from": "stateUpdateCall", "type": "INVOKES", "to": "stateUpdater", "layer": "control"},
+        {"from": "stateUpdater", "type": "MATERIALIZES_ARGUMENT", "to": "previousAttribution", "layer": "control"},
+        {"from": "previousAttribution", "type": "ARG", "to": "incrementCall", "layer": "data", "name": "prev.attribution"},
+        {"from": "incrementCall", "type": "REQUEST", "to": "incrementFunction", "layer": "control"},
+        {"from": "incrementFunction", "type": "EVAL", "to": "newAttribution", "layer": "control"},
+        {"from": "newAttribution", "type": "FIELD", "to": "attributionSpread", "layer": "data", "name": "..."},
+        {"from": "newAttribution", "type": "FIELD", "to": "promptCount", "layer": "data", "name": "promptCount"},
+        {"from": "incrementFunction", "type": "EVAL", "to": "snapshot", "layer": "control"},
+        {"from": "incrementFunction", "type": "MATERIALIZES_RETURN", "to": "returnedAttribution", "layer": "control"},
+        {"from": "returnedAttribution", "type": "RETURNS_VALUE", "to": "stateUpdater", "layer": "data"},
+        {"from": "incrementFunction", "type": "MATERIALIZES_ARGUMENT", "to": "recordSnapshotArgument", "layer": "control"},
+        {"from": "recordSnapshotArgument", "type": "ARG", "to": "recordCall", "layer": "data", "name": "snapshot"},
+        {"from": "recordCall", "type": "REQUEST", "to": "recordFunction", "layer": "control"},
+        {"from": "recordFunction", "type": "MATERIALIZES_ARGUMENT", "to": "persistSnapshotArgument", "layer": "control"},
+        {"from": "persistSnapshotArgument", "type": "PASSES_VALUE", "to": "sessionWrite", "layer": "data", "name": "snapshot"},
+        {"from": "sessionWrite", "type": "WRITES", "to": "sessionStore", "layer": "data"},
+        {"from": "sessionWrite", "type": "ON_FAILURE", "to": "caughtError", "layer": "control", "name": ".catch"},
+        {"from": "recordFunction", "type": "MATERIALIZES_ARGUMENT", "to": "errorArgument", "layer": "control"},
+        {"from": "errorArgument", "type": "ARG", "to": "logCall", "layer": "data", "name": "message"},
+        {"from": "stateUpdater", "type": "PASSES_VALUE", "to": "nextState", "layer": "data"},
+        {"from": "stateUpdater", "type": "PASSES_VALUE", "to": "previousStateField", "layer": "data", "name": "prev"},
+        {"from": "stateUpdater", "type": "PASSES_VALUE", "to": "attributionField", "layer": "data", "name": "newAttribution"},
+        {"from": "nextState", "type": "FIELD", "to": "previousStateField", "layer": "data", "name": "..."},
+        {"from": "nextState", "type": "FIELD", "to": "attributionField", "layer": "data", "name": "attribution"},
+        {"from": "previousStateField", "type": "FieldJoin", "to": "nextStateComplete", "layer": "data"},
+        {"from": "attributionField", "type": "FieldJoin", "to": "nextStateComplete", "layer": "data"},
+        {"from": "nextStateComplete", "type": "PASSES_VALUE", "to": "stateWrite", "layer": "data"},
+        {"from": "stateWrite", "type": "WRITES", "to": "appStateStore", "layer": "data"}
+      ],
+      "composition": {
+        "lanes": [
+          {
+            "owner": "stateUpdater",
+            "direction": "vertical",
+            "visualKind": "functional-column",
+            "headerRole": "stateUpdateCall",
+            "hideInternalChain": true,
+            "orderedRoles": ["stateUpdateCall", "stateUpdater", "nextState"]
+          },
+          {
+            "owner": "incrementFunction",
+            "direction": "vertical",
+            "visualKind": "functional-column",
+            "headerRole": "incrementCall",
+            "hideInternalChain": true,
+            "orderedRoles": ["incrementCall", "incrementFunction", "newAttribution", "snapshot", "returnedAttribution", "recordSnapshotArgument"]
+          },
+          {
+            "owner": "recordFunction",
+            "direction": "vertical",
+            "visualKind": "functional-column",
+            "headerRole": "recordCall",
+            "hideInternalChain": true,
+            "orderedRoles": ["recordCall", "recordFunction", "persistSnapshotArgument", "sessionWrite", "caughtError", "errorArgument"]
+          }
+        ],
+        "constraints": [
+          {"type": "HEADS_COLUMN", "subject": "stateUpdateCall", "object": "stateUpdater"},
+          {"type": "HEADS_COLUMN", "subject": "incrementCall", "object": "incrementFunction"},
+          {"type": "HEADS_COLUMN", "subject": "recordCall", "object": "recordFunction"},
+          {"type": "SAME_BINDING", "subject": "newAttribution", "object": "returnedAttribution"},
+          {"type": "SAME_BINDING", "subject": "snapshot", "object": "recordSnapshotArgument"},
+          {"type": "SAME_BINDING", "subject": "snapshot", "object": "persistSnapshotArgument"},
+          {"type": "OVERLAYS", "subject": "stateWrite", "object": "appStateStore"},
+          {"type": "OVERLAYS", "subject": "sessionWrite", "object": "sessionStore"},
+          {"type": "SAME_BINDING", "subject": "caughtError", "object": "errorArgument"},
+          {"type": "COMPOSES", "subject": "previousStateField", "object": "nextState"},
+          {"type": "COMPOSES", "subject": "attributionField", "object": "nextState"}
+        ]
+      }
+    }
+  ]
+}

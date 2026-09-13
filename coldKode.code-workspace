@@ -20,5 +20,14 @@
       "path": "../coldKode-presenter"
     }
   ],
-  "settings": {}
+  "settings": {
+    "workbench.editorAssociations": {
+      "*.drawio": "hediet.vscode-drawio-text"
+    },
+    "hediet.vscode-drawio.plugins": [
+      {
+        "file": "${workspaceFolder}/graph/vendor/drawio/src/main/webapp/plugins/codexGraph.js"
+      }
+    ]
+  }
 }

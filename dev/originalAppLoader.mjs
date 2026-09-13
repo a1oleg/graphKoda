@@ -4,8 +4,9 @@ import path from 'node:path';
 import { transform } from 'esbuild';
 
 import { instrumentNodePassSource } from './instrumentNodePassSource.mjs';
+import projectPaths from './projectPaths.cjs';
 
-const root = process.cwd();
+const root = projectPaths.sourceRoot;
 
 function resolveExistingSource(relativePath) {
   const normalized = relativePath.replace(/\\/g, '/');
@@ -73,7 +74,7 @@ const claudeForChromeMcpStub = [
 
 const jsoncParserEsmWrapper = [
   'import { createRequire } from "node:module";',
-  `const require = createRequire(${JSON.stringify(pathToFileURL(path.join(root, 'dev', 'originalAppLoader.mjs')).href)});`,
+  `const require = createRequire(${JSON.stringify(import.meta.url)});`,
   'const jsonc = require("jsonc-parser");',
   'export const applyEdits = jsonc.applyEdits;',
   'export const modify = jsonc.modify;',

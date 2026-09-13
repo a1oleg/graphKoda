@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import path from 'node:path';
+import projectPaths from './projectPaths.cjs';
 
 import { transform } from 'esbuild';
 
@@ -8,7 +10,7 @@ import { instrumentNodePassSource } from './instrumentNodePassSource.mjs';
 
 test('instrumented REPL compiles when a logged binding awaits its value', async () => {
   const filePath = 'screens/REPL.tsx';
-  const source = await readFile(filePath, 'utf8');
+  const source = await readFile(path.join(projectPaths.sourceRoot, filePath), 'utf8');
   const instrumented = await instrumentNodePassSource(source, filePath);
 
   assert.match(instrumented, /await globalThis\.__coldKodeEvaluateAsyncNode/);

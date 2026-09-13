@@ -1,0 +1,33 @@
+{
+  "servers": {
+    "neo4jGraph": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "${workspaceFolder}\\graph\\mcp\\neo4j_mcp_server.py",
+        "--profile",
+        "local"
+      ],
+      "envFile": "${workspaceFolder}\\graph\\.env"
+    },
+    "googleSheets": {
+      "type": "stdio",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+      "args": [
+        "${workspaceFolder}\\graph\\mcp\\google_sheets_mcp_server.py"
+      ],
+      "envFile": "${workspaceFolder}\\graph\\.env"
+    },
+    "runtimeRedis": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}\\graph\\mcp\\redis_mcp_server.mjs"
+      ],
+      "env": {
+        "RUNTIME_REDIS_URL": "redis://127.0.0.1:6379",
+        "RUNTIME_REDIS_NAMESPACE": "runtime"
+      }
+    }
+  }
+}

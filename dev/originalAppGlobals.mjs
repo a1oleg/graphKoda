@@ -1,12 +1,12 @@
 import { createRequire } from 'node:module';
 import Module from 'node:module';
-import { fileURLToPath } from 'node:url';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { installRuntimeNodePassReporter } from './runtimeNodePassReporter.mjs';
+import projectPaths from './projectPaths.cjs';
 
-const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const root = projectPaths.sourceRoot;
 const localRequire = createRequire(import.meta.url);
 const rootRequire = createRequire(path.join(root, 'package.json'));
 const enabledFeatures = new Set(

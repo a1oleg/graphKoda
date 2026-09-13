@@ -1,0 +1,11 @@
+{
+  "dunehd.host": "192.168.10.101",
+  "workbench.editorAssociations": {
+    "*.drawio": "hediet.vscode-drawio-text"
+  },
+  "hediet.vscode-drawio.plugins": [
+    {
+      "file": "${workspaceFolder}/graph/vendor/drawio/src/main/webapp/plugins/codexGraph.js"
+    }
+  ]
+}
