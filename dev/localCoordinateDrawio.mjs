@@ -488,7 +488,7 @@ function boxPaths({ open = false, sketch = false, compact = false, roughPerFace 
   ].join('');
 }
 
-function boxImage({ open = false, collection = false, sketch = false } = {}) {
+export function boxImage({ open = false, collection = false, sketch = false } = {}) {
   const body = boxPaths({ sketch, compact: collection });
   const top = boxPaths({ open, sketch, compact: collection, roughPerFace: sketch && open });
   const layer = (paths, transform = '', rough = sketch) => {

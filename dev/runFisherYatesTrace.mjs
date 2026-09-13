@@ -103,6 +103,11 @@ for (let attempt = 0; attempt < 40; attempt++) {
 assert.equal(analysis.totalIterations, 7);
 assert.deepEqual(analysis.conditionChecks, { total: 8, true: 7, false: 1 });
 assert.deepEqual(analysis.iterations.map(i => JSON.parse(i.itemPreview).last), [7, 6, 5, 4, 3, 2, 1]);
+assert.equal(analysis.totalCases, 8);
+assert.deepEqual(analysis.cases.map(c => c.transition), [...Array(7).fill('continue'), 'break']);
+assert.equal(JSON.parse(analysis.cases.at(-1).itemPreview).last, 0);
+assert(analysis.cases.slice(0, 7).every(c => c.edgePairs.length === 5 && c.edgePairs.at(-1).edgeType === 'REPEATS'));
+assert.deepEqual(analysis.cases.at(-1).edgePairs.map(e => e.edgeType), ['NEXT', 'FALSE']);
 const trace = (await query('/runtime-trace', root)).trace;
 const values = (await query('/runtime-values', root)).values;
 assert(trace.chain.length > 7);

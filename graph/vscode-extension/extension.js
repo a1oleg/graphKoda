@@ -702,7 +702,8 @@ async function openRuntimeAnalysis(context, workspaceRoot, item) {
       vscode.ViewColumn.Beside,
       { enableScripts: true, retainContextWhenHidden: true },
     );
-    runtimeAnalysisPanel.webview.html = buildRuntimeAnalysisHtml();
+    const { boxImage } = await import(require('node:url').pathToFileURL(path.join(workspaceRoot, 'dev/localCoordinateDrawio.mjs')).href);
+    runtimeAnalysisPanel.webview.html = buildRuntimeAnalysisHtml(boxImage());
     runtimeAnalysisPanel.onDidDispose(() => {
       const diagramPanel = runtimeAnalysisState?.diagramPanel || null;
       const functionStableId = runtimeAnalysisState?.functionStableId || '';
@@ -732,7 +733,7 @@ async function openRuntimeAnalysis(context, workspaceRoot, item) {
         return;
       }
       if (message.type === 'showCase') {
-        const iteration = state.analysis?.iterations?.find((candidate) => candidate.index === Number(message.index));
+        const iteration = (state.analysis?.cases || state.analysis?.iterations)?.find((candidate) => candidate.index === Number(message.index));
         if (iteration) await postRuntimeHighlight(state.diagramPanel, iteration, state.functionStableId);
       } else if (message.type === 'showSegment') {
         const segment = state.analysis?.segments?.find((candidate) => candidate.id === message.id);
@@ -786,11 +787,15 @@ async function postRuntimeHighlightClear(panel, functionStableId = '') {
   if (panel) await panel.webview.postMessage({ type: 'runtimeHighlightClear' });
 }
 
-function buildRuntimeAnalysisHtml() {
+function buildRuntimeAnalysisHtml(variableBoxImage) {
   return `<!doctype html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   * { box-sizing: border-box; }
+  body { color-scheme:light; --vscode-foreground:#202124; --vscode-editor-background:#ffffff; --vscode-panel-border:#d8dce0; --vscode-focusBorder:#1670b7; --vscode-editorWidget-background:#f5f7f9; --vscode-descriptionForeground:#59636e; --vscode-list-hoverBackground:#edf4fa; --vscode-errorForeground:#b42318; --vscode-font-family:Arial,sans-serif; }
+  .variable-box { display:inline-grid; place-items:center; width:64px; height:44px; background:center/100% 100% no-repeat url("${variableBoxImage}"); padding-bottom:3px; font-weight:600; }
+  .details td { overflow-wrap:anywhere; }
+  .details tr.selected { background:#e1effa; }
   body { margin: 0; color: var(--vscode-foreground); background: var(--vscode-editor-background); font: 13px/1.4 var(--vscode-font-family); }
   header { min-height:44px; padding:11px 12px; border-bottom:1px solid var(--vscode-panel-border); }
   header code { display:block; overflow:hidden; color:var(--vscode-foreground); text-overflow:ellipsis; white-space:nowrap; }
@@ -821,7 +826,7 @@ function buildRuntimeAnalysisHtml() {
   <div id="error" class="error-box" hidden></div>
   <main id="main" hidden>
     <section><button id="all" class="all-frame"><span class="all-label">ALL</span><span id="bar" class="bar"></span></button><div id="segments" class="legend"></div></section>
-    <section><table class="details"><thead><tr><th class="marker-cell"></th><th>#</th><th>Item</th><th>Outcome</th><th id="accumulatorHeader" style="white-space:pre-line">accum:</th><th>Duration</th></tr></thead><tbody id="details"></tbody></table></section>
+    <section><table class="details"><thead><tr><th class="marker-cell"></th><th>#</th><th><span id="itemHeader">Item</span></th><th id="outcomeHeader">Outcome</th><th id="accumulatorHeader" style="white-space:pre-line">accum:</th><th>Duration</th></tr></thead><tbody id="details"></tbody></table></section>
   </main>
 <script>
   const vscode = acquireVsCodeApi();
@@ -829,6 +834,8 @@ function buildRuntimeAnalysisHtml() {
   let selectedSegmentId = null;
   const byId = (id) => document.getElementById(id);
   function caseColor(outcome, analysis) {
+    if (outcome === 'continue') return '#17834b';
+    if (outcome === 'break') return '#c33a3a';
     if (analysis?.segments?.length === 1 && !(analysis.segments[0].branchPath || []).length) return '#F2C185';
     if (outcome === 'accepted' || outcome === 'matched' || outcome === 'accumulated') return '#006600';
     if (outcome === 'error') return '#c27d00';
@@ -836,7 +843,7 @@ function buildRuntimeAnalysisHtml() {
   }
   function selectedRowsFor(segment) {
     const indexes = new Set(segment?.iterationIndexes || []);
-    return (current?.iterations || []).filter((item) => indexes.has(item.index));
+    return (current?.cases || current?.iterations || []).filter((item) => indexes.has(item.index));
   }
   function selectSegment(item) {
     selectedSegmentId = item.id;
@@ -851,11 +858,11 @@ function buildRuntimeAnalysisHtml() {
     selectedSegmentId = null;
     byId('all').classList.add('selected');
     document.querySelectorAll('[data-segment-id]').forEach((element) => element.classList.remove('selected'));
-    showRows(current?.iterations || []);
+    showRows(current?.cases || current?.iterations || []);
     vscode.postMessage({type:'clearHighlight'});
   }
   function renderDistribution(analysis) {
-    const items = analysis.segments || []; const total = Math.max(1, analysis.totalIterations || 0);
+    const items = analysis.segments || []; const total = Math.max(1, analysis.totalCases || analysis.totalIterations || 0);
     const bar = byId('bar'); const legend = byId('segments'); bar.replaceChildren(); legend.replaceChildren();
     items.forEach((item) => {
       const color = caseColor(item.outcome, analysis);
@@ -884,6 +891,11 @@ function buildRuntimeAnalysisHtml() {
       + (analysis.conditionChecks ? ' | Condition: ' + analysis.conditionChecks.total
         + ' | true: ' + analysis.conditionChecks.true + ' | false: ' + analysis.conditionChecks.false : '');
     byId('accumulatorHeader').textContent = 'accum:' + (analysis.accumulatorName ? '\\n' + analysis.accumulatorName : '');
+    current.hasAccumulator = Boolean(analysis.accumulatorName || (analysis.cases || analysis.iterations || []).some(item => item.accumulatorState != null));
+    byId('accumulatorHeader').hidden = !current.hasAccumulator;
+    byId('itemHeader').textContent = analysis.iterationVariable || 'Item';
+    byId('itemHeader').className = analysis.iterationVariable ? 'variable-box' : '';
+    byId('outcomeHeader').textContent = analysis.methodName === 'for' ? 'Transition' : 'Outcome';
     renderDistribution(analysis);
   }
   function showRows(items) {
@@ -891,10 +903,18 @@ function buildRuntimeAnalysisHtml() {
       const row = document.createElement('tr');
       const markerCell = document.createElement('td'); markerCell.className = 'marker-cell';
       const marker = document.createElement('span'); marker.className = 'case-marker'; marker.style.display = 'block'; marker.style.background = caseColor(item.outcome, current); markerCell.appendChild(marker); row.appendChild(markerCell);
-      [item.index + 1, item.itemPreview || '', item.outcome, item.accumulatorState || '—', item.durationMs + ' ms'].forEach((value, index) => {
-        const cell=document.createElement('td'); cell.textContent=String(value); if (index === 3) cell.className = 'accumulator'; row.appendChild(cell);
+      let itemValue = item.itemPreview || '';
+      if (current.iterationVariable && item.itemPreview) {
+        try { itemValue = JSON.parse(item.itemPreview)[current.iterationVariable]; } catch {}
+      }
+      [item.index + 1, itemValue, item.transition || item.outcome, ...(current.hasAccumulator ? [item.accumulatorState || '—'] : []), item.durationMs + ' ms'].forEach((value, index) => {
+        const cell=document.createElement('td'); cell.textContent=String(value); if (current.hasAccumulator && index === 3) cell.className = 'accumulator'; row.appendChild(cell);
       });
-      row.onclick = () => vscode.postMessage({type:'showCase',index:item.index});
+      row.onclick = () => {
+        document.querySelectorAll('#details tr').forEach(element => element.classList.remove('selected'));
+        row.classList.add('selected');
+        vscode.postMessage({type:'showCase',index:item.index});
+      };
       return row;
     });
     byId('details').replaceChildren(...rows);

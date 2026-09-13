@@ -15,6 +15,7 @@ function projectEvent(record) {
     iterationIndex: Number.isInteger(props.iterationIndex) ? props.iterationIndex : null,
     itemPreview: props.itemPreview || null,
     valuePreview: props.valuePreview || null,
+    variableName: props.variableName || null,
     matched: props.matched === true,
     accumulatorState: props.accumulatorState || props.accumulatorPreview || null,
     accumulatorBefore: props.accumulatorBefore || null,
@@ -285,6 +286,36 @@ function buildSegments(iterations) {
   return [...groups.values()].sort((left, right) => right.count - left.count);
 }
 
+function buildForCases(chain, guardId) {
+  const events = chain.map(projectEvent);
+  const guards = events.map((event, index) => event.stableId === guardId && typeof event.outcome === 'boolean' ? index : -1).filter(index => index >= 0);
+  const initial = events.slice(0, guards[0]).findLast(event => event.role === 'set-value');
+  if (!initial || !guards.length) return [];
+  return guards.map((start, index) => {
+    const end = guards[index + 1] ?? events.length;
+    const observed = events.slice(start, end);
+    const guard = observed[0];
+    const pop = observed.find(event => event.role === 'collection-pop');
+    const priorValue = events.slice(0, start).findLast(event => event.role === 'set-value' && event.variableName === initial.variableName);
+    const itemPreview = pop?.itemPreview || JSON.stringify({ [initial.variableName]: JSON.parse(priorValue?.valuePreview || 'null') });
+    const outcome = observed.some(event => event.completion === 'throw') ? 'error' : guard.outcome ? 'continue' : 'break';
+    const path = observed.filter(event => !['collection-pop', 'collection-predicate', 'collection-result'].includes(event.role));
+    const pairs = [{ sourceStableId: initial.stableId, targetStableId: guard.stableId, edgeType: 'NEXT' }, ...buildEdgePairs(path)];
+    if (outcome === 'continue' && path.at(-1)) pairs.push({ sourceStableId: path.at(-1).stableId, targetStableId: initial.stableId, edgeType: 'REPEATS' });
+    const highlighted = [initial, ...path];
+    return {
+      index, itemPreview, outcome, transition: outcome, terminal: !guard.outcome,
+      terminationReason: !guard.outcome ? 'condition-false' : null,
+      variableName: initial.variableName, accumulatorState: null,
+      durationMs: Math.max(0, (observed.at(-1)?.score || 0) - guard.score),
+      pathSignature: path.map(eventSignature).join('>'),
+      branchPath: [], destination: outcome, branchSignature: `for:${outcome}`,
+      staticStableIds: unique(highlighted.map(event => event.stableId)),
+      nodeHighlights: buildNodeHighlights(highlighted), edgePairs: uniqueEdgePairs(pairs), events: observed,
+    };
+  });
+}
+
 export function buildCollectionRuntimeAnalysis(records, {
   stableId,
   sessionId,
@@ -317,8 +348,9 @@ export function buildCollectionRuntimeAnalysis(records, {
 
   const methodName = runtimeProps(selectedRoot).methodName || null;
   const chain = buildInvocationChain(sorted.filter((record) => record.sessionId === selectedRoot.sessionId), selectedRoot);
-  const iterations = buildIterations(chain, methodName);
   const guardId = runtimeProps(selectedRoot).iterationGuardStableId;
+  const cases = methodName === 'for' ? buildForCases(chain, guardId) : buildIterations(chain, methodName);
+  const iterations = methodName === 'for' ? cases.filter(item => !item.terminal) : cases;
   const conditionEvents = methodName === 'for' && guardId
     ? chain.filter(record => record.functionStableId === guardId && typeof runtimeProps(record).outcome === 'boolean') : [];
   if (methodName === 'filter') {
@@ -329,7 +361,7 @@ export function buildCollectionRuntimeAnalysis(records, {
     }
   }
   const successfulIterations = iterations.filter((iteration) => (
-    iteration.outcome === 'matched' || iteration.outcome === 'accepted' || iteration.outcome === 'accumulated'
+    iteration.outcome === 'matched' || iteration.outcome === 'accepted' || iteration.outcome === 'accumulated' || iteration.outcome === 'continue'
   )).length;
   return {
     stableId,
@@ -349,11 +381,14 @@ export function buildCollectionRuntimeAnalysis(records, {
       selected: root.nodeId === selectedRoot.nodeId,
     })),
     totalIterations: iterations.length,
+    totalCases: cases.length,
+    cases,
+    iterationVariable: methodName === 'for' ? cases[0]?.variableName || null : null,
     matchedIterations: successfulIterations,
     acceptedIterations: iterations.filter((iteration) => iteration.outcome === 'accepted').length,
     rejectedIterations: iterations.filter((iteration) => iteration.outcome === 'rejected').length,
     errorIterations: iterations.filter((iteration) => iteration.outcome === 'error').length,
     iterations,
-    segments: buildSegments(iterations),
+    segments: buildSegments(cases),
   };
 }

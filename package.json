@@ -48,6 +48,7 @@
     "fisher:run": "node --import tsx dev/runFisherYatesTrace.mjs",
     "fisher:up": "node dev/startFisherRuntime.mjs",
     "fisher:runtime:check": "node dev/checkFisherRuntimeApi.mjs",
+    "fisher:panel:check": "node dev/checkFisherLoopPanel.mjs",
     "fisher:test": "node --import tsx --test examples/fisher-yates/src/shuffle.test.ts dev/fisherYates.test.mjs",
     "fisher:import": "node --import tsx dev/importFisherYates.mjs && node dev/materializeFisherYatesContext.mjs",
     "fisher:draw": "node dev/exportFisherYatesDrawio.mjs",

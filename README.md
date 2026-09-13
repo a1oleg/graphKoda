@@ -244,6 +244,10 @@ Runtime Swagger: http://127.0.0.1:8787/api/docs (отдельно от Swagger �
 `stableId` цикла. Необязательный `sessionId` выбирает конкретный прогон, иначе последний.
 `npm run fisher:runtime:check` проверяет реальные данные через API и Execute в Swagger.
 Отчёты и инструментированный код находятся в `tmp/fisher-yates/runtime/`.
+Панель `for` показывает `cases`: семь `continue` и завершающий `break` при
+ложном условии; `totalIterations` остаётся равным семи, `totalCases` равен восьми.
+`npm run fisher:panel:check` проверяет реальные кейсы, их связи через draw.io MCP
+и отображение светлой панели с коробкой переменной вместо заголовка Item.
 
 ## Безопасность
 

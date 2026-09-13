@@ -27,6 +27,7 @@ runtimeOpenApi.paths['/fisher/run'] = { post: { summary: 'Instrument and run the
   responses: { 200: { description: 'Verified run summary' }, 409: { description: 'A run is already active' }, 500: { description: 'Run or verification failed' } } } };
 runtimeOpenApi.paths['/runtime-data'] = { delete: { summary: 'Delete all runtime data in the configured Redis namespace',
   description: 'Destructive. Not required for Fisher runs.', responses: { 200: { description: 'Deletion result' }, 500: { description: 'Storage error' } } } };
+runtimeOpenApi.paths['/runtime-analysis'].get.description = 'For ordinary for loops, totalIterations counts body executions; totalCases also includes the final condition-false case. cases use transition=continue or break (condition-false, not a JavaScript break statement), contain variableName/itemPreview and complete edgePairs. iterations excludes the terminal case. iterationVariable names the table column. Other loop kinds retain their own outcome vocabulary. No accumulator column is needed when accumulatorName and accumulatorState are absent.';
 export function serveRuntimeDocs(req, res) {
   const route = new URL(req.url, 'http://localhost').pathname;
   if (req.method !== 'GET') return false;
