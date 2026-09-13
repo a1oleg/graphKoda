@@ -573,6 +573,7 @@ function splitCallBoundaryStyle(node, width) {
       : side;
   const missing = node.labels.includes('Missing');
   const literal = side === 'middle' && node.labels.includes('Literal');
+  const sketch = isVirtualContainerMethodNode(node) || hasLabel(node, 'Virtual');
   const variable = side === 'middle'
     && (node.labels.includes('Variable') || node.labels.includes('ValueAccess') || node.labels.includes('ValueRead'));
   const fillColor = missing
@@ -581,7 +582,9 @@ function splitCallBoundaryStyle(node, width) {
       ? DRAWIO_PALETTE.literalFill
       : variable
         ? DRAWIO_PALETTE.valueFill
-        : isSystemMethodNode(node)
+        : sketch
+          ? virtualMethodPalette().fill
+          : isSystemMethodNode(node)
           ? DRAWIO_PALETTE.systemActionFill
           : DRAWIO_PALETTE.actionFill;
   const strokeColor = missing
@@ -601,7 +604,7 @@ function splitCallBoundaryStyle(node, width) {
       ? horizontalMosaicImage(side, fillColor, strokeColor, true, width)
       : splitCallBoundaryImage(side, fillColor, strokeColor, true, width, flatOuter)
     : methodMosaicImage(flatOuter ? 'torn-left' : methodSide, fillColor, strokeColor, {
-        sketch: isVirtualContainerMethodNode(node) || hasLabel(node, 'Virtual'),
+        sketch,
         torn: !flatOuter && Boolean(extractedSide),
         width,
       });

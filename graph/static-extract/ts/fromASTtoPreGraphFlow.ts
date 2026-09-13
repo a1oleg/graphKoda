@@ -16964,7 +16964,7 @@ class FunctionFlowGraphBuilder {
         )
       : options.foldedAssignmentBoundary
         ? this.createNode('FnVisualProxy', 'set', argument, {
-            labels: uniqueStrings(['Field', 'Join', 'Object', 'Method', 'Call', 'VisualProxy', ...enclosingLabels]),
+            labels: uniqueStrings(['Field', 'Join', 'Object', 'Method', 'Call', 'VisualProxy', 'Virtual', ...enclosingLabels]),
             diaName: ')',
             actionTextRaw: argument.properties.map((property) => property.getText(this.sourceFile)).join(', '),
             callBoundaryDesign: 'split',
@@ -16980,7 +16980,7 @@ class FunctionFlowGraphBuilder {
                 stableId: mergeFieldsStableIdValue,
                 text: ')',
                 kind: 'method',
-                labels: ['Op', 'Method', 'Call', 'VisualProxy'],
+                labels: ['Op', 'Method', 'Call', 'VisualProxy', 'Virtual'],
                 order: 0,
                 sourceStableId: getExtendedStableId(
                   this.sourceFile,
