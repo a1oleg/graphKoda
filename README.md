@@ -228,6 +228,23 @@ node dev/checkOrchestratorHealth.mjs
 синтетических графов. Новые проверки добавляются по коллизиям, обнаруженным
 пользователем в конкретном кейсе.
 
+## Fisher Runtime
+
+`npm run fisher:up` запускает Redis в Docker (только localhost) и runtime-relay.
+`npm run fisher:run` инструментирует реальный `shuffle.ts` через Babel и выполняет
+перемешивание A-H в новой сессии, не удаляя предыдущие прогоны.
+
+В контекстном меню диаграммы доступны Trace функции и значения; для узла `for`
+доступна статистика цикла. Панель показывает итерации и проверки условия.
+После обновления расширения перезагрузите окно VS Code и откройте диаграмму заново.
+
+Runtime Swagger: http://127.0.0.1:8787/api/docs (отдельно от Swagger оркестратора).
+`POST /fisher/run` запускает тот же прогон. `GET /runtime-trace` и
+`GET /runtime-values` принимают `stableId` функции; `GET /runtime-analysis` принимает
+`stableId` цикла. Необязательный `sessionId` выбирает конкретный прогон, иначе последний.
+`npm run fisher:runtime:check` проверяет реальные данные через API и Execute в Swagger.
+Отчёты и инструментированный код находятся в `tmp/fisher-yates/runtime/`.
+
 ## Безопасность
 
 - никогда не коммитьте `graph/.env`, service-account JSON, `.cache`, `.venv`,

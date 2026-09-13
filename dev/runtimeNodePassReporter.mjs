@@ -12,6 +12,7 @@ let batchTimer;
 const sessionId = process.env.GRAPH_RUNTIME_SESSION_ID || `node-pass-${randomUUID()}`;
 const latestEventIdByOwner = new Map();
 const collectionIterationStack = [];
+let eventSequence = 0;
 
 function canonicalRuntimeTarget(target) {
   return {
@@ -41,7 +42,7 @@ export function createNodePassPayload(target, now = Date.now(), options = {}) {
       completion: options.completion || 'return',
       resultType: options.resultType,
       errorName: options.errorName,
-      fnName: 'onSubmit',
+      fnName: target.fnName || target.ownerFnStableId,
       sessionId,
       tsMs: now,
       staticFilePath: target.filePath,
@@ -50,7 +51,9 @@ export function createNodePassPayload(target, now = Date.now(), options = {}) {
       endLine: target.endLine,
       endColumn: target.endColumn,
       instrumentation: 'babel',
+      eventSequence: options.eventSequence,
       methodName: options.methodName,
+      iterationGuardStableId: target.iterationGuardStableId,
       accumulatorName: options.accumulatorName,
       iterationIndex: options.iterationIndex,
       itemPreview: options.itemPreview,
@@ -77,6 +80,7 @@ export function logNodePass(target, result = {}) {
   latestEventIdByOwner.set(ownerKey, eventId);
   const payload = createNodePassPayload(target, Date.now(), {
     ...result,
+    eventSequence: ++eventSequence,
     eventId,
     predecessorEventIds: predecessorEventId ? [predecessorEventId] : [],
   });
@@ -132,11 +136,11 @@ function flushNodePassBatch() {
   return request;
 }
 
-export function evaluateNode(target, evaluator) {
+export function evaluateNode(target, evaluator, readValue) {
   const iteration = collectionIterationStack.at(-1);
   try {
     const value = evaluator();
-    const observedValue = target.valuePath
+    const observedValue = readValue ? readValue() : target.valuePath
       ? target.valuePath.split('.').reduce((current, key) => current?.[key], value)
       : value;
     const predicate = target.role === 'predicate' || target.role === 'predicate-stage';
@@ -453,6 +457,35 @@ export async function flushPendingNodePassEvents() {
   }
 }
 
+function beginFor(target) {
+  void logNodePass({ ...target, role: 'collection-method' }, { methodName: 'for' });
+  return { target, index: 0, active: null };
+}
+
+function beginForIteration(state, bindings) {
+  const iteration = { methodName: 'for', iterationIndex: state.index++, itemPreview: previewRuntimeValue(bindings) };
+  state.active = iteration;
+  collectionIterationStack.push(iteration);
+  void logNodePass({ ...state.target, role: 'collection-pop' }, iteration);
+}
+
+function endForIteration(state) {
+  const iteration = state.active;
+  if (!iteration) return;
+  void logNodePass({ ...state.target, role: 'collection-predicate' }, {
+    ...iteration, outcome: !state.error, matched: !state.error,
+    completion: state.error ? 'throw' : 'return', errorName: state.error?.name,
+  });
+  const index = collectionIterationStack.lastIndexOf(iteration);
+  if (index >= 0) collectionIterationStack.splice(index, 1);
+  state.active = null;
+}
+
+function endFor(state) {
+  endForIteration(state);
+  void logNodePass({ ...state.target, role: 'collection-result' }, { methodName: 'for', continuesAfterResult: true });
+}
+
 export function installRuntimeNodePassReporter() {
   if (process.env.GRAPH_NODE_LOGGING !== '1') return false;
   globalThis.__coldKodeLogNodePass = logNodePass;
@@ -461,5 +494,9 @@ export function installRuntimeNodePassReporter() {
   globalThis.__coldKodeWrapCollectionCallback = wrapCollectionCallback;
   globalThis.__coldKodeEvaluateCollectionCall = evaluateCollectionCall;
   globalThis.__coldKodeWrapForOfIterable = wrapForOfIterable;
+  globalThis.__coldKodeBeginFor = beginFor;
+  globalThis.__coldKodeBeginForIteration = beginForIteration;
+  globalThis.__coldKodeEndForIteration = endForIteration;
+  globalThis.__coldKodeEndFor = endFor;
   return true;
 }

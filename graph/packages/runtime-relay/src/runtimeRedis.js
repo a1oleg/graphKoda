@@ -843,6 +843,7 @@ export async function fetchCollectionRuntimeAnalysisFromRedis(config, {
   limit = 5000,
 } = {}) {
   if (!stableId) throw new Error('stableId is required');
+  stableId = canonicalStableId(stableId);
   return withRedisClient(config, async (client) => {
     let resolvedSessionId = sessionId || null;
     if (!resolvedSessionId) {
@@ -882,13 +883,14 @@ function projectNodeVisit(record) {
     completion: normalizeText(props.completion),
     sessionId: record.sessionId,
     tsMs: Number(props.tsMs || record.score || 0),
+    eventSequence: Number(props.eventSequence || 0),
   };
 }
 
 function longestRuntimeChain(events, ownerStableId) {
   const roots = events
     .filter((event) => stableIdsMatch(event.stableId, ownerStableId) && event.role === 'function')
-    .sort((left, right) => right.tsMs - left.tsMs);
+    .sort((left, right) => right.tsMs - left.tsMs || right.eventSequence - left.eventSequence);
   const root = roots[0];
   if (!root) return [];
 
@@ -950,7 +952,8 @@ export function buildFunctionSetValues(records, { stableId, sessionId } = {}) {
     ) continue;
     const previous = latestBySetStableId.get(record.functionStableId);
     const tsMs = Number(props.tsMs || record.score || 0);
-    if (previous && previous.tsMs > tsMs) continue;
+    const eventSequence = Number(props.eventSequence || 0);
+    if (previous && (previous.tsMs > tsMs || (previous.tsMs === tsMs && previous.eventSequence > eventSequence))) continue;
     latestBySetStableId.set(record.functionStableId, {
       stableId: record.functionStableId,
       ownerStepStableId: normalizeText(props.ownerStepStableId),
@@ -958,6 +961,7 @@ export function buildFunctionSetValues(records, { stableId, sessionId } = {}) {
       valuePreview: props.valuePreview === undefined ? 'undefined' : String(props.valuePreview),
       resultType: normalizeText(props.resultType),
       valueRole: props.role,
+      eventSequence,
       tsMs,
     });
   }

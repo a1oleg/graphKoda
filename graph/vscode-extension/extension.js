@@ -817,7 +817,7 @@ function buildRuntimeAnalysisHtml() {
   .error-box { padding:12px; color:var(--vscode-errorForeground); white-space:pre-wrap; }
 </style></head>
 <body>
-  <header><code id="stableId"></code></header>
+  <header><code id="stableId"></code><span id="loopCounts"></span></header>
   <div id="error" class="error-box" hidden></div>
   <main id="main" hidden>
     <section><button id="all" class="all-frame"><span class="all-label">ALL</span><span id="bar" class="bar"></span></button><div id="segments" class="legend"></div></section>
@@ -880,6 +880,9 @@ function buildRuntimeAnalysisHtml() {
     current = analysis;
     byId('error').hidden = true; byId('main').hidden = false;
     byId('stableId').textContent = analysis.stableId || '';
+    byId('loopCounts').textContent = 'Iterations: ' + analysis.totalIterations
+      + (analysis.conditionChecks ? ' | Condition: ' + analysis.conditionChecks.total
+        + ' | true: ' + analysis.conditionChecks.true + ' | false: ' + analysis.conditionChecks.false : '');
     byId('accumulatorHeader').textContent = 'accum:' + (analysis.accumulatorName ? '\\n' + analysis.accumulatorName : '');
     renderDistribution(analysis);
   }

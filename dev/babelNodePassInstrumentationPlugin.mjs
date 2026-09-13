@@ -92,6 +92,7 @@ function buildEvaluatedExpression(t, target, originalExpression) {
   const call = t.callExpression(evaluator, [
     buildTargetDetails(t, target),
     t.arrowFunctionExpression([], evaluatedExpression),
+    ...(target.valueBinding ? [t.arrowFunctionExpression([], t.identifier(target.valueBinding))] : []),
   ]);
   if (awaited) return t.awaitExpression(call);
   return call;
@@ -205,6 +206,39 @@ export default function nodePassInstrumentationPlugin({ types: t }) {
             t.cloneNode(forOfPath.node.right, true),
           );
           this.instrumentedStableIds.push(target.stableId);
+        },
+      },
+      ForStatement: {
+        exit(loopPath, state) {
+          const target = state.opts.targets.find(candidate => candidate.instrumentationKind === 'for-iteration'
+            && normalizePath(candidate.filePath) === this.repoRelativePath && locationMatches(loopPath.node, candidate));
+          if (!target) return;
+          const stateId = loopPath.scope.generateUidIdentifier('loopTrace');
+          if (loopPath.parentPath.isLabeledStatement()) throw loopPath.buildCodeFrameError('Labeled for instrumentation is not supported');
+          const errorId = loopPath.scope.generateUidIdentifier('loopError');
+          const runtimeCall = (name, args) => t.callExpression(t.memberExpression(t.identifier('globalThis'), t.identifier(name)), args);
+          const body = t.isBlockStatement(loopPath.node.body) ? loopPath.node.body : t.blockStatement([loopPath.node.body]);
+          const bindings = t.isVariableDeclaration(loopPath.node.init)
+            ? loopPath.node.init.declarations.filter(d => t.isIdentifier(d.id)).map(d =>
+              t.objectProperty(t.identifier(d.id.name), t.identifier(d.id.name))) : [];
+          loopPath.node.body = t.blockStatement([
+            t.expressionStatement(runtimeCall('__coldKodeBeginForIteration', [stateId, t.objectExpression(bindings)])),
+            t.tryStatement(body, t.catchClause(errorId, t.blockStatement([
+              t.expressionStatement(t.assignmentExpression('=', t.memberExpression(stateId, t.identifier('error')), errorId)),
+              t.throwStatement(errorId),
+            ])), t.blockStatement([
+              t.expressionStatement(runtimeCall('__coldKodeEndForIteration', [stateId])),
+            ])),
+          ]);
+          const loop = t.cloneNode(loopPath.node, true);
+          loopPath.replaceWith(t.blockStatement([
+            t.variableDeclaration('const', [t.variableDeclarator(stateId, runtimeCall('__coldKodeBeginFor', [buildTargetDetails(t, target)]))]),
+            t.tryStatement(t.blockStatement([loop]), null, t.blockStatement([
+              t.expressionStatement(runtimeCall('__coldKodeEndFor', [stateId])),
+            ])),
+          ]));
+          this.instrumentedStableIds.push(target.stableId);
+          loopPath.skip();
         },
       },
       VariableDeclarator: {

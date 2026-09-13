@@ -1,6 +1,10 @@
 ﻿import { createServer } from 'node:http';
 
 import { createClient } from 'redis';
+import { serveRuntimeDocs } from './runtimeApiDocs.mjs';
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+let fisherRunActive = false;
 
 import {
   DEFAULT_RUNTIME_RELAY_URL,
@@ -101,6 +105,29 @@ async function checkRedisConnectivity() {
 }
 
 const server = createServer((req, res) => {
+  if (serveRuntimeDocs(req, res)) return;
+  if (req.method === 'POST' && req.url === '/fisher/run') {
+    if (fisherRunActive) {
+      res.writeHead(409, { 'Content-Type': 'application/json', ...corsHeaders });
+      res.end(JSON.stringify({ ok: false, error: 'Fisher run already active' })); return;
+    }
+    fisherRunActive = true;
+    execFile(process.execPath, ['--import', 'tsx', 'dev/runFisherYatesTrace.mjs'], {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)), windowsHide: true, timeout: 120000,
+      env: { ...process.env, RUNTIME_RELAY_URL: `http://${relayHost}:${relayPort}${relayPath}` },
+    }, (error, stdout, stderr) => {
+      fisherRunActive = false;
+      try {
+        if (error) throw new Error(stderr || error.message);
+        res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders });
+        res.end(JSON.stringify({ ok: true, run: JSON.parse(stdout) }));
+      } catch (failure) {
+        res.writeHead(500, { 'Content-Type': 'application/json', ...corsHeaders });
+        res.end(JSON.stringify({ ok: false, error: failure.message }));
+      }
+    });
+    return;
+  }
   if (req.method === 'OPTIONS') {
     res.writeHead(204, corsHeaders);
     res.end();

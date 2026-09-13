@@ -316,7 +316,7 @@ Draw.loadPlugin(function(ui) {
         || (labels.indexOf('Start') >= 0 && labels.indexOf('ExecutionBoundary') >= 0)
         || getAttribute(cell, 'graphKind') === 'Start'
         || (getAttribute(cell, 'graphLabel') === 'Start' && labels.indexOf('Fn') >= 0);
-      if (isFunctionStart) {
+      if (isFunctionStart && !root) {
         root = functionStableId || runtimeStableIdKey(getAttribute(cell, 'stableId'));
         return;
       }
@@ -328,12 +328,13 @@ Draw.loadPlugin(function(ui) {
     var frequentOwner = Object.keys(frequency).sort(function(left, right) {
       return frequency[right] - frequency[left];
     })[0] || '';
-    return root || frequentOwner || fallback || selectedOwner;
+    return selectedOwner || root || frequentOwner || fallback;
   }
 
   function isRuntimeLoopPayload(payload) {
     var labels = (payload && payload.labels) || [];
     return labels.indexOf('Loop') >= 0
+      || labels.indexOf('For') >= 0
       || (labels.indexOf('Iterator') >= 0 && labels.indexOf('Iterate') >= 0);
   }
 

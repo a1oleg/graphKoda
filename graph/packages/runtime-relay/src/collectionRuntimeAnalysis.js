@@ -153,7 +153,7 @@ function buildIterationBoundaryPair(events, nextEvent, resultEvent, outcome, met
   const targetEvent = methodName === 'filter' && outcome === 'accepted'
     ? resultEvent
     : nextEvent;
-  if (methodName === 'for-of' && targetEvent?.role === 'collection-result') return null;
+  if (['for', 'for-of'].includes(methodName) && targetEvent?.role === 'collection-result') return null;
   const repeats = targetEvent?.role === 'collection-pop';
   const sourceEvent = repeats
     ? [...events].reverse().find(isGraphPathEvent)
@@ -200,8 +200,8 @@ function buildIterations(chain, methodName) {
         : matched
           ? (methodName === 'filter' ? 'accepted' : 'matched')
           : 'rejected';
-      const continuationEvents = matched ? resultContinuationEvents : [];
-      const visibleResultEvent = resultEvent?.continuesAfterResult === true || methodName === 'for-of'
+      const continuationEvents = matched && methodName !== 'for' ? resultContinuationEvents : [];
+      const visibleResultEvent = resultEvent?.continuesAfterResult === true || ['for', 'for-of'].includes(methodName)
         ? null
         : resultEvent;
       const graphEvents = [
@@ -318,6 +318,9 @@ export function buildCollectionRuntimeAnalysis(records, {
   const methodName = runtimeProps(selectedRoot).methodName || null;
   const chain = buildInvocationChain(sorted.filter((record) => record.sessionId === selectedRoot.sessionId), selectedRoot);
   const iterations = buildIterations(chain, methodName);
+  const guardId = runtimeProps(selectedRoot).iterationGuardStableId;
+  const conditionEvents = methodName === 'for' && guardId
+    ? chain.filter(record => record.functionStableId === guardId && typeof runtimeProps(record).outcome === 'boolean') : [];
   if (methodName === 'filter') {
     const acceptedItems = [];
     for (const iteration of iterations) {
@@ -332,6 +335,11 @@ export function buildCollectionRuntimeAnalysis(records, {
     stableId,
     sessionId: selectedRoot.sessionId,
     methodName,
+    ...(methodName === 'for' ? { conditionChecks: {
+      total: conditionEvents.length,
+      true: conditionEvents.filter(record => runtimeProps(record).outcome === true).length,
+      false: conditionEvents.filter(record => runtimeProps(record).outcome === false).length,
+    } } : {}),
     accumulatorName: runtimeProps(selectedRoot).accumulatorName || null,
     selectedInvocationEventId: selectedRoot.nodeId,
     invocations: roots.map((root) => ({
