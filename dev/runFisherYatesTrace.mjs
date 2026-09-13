@@ -88,9 +88,9 @@ await fs.writeFile(output, compiled);
 const reporter = await import('./runtimeNodePassReporter.mjs');
 assert(reporter.installRuntimeNodePassReporter());
 const { shuffle } = await import(pathToFileURL(output));
-const shuffled = shuffle();
+const alphabet = shuffle();
 await reporter.flushPendingNodePassEvents();
-assert.deepEqual([...shuffled].sort(), ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
+assert.deepEqual([...alphabet].sort(), ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
 const sessionId = process.env.GRAPH_RUNTIME_SESSION_ID;
 const root = graph.functions.find(f => f.name === 'shuffle').stableId;
 const loop = targets.find(t => t.instrumentationKind === 'for-iteration').stableId;
@@ -109,23 +109,23 @@ for (let attempt = 0; attempt < 40; attempt++) {
 }
 assert.equal(analysis.totalIterations, 7);
 assert.deepEqual(analysis.conditionChecks, { total: 8, true: 7, false: 1 });
-assert.deepEqual(analysis.iterations.map(i => JSON.parse(i.itemPreview).last.index), [7, 6, 5, 4, 3, 2, 1]);
-assert.deepEqual(JSON.parse(analysis.cases[0].itemPreview).last, { index: 7, value: 'H' });
-assert(analysis.iterations.every(c => Number.isInteger(JSON.parse(c.variableValues.selected))));
+assert.deepEqual(analysis.iterations.map(i => JSON.parse(i.itemPreview).current.index), [7, 6, 5, 4, 3, 2, 1]);
+assert.deepEqual(JSON.parse(analysis.cases[0].itemPreview).current, { index: 7, value: 'H' });
+assert(analysis.iterations.every(c => Number.isInteger(JSON.parse(c.variableValues.random))));
 assert.equal(analysis.totalCases, 8);
 assert.deepEqual(analysis.cases.map(c => c.transition), [...Array(7).fill('continue'), 'break']);
-assert.deepEqual(JSON.parse(analysis.cases.at(-1).itemPreview).last, { index: 0, value: shuffled[0] });
-assert.deepEqual(analysis.variableColumns, ['selected']);
+assert.deepEqual(JSON.parse(analysis.cases.at(-1).itemPreview).current, { index: 0, value: alphabet[0] });
+assert.deepEqual(analysis.variableColumns, ['random']);
 let beforeIteration = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 for (const c of analysis.cases) {
-  const pair = JSON.parse(c.itemPreview).last;
+  const pair = JSON.parse(c.itemPreview).current;
   assert.equal(pair.value, beforeIteration[pair.index], 'Capture the letter before swap, not after it');
   if (c.terminal) {
-    assert.equal(c.variableValues.selected, undefined);
+    assert.equal(c.variableValues.random, undefined);
   } else {
-    const selected = JSON.parse(c.variableValues.selected);
-    assert(selected >= 0 && selected <= pair.index);
-    beforeIteration = JSON.parse(c.events.find(event => event.stableId.endsWith(':7:4:7:34')).valuePreview);
+    const random = JSON.parse(c.variableValues.random);
+    assert(random >= 0 && random <= pair.index);
+    beforeIteration = JSON.parse(c.events.find(event => event.stableId.endsWith(':7:4:7:35')).valuePreview);
   }
 }
 assert(analysis.cases.slice(0, 7).every(c => c.edgePairs.length === 5 && c.edgePairs.at(-1).edgeType === 'REPEATS'));
@@ -134,9 +134,9 @@ const trace = (await query('/runtime-trace', root)).trace;
 const values = (await query('/runtime-values', root)).values;
 assert(trace.chain.length > 7);
 assert(values.values.length > 0);
-assert.equal(values.values.find(v => v.stableId.endsWith(':5:49:5:55')).valuePreview, '0');
-assert.deepEqual(JSON.parse(values.values.find(v => v.stableId.endsWith(':7:4:7:34')).valuePreview), shuffled);
+assert.equal(values.values.find(v => v.stableId.endsWith(':5:55:5:64')).valuePreview, '0');
+assert.deepEqual(JSON.parse(values.values.find(v => v.stableId.endsWith(':7:4:7:35')).valuePreview), alphabet);
 assert(analysis.iterations.every(i => !i.staticStableIds.some(id => id.includes(':10:2:10:18'))), 'Return must not be part of every iteration');
-const report = { sessionId, root, loop, shuffled, targets: targets.length, trace, values, analysis };
+const report = { sessionId, root, loop, alphabet, targets: targets.length, trace, values, analysis };
 await fs.writeFile(path.join(outputDir, 'latest.json'), JSON.stringify(report, null, 2));
-console.log(JSON.stringify({ sessionId, shuffled, instrumented: targets.length, traceEvents: trace.chain.length, values: values.values.length, iterations: analysis.totalIterations, report: path.join(outputDir, 'latest.json') }, null, 2));
+console.log(JSON.stringify({ sessionId, alphabet, instrumented: targets.length, traceEvents: trace.chain.length, values: values.values.length, iterations: analysis.totalIterations, report: path.join(outputDir, 'latest.json') }, null, 2));

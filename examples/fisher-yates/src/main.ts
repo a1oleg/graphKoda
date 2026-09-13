@@ -1,4 +1,4 @@
 import { shuffle } from './shuffle.js';
 
-const shuffled = shuffle();
-console.log({ shuffled });
+const alphabet = shuffle();
+console.log({ alphabet });

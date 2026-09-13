@@ -13,19 +13,19 @@ const extract = files => payloadForTransport(extractFunctionFlowGraphs(ts.create
 test('for initializes once, branches, and updates after the body before retesting', () => {
   const p = extract(['examples/fisher-yates/src/shuffle.ts']);
   const id = suffix => `examples/fisher-yates/src/shuffle.ts:${suffix}`;
-  const initial = p.nodes.find(n => n.stableId === id('5:11:5:15'));
-  const condition = p.nodes.find(n => n.stableId === id('5:39:5:47'));
-  const update = p.nodes.find(n => n.stableId === id('5:49:5:55'));
+  const initial = p.nodes.find(n => n.stableId === id('5:11:5:18'));
+  const condition = p.nodes.find(n => n.stableId === id('5:42:5:53'));
+  const update = p.nodes.find(n => n.stableId === id('5:55:5:64'));
   assert(initial?.labels.includes('ValueCreate'));
   assert(p.edges.some(e => e.fromId === initial.stableId && e.type === 'EVAL'));
   assert(condition?.labels.includes('Branch'));
-  assert.deepEqual(JSON.parse(update.renderPartsJson).map(part => part.text), ['last', '--']);
+  assert.deepEqual(JSON.parse(update.renderPartsJson).map(part => part.text), ['current', '--']);
   assert(JSON.parse(update.renderPartsJson)[1].labels.includes('System'));
   const edge = (from, to, type) => p.edges.some(e => e.fromId === from && e.toId === to && e.type === type);
   assert(edge(initial.stableId, condition.stableId, 'NEXT'));
-  assert(edge(condition.stableId, id('6:10:6:18'), 'TRUE'));
+  assert(edge(condition.stableId, id('6:10:6:16'), 'TRUE'));
   assert(edge(condition.stableId, id('10:2:10:18:return'), 'FALSE'));
-  assert(edge(id('7:4:7:34'), update.stableId, 'NEXT'));
+  assert(edge(id('7:4:7:35'), update.stableId, 'NEXT'));
   assert(edge(update.stableId, initial.stableId, 'REPEATS'));
   assert(p.edges.some(e => e.type === 'REPEATS' && e.toId === initial.stableId
     && e.executionOutcome === 'resume-without-initialization'));
@@ -43,7 +43,7 @@ test('for initializes once, branches, and updates after the body before retestin
   assert(edge(id('2:8:2:16'), entry.stableId, 'NEXT'));
   assert(edge(entry.stableId, initial.stableId, 'NEXT'));
   const returned = p.nodes.find(n => n.stableId === id('10:2:10:18:return'));
-  assert.deepEqual(JSON.parse(returned.renderPartsJson).map(part => part.text), ['return(', 'shuffled', ')']);
+  assert.deepEqual(JSON.parse(returned.renderPartsJson).map(part => part.text), ['return(', 'alphabet', ')']);
 });
 
 
@@ -52,12 +52,12 @@ test('for initializes once, branches, and updates after the body before retestin
 test('Fisher extracts both writes and preserves source identity of nested calls', () => {
   const p = extract(['examples/fisher-yates/src/main.ts', 'examples/fisher-yates/src/shuffle.ts']);
   assert.equal(p.functions.length, 3);
-  assert.deepEqual(p.functions.map(f => f.name).sort(), ['randomIndex', 'shuffle', 'swap']);
+  assert.deepEqual(p.functions.map(f => f.name).sort(), ['getRandom', 'shuffle', 'swap']);
   assert(p.functions.every(f => f.stableId.startsWith('examples/fisher-yates/src/shuffle.ts:')));
-  const randomIndex = p.functions.find(f => f.name === 'randomIndex');
-  const mathReturn = p.nodes.find(n => n.parentFnStableId === randomIndex.stableId && n.labels.includes('Return'));
+  const getRandom = p.functions.find(f => f.name === 'getRandom');
+  const mathReturn = p.nodes.find(n => n.parentFnStableId === getRandom.stableId && n.labels.includes('Return'));
   assert.deepEqual(JSON.parse(mathReturn.renderPartsJson).map(part => part.text), ['return(', 'index', ')']);
-  const index = p.nodes.find(n => n.parentFnStableId === randomIndex.stableId && n.labels.includes('ValueCreate') && n.diaName === 'index');
+  const index = p.nodes.find(n => n.parentFnStableId === getRandom.stableId && n.labels.includes('ValueCreate') && n.diaName === 'index');
   assert(index);
   assert(p.edges.some(e => e.fromId === index.stableId && e.type === 'EVAL'));
   assert(p.edges.some(e => e.fromId === index.stableId && e.toId === mathReturn.stableId && e.type === 'NEXT'));
@@ -93,15 +93,15 @@ test('Fisher extracts both writes and preserves source identity of nested calls'
   assert(savedRead);
   assert.equal(JSON.parse(savedRead.renderPartsJson)[0].kind, 'collection-container');
   assert(!JSON.parse(write.renderPartsJson).some(p => p.text === 'second'));
-  const last = 'examples/fisher-yates/src/shuffle.ts:21:2:21:24';
-  const args = p.edges.filter(e => e.fromId === last && e.type === 'ARG');
+  const current = 'examples/fisher-yates/src/shuffle.ts:21:2:21:24';
+  const args = p.edges.filter(e => e.fromId === current && e.type === 'ARG');
   assert.equal(args.length, 2);
   const saved = args.find(e => e.argumentIndex === 1).toId;
   assert.equal(p.nodes.find(n => n.stableId === saved).diaName, 'saved');
-  assert(!p.edges.some(e => [last, saved].includes(e.fromId) && e.type === 'EVAL'));
-  const calls = p.nodes.filter(n => n.calleeName === 'randomIndex' && !n.labels.includes('Parameter'));
+  assert(!p.edges.some(e => [current, saved].includes(e.fromId) && e.type === 'EVAL'));
+  const calls = p.nodes.filter(n => n.calleeName === 'getRandom' && !n.labels.includes('Parameter'));
   assert(calls.length);
-  assert(calls.every(n => n.sourceCallStableId === 'examples/fisher-yates/src/shuffle.ts:6:21:6:42'));
+  assert(calls.every(n => n.sourceCallStableId === 'examples/fisher-yates/src/shuffle.ts:6:19:6:41'));
 });
 
 

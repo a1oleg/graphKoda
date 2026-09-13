@@ -22,14 +22,14 @@ try {
     && e.stableId === prefix + suffix && (label === undefined || e.label === label));
   const start = vertex('1:7:11:1:flow-start', 'Start');
   const entry = vertex('5:2:8:3:for', 'for');
-  const initial = vertex('5:11:5:15', 'last');
-  const condition = vertex('5:39:5:47', '');
-  const update = vertex('5:49:5:55', 'last');
+  const initial = vertex('5:11:5:18', 'current');
+  const condition = vertex('5:42:5:53', '');
+  const update = vertex('5:55:5:64', 'current');
   const returned = vertex('10:2:10:18:return', '');
   const repeat = region.elements.find(e => e.kind === 'edge' && e.edgeType === 'REPEATS'
-    && e.stableId === `${prefix}5:49:5:55`);
+    && e.stableId === `${prefix}5:55:5:64`);
   const falseEdge = region.elements.find(e => e.kind === 'edge' && e.edgeType === 'FALSE'
-    && e.stableId === `${prefix}5:39:5:47`);
+    && e.stableId === `${prefix}5:42:5:53`);
   const falseRoute = falseEdge?.route || [];
   const initializationEdge = region.elements.find(e => e.kind === 'edge' && e.edgeType === 'NEXT'
     && e.stableId === `${prefix}5:2:8:3:for`);
@@ -50,8 +50,8 @@ try {
         && (index === 0 || Math.abs(parts[index - 1].bounds.x + parts[index - 1].bounds.width - part.bounds.x) < 0.5));
   };
   const checks = {
-    shuffleReturnMosaic: returnMosaic('10:2:10:18:return', 'shuffled'),
-    randomIndexReturnMosaic: returnMosaic('15:2:15:15:return', 'index'),
+    shuffleReturnMosaic: returnMosaic('10:2:10:18:return', 'alphabet'),
+    getRandomReturnMosaic: returnMosaic('15:2:15:15:return', 'index'),
     indexCreatedBeforeReturn: vertex('14:8:14:13', 'index').bounds.y
       < vertex('15:2:15:15:return', '').bounds.y,
     forOnMainAxis: Math.abs(center(entry) - center(start)) < 2,
