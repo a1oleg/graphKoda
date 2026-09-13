@@ -1,5 +1,5 @@
-export function shuffle<T>(items: readonly T[]): T[] {
-  const shuffled = [...items];
+export function shuffle(): string[] {
+  const shuffled = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
   // Each iteration fixes one position; the prefix remains available for selection.
   for (let last = shuffled.length - 1; last > 0; last--) {

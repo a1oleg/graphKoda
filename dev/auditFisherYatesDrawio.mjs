@@ -56,6 +56,7 @@ try {
       < vertex('15:2:15:15:return', '').bounds.y,
     forOnMainAxis: Math.abs(center(entry) - center(start)) < 2,
     initializationToRight: initial.bounds.x > entry.bounds.x + entry.bounds.width,
+    initializationUsesHorizontalStep: Math.abs(initial.bounds.x - entry.bounds.x - entry.bounds.width - 56) < 1,
     initializationOnForRow: Math.abs(initial.bounds.y + initial.bounds.height / 2
       - entry.bounds.y - entry.bounds.height / 2) < 1,
     initializationHasFacingSidePorts: initializationEdge?.portStyle.exitX === '1'
@@ -71,6 +72,13 @@ try {
       && falseRoute.at(-1).y > falseRoute.at(-2).y
       && Math.abs(falseRoute.at(-1).x - falseRoute.at(-2).x) < 0.5
       && Number(falseEdge.portStyle.entryY) === 0,
+    falseDescendsOnMainAxis: falseRoute.length >= 3
+      && falseRoute.every((point, index, points) => index === 0
+        || Math.abs(point.y - points[index - 1].y) < 0.5
+        || (Math.abs(point.x - center(start)) < 1 && Math.abs(points[index - 1].x - center(start)) < 1)),
+    falseHasNoBacktracking: falseRoute.length >= 3
+      && falseRoute.every((point, index, points) => index === 0
+        || (point.x <= points[index - 1].x + 0.5 && point.y >= points[index - 1].y - 0.5)),
     conditionAfterInitialization: condition.bounds.y > initial.bounds.y + initial.bounds.height,
     updateAfterCondition: update.bounds.y > condition.bounds.y + condition.bounds.height,
     returnBelowLoopOnMainAxis: returned.bounds.y > update.bounds.y + update.bounds.height

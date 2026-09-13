@@ -7082,7 +7082,9 @@ export function alignForInitializationRows(nodes, edges, nodeBoxes, semanticNode
     const effectiveInitial = foldingLayout ? effectiveFoldedRoutingBox(initial.id, initialBox, foldingLayout) : initialBox;
     const container = structuredContainerOverlayPartBox(initial, effectiveInitial, 'container');
     const deltaY = effectiveEntry.y + effectiveEntry.height / 2 - (container.y + container.height / 2);
-    if (Math.abs(deltaY) < 0.01) continue;
+    const deltaX = foldingLayout ? 0
+      : effectiveEntry.x + effectiveEntry.width + HORIZONTAL_STEP_COLUMN_GAP - container.x;
+    if (Math.abs(deltaY) < 0.01 && Math.abs(deltaX) < 0.01) continue;
     const movedRows = new Set();
     for (const node of nodes) {
       let owner = blockOf(node);
@@ -7097,7 +7099,7 @@ export function alignForInitializationRows(nodes, edges, nodeBoxes, semanticNode
       if (foldingLayout) {
         const row = foldingLayout.rowByNodeId.get(node.id);
         if (row && !movedRows.has(row)) { row.y += deltaY; movedRows.add(row); moved++; }
-      } else { box.y += deltaY; moved++; }
+      } else { box.x += deltaX; box.y += deltaY; moved++; }
     }
     for (const framedBlock of foldingLayout?.blocks || []) {
       if ([...framedBlock.memberRowIds].every(id => [...movedRows].some(row => row.id === id))) {
@@ -9081,9 +9083,6 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
       (edge.props?.layoutFrame || edge.props?.layout_frame) === 'horizontal'
       || splitCallFamilyArgument
     );
-  const sameGraphSubColumn = Number.isFinite(sourceGraphPosition?.x)
-    && Number.isFinite(targetGraphPosition?.x)
-    && Math.abs(sourceGraphPosition.x - targetGraphPosition.x) < 1e-9;
   const flowJoinBackboneSourceId = String(
     targetNode?.props?.flowJoinBackboneSourceStableId
       || targetNode?.props?.flow_join_backbone_source_stable_id
@@ -9095,7 +9094,7 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
   const returningFalse = edge.type === 'FALSE' && !isFlowJoinNode(targetNode)
     && boxCenter(targetBox).x < boxCenter(sourceBox).x
     && targetBox.y > sourceBox.y + sourceBox.height;
-  // Keep a same-subColumn descent on its final visual axis. Composite endpoints
+  // Keep visually aligned endpoints on their shared axis. Composite endpoints
   // use their active overlay box above, so their diagonal backings do not skew it.
   const basePortAttempts = buildPortAttempts(
     sourceBox,
@@ -9222,7 +9221,8 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
     const parsedTargetPort = parsePercentPort(attempt.targetPort);
     const centralTopPort = attempt.targetPort === 'top'
       || (parsedTargetPort?.side === 'top' && Math.abs(parsedTargetPort.ratio - 0.5) < 1e-9);
-    if (!sameGraphSubColumn || !centralTopPort || !sourceBoxIsAboveTarget(sourceBox, targetBox)) {
+    const sameVisualAxis = Math.abs(boxCenter(sourceBox).x - boxCenter(targetBox).x) < 1;
+    if (!sameVisualAxis || !centralTopPort || !sourceBoxIsAboveTarget(sourceBox, targetBox)) {
       return attempt;
     }
     const sourcePoint = portPoint(sourceBox, attempt.sourcePort);
