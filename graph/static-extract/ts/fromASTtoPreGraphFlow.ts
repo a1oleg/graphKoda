@@ -18548,6 +18548,9 @@ class FunctionFlowGraphBuilder {
   }
 
   private buildLoopStatement(statement: ts.IterationStatement, incomingExits: PendingExit[], environment: BuildEnvironment): BuildResult {
+    if (ts.isForStatement(statement)) {
+      return this.buildForStatement(statement, incomingExits, environment);
+    }
     const loopStepContext = this.createFlowStepContext(statement, 'execution', 'loop');
     this.enclosingLoopStepContexts.push(loopStepContext);
     this.aggregateFlowStepDepth += 1;
@@ -18560,6 +18563,83 @@ class FunctionFlowGraphBuilder {
       this.aggregateFlowStepDepth -= 1;
       this.enclosingLoopStepContexts.pop();
     }
+  }
+
+  private buildForStatement(statement: ts.ForStatement, incomingExits: PendingExit[], environment: BuildEnvironment): BuildResult {
+    let pending = incomingExits;
+    let firstNodeId: string | undefined;
+    const buildHeaderStatement = (header: ts.Statement) => {
+      const result = this.runInStatementFlowStep(header, () => this.materializeLinearStatement(header, pending));
+      firstNodeId ||= result.firstNodeId;
+      pending = result.openExits;
+    };
+    if (statement.initializer) {
+      if (ts.isVariableDeclarationList(statement.initializer)) {
+        for (const declaration of statement.initializer.declarations) {
+          const list = ts.factory.createVariableDeclarationList([declaration], statement.initializer.flags);
+          ts.setTextRange(list, declaration);
+          const header = ts.factory.createVariableStatement(undefined, list);
+          ts.setTextRange(header, declaration);
+          buildHeaderStatement(header);
+        }
+      } else {
+        const header = ts.factory.createExpressionStatement(statement.initializer);
+        ts.setTextRange(header, statement.initializer);
+        buildHeaderStatement(header);
+      }
+    }
+    const condition = this.runInFlowStep(statement, 'execution', () => {
+      if (statement.condition) return this.materializeBooleanConditionFlow(statement.condition, pending, 'Branch');
+      const id = this.createNode('Branch', 'for', statement, { diaName: 'true', conditionRaw: 'true' },
+        `${getExtendedStableId(this.sourceFile, statement)}:condition`);
+      this.registerFirstNode(id, pending);
+      this.connectPendingToNode(pending, id);
+      return { firstNodeId: id, trueExits: [this.createPendingExit(undefined, id, 'TRUE')], falseExits: [] };
+    });
+    firstNodeId ||= condition.firstNodeId;
+    const body = this.runInFlowBlock(statement.statement, 'side', 'TRUE',
+      condition.trueExits.map(exit => exit.fromId), condition.trueExits, () => {
+        const result = this.buildFlowBranchBody(statement.statement, condition.trueExits, environment);
+        // Both normal completion and continue execute the update before retesting.
+        const updateIncoming = [...result.openExits, ...result.pendingContinues];
+        let repeatExits = updateIncoming;
+        if (statement.incrementor && updateIncoming.length) {
+          const update = statement.incrementor;
+          const header = ts.factory.createExpressionStatement(update);
+          ts.setTextRange(header, update);
+          const updated = this.runInStatementFlowStep(header, () => {
+            if ((ts.isPostfixUnaryExpression(update) || ts.isPrefixUnaryExpression(update))
+              && (update.operator === ts.SyntaxKind.PlusPlusToken || update.operator === ts.SyntaxKind.MinusMinusToken)) {
+              const operator = ts.tokenToString(update.operator)!;
+              const id = getExtendedStableId(this.sourceFile, update);
+              const sourceStableId = getExtendedStableId(this.sourceFile, update.operand);
+              const valueSlotStableId = this.bindingNodeStableIdForExpression(update.operand);
+              this.createNode('Action', 'update', update, {
+                labels: ['ValueWrite', 'Assignment'], diaName: update.operand.getText(this.sourceFile),
+                valueSlotStableId, operationSubjectText: update.operand.getText(this.sourceFile),
+                containerMethodKind: operator, renderPartsLayout: 'container-overlay', renderPrimaryPartIndex: 0,
+                renderPartsJson: JSON.stringify([
+                  { stableId: `${id}:container`, text: update.operand.getText(this.sourceFile), kind: 'value-container',
+                    labels: ['ValueSlot', 'ValueWrite'], sourceStableId, order: 0, fillState: 'filled' },
+                  { stableId: `${id}:update`, text: operator, kind: 'method',
+                    labels: ['System', 'Method', 'ContainerMethod'], sourceStableId: id, order: 1 },
+                ] satisfies RenderPartDescriptor[]),
+              }, id);
+              this.connectPendingToNode(updateIncoming, id);
+              return { ...buildEmptyResult(), firstNodeId: id, openExits: [this.createPendingExit(undefined, id, 'NEXT')] };
+            }
+            return this.materializeLinearStatement(header, updateIncoming);
+          });
+          repeatExits = updated.openExits;
+        }
+        for (const exit of repeatExits) {
+          const repeatSourceId = this.nodeByStableId(getStableIdKey(exit.fromId))?.callBoundaryPeerStableId || exit.fromId;
+          this.addEdge(exit.fromKind, repeatSourceId, undefined, condition.firstNodeId!, 'REPEATS');
+        }
+        return result;
+      });
+    return { firstNodeId, openExits: [...condition.falseExits, ...body.pendingBreaks],
+      pendingBreaks: [], pendingContinues: [], pendingThrows: body.pendingThrows };
   }
 
   private materializeForOfDispatchStages(

@@ -11,6 +11,49 @@ const extract = files => payloadForTransport(extractFunctionFlowGraphs(ts.create
   target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext, types: [], strict: true,
 })));
 
+test('for initializes once, branches, and updates after the body before retesting', () => {
+  const p = extract(['examples/fisher-yates/src/shuffle.ts']);
+  const id = suffix => `examples/fisher-yates/src/shuffle.ts:${suffix}`;
+  const initial = p.nodes.find(n => n.stableId === id('5:11:5:15'));
+  const condition = p.nodes.find(n => n.stableId === id('5:39:5:47'));
+  const update = p.nodes.find(n => n.stableId === id('5:49:5:55'));
+  assert(initial?.labels.includes('ValueCreate'));
+  assert(p.edges.some(e => e.fromId === initial.stableId && e.type === 'EVAL'));
+  assert(condition?.labels.includes('Branch'));
+  assert.deepEqual(JSON.parse(update.renderPartsJson).map(part => part.text), ['last', '--']);
+  assert(JSON.parse(update.renderPartsJson)[1].labels.includes('System'));
+  const edge = (from, to, type) => p.edges.some(e => e.fromId === from && e.toId === to && e.type === type);
+  assert(edge(initial.stableId, condition.stableId, 'NEXT'));
+  assert(edge(condition.stableId, id('6:10:6:18'), 'TRUE'));
+  assert(edge(condition.stableId, id('10:9:10:17'), 'FALSE'));
+  assert(edge(id('7:4:7:34'), update.stableId, 'NEXT'));
+  assert(edge(update.stableId, condition.stableId, 'REPEATS'));
+  assert(!p.edges.some(e => e.type === 'REPEATS' && e.toId === initial.stableId));
+});
+
+test('for continue passes through update, break bypasses it, and optional clauses work', () => {
+  const p = extract(['dev/fixtures/forControl.ts']);
+  const owner = p.functions.find(f => f.name === 'forControl');
+  const condition = p.nodes.find(n => n.parentFnStableId === owner.stableId && n.labels.includes('Branch') && n.conditionRaw === 'index < limit');
+  const update = p.nodes.find(n => n.renderPartsJson?.includes('"text":"++"'));
+  assert(update);
+  const repeats = p.edges.filter(e => e.type === 'REPEATS' && e.fromId === update.stableId);
+  assert.equal(repeats.length, 1);
+  assert.equal(repeats[0].toId, condition.stableId);
+  const continueCondition = p.nodes.find(n => n.parentFnStableId === owner.stableId && n.conditionRaw === 'index === 1');
+  const breakCondition = p.nodes.find(n => n.parentFnStableId === owner.stableId && n.conditionRaw === 'index === 3');
+  assert(p.edges.some(e => e.fromId === continueCondition.stableId && e.toId === update.stableId && e.type === 'TRUE'));
+  assert(p.edges.some(e => e.toId === update.stableId && e.type === 'NEXT'));
+  assert(!p.edges.some(e => e.fromId === breakCondition.stableId && e.toId === update.stableId));
+  const forever = p.functions.find(f => f.name === 'forWithoutCondition');
+  const foreverCondition = p.nodes.find(n => n.parentFnStableId === forever.stableId && n.labels.includes('Branch'));
+  assert.equal(foreverCondition.conditionRaw, 'true');
+  assert(!p.edges.some(e => e.fromId === foreverCondition.stableId && e.type === 'FALSE'));
+  const noUpdate = p.functions.find(f => f.name === 'forWithoutUpdate');
+  const noUpdateCondition = p.nodes.find(n => n.parentFnStableId === noUpdate.stableId && n.labels.includes('Branch'));
+  assert(p.edges.some(e => e.toId === noUpdateCondition.stableId && e.type === 'REPEATS'));
+});
+
 test('indexed array writes use virtual setAt, reads and object assignments do not', () => {
   const p = extract(['dev/fixtures/indexedWrites.ts']);
   const actions = p.nodes.filter(n => n.labels.includes('Action'));

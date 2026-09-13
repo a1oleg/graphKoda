@@ -9125,7 +9125,7 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
       : iterationPass
       ? ['right']
       : iterationRepeat
-      ? ['right']
+      ? hasLabel(targetNode, 'Branch') || hasLabel(targetNode, 'OperandBranch') ? ['left'] : ['right']
       : horizontalArgumentFrame
       ? ['left']
       : horizontalMosaicArgument

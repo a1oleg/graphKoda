@@ -24,6 +24,20 @@ test('object-family bounds do not follow declaration-directed binding edges', ()
 });
 
 const stepId = 'flow-step:statement:fixture.ts:1:1:1:20';
+
+test('for repeats can enter a branch without taking its occupied true port', () => {
+  const n = (id, labels, x, y) => ({ id, labels, props: { diaName: id, displayX: x, displayY: y } });
+  const nodes = [n('initial', ['Value'], 0, 0), n('condition', ['Branch'], 0, 1),
+    n('body', ['Action'], 1, 2), n('update', ['Action'], 1, 3), n('after', ['Return'], 0, 4)];
+  const edges = [['initial', 'condition', 'NEXT'], ['condition', 'body', 'TRUE'],
+    ['condition', 'after', 'FALSE'], ['body', 'update', 'NEXT'], ['update', 'condition', 'REPEATS']]
+    .map(([start, end, type]) => ({ start, end, type, props: {} }));
+  const xml = makeDrawio(nodes, edges);
+  const repeat = [...xml.matchAll(/<mxCell[^>]*edge="1"[^>]*edgeType="REPEATS"[^>]*>/gu)]
+    .map(match => match[0]).find(cell => cell.includes('target="n2"'));
+  assert(repeat);
+  assert.match(repeat, /entryX=0;entryY=0\.5;/u);
+});
 const blockId = 'flow-block:side:true:fixture.ts:1:1:1:20';
 
 function node(id, labels, extra = {}) {
