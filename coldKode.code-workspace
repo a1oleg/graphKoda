@@ -18,6 +18,9 @@
     },
     {
       "path": "../coldKode-presenter"
+    },
+    {
+      "path": "../google-sheets-mcp"
     }
   ],
   "settings": {

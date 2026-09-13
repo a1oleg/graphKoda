@@ -10,14 +10,6 @@
       ],
       "envFile": "${workspaceFolder}\\graph\\.env"
     },
-    "googleSheets": {
-      "type": "stdio",
-      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-      "args": [
-        "${workspaceFolder}\\graph\\mcp\\google_sheets_mcp_server.py"
-      ],
-      "envFile": "${workspaceFolder}\\graph\\.env"
-    },
     "runtimeRedis": {
       "type": "stdio",
       "command": "node",

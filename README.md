@@ -19,7 +19,7 @@ Code, трассы пользовательских сессий, базы, то
 - Python-валидатор и импорт в Neo4j;
 - Redis runtime relay, трассы исполнения и статистика циклов;
 - локальный orchestrator HTTP API, OpenAPI и Swagger UI;
-- MCP-серверы для read-only Neo4j, Redis и Google Sheets;
+- MCP-серверы для read-only Neo4j и Redis; Google Sheets MCP вынесен в отдельный репозиторий;
 - web explorer и расширение VS Code;
 - renderer диаграмм и наш fork draw.io.
 
@@ -199,9 +199,10 @@ node graph\mcp\redis_mcp_server.mjs
 ```
 
 Оба используют локальные настройки; пароль Neo4j читается из `graph/.env`.
-Google Sheets MCP опционален и требует отдельный service-account JSON — файл
-учётных данных храните вне репозитория и передавайте только через локальную
-конфигурацию.
+Google Sheets MCP вынесен в отдельный репозиторий
+[google-sheets-mcp](https://github.com/a1oleg/google-sheets-mcp).
+Добавьте его папку в workspace; настройки service account находятся в его
+игнорируемом `.env`, а подключение — в `.vscode/mcp.json` этого репозитория.
 
 ## Renderer и draw.io
 
