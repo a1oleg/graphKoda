@@ -417,6 +417,12 @@ async function startGraphCommandServer(context, workspaceRoot) {
       return;
     }
     const requestUrl = new URL(request.url || '/', `http://127.0.0.1:${GRAPH_COMMAND_PORT}`);
+    if (request.method === 'GET' && requestUrl.pathname === '/health') {
+      response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      response.end(JSON.stringify({ version: EXTENSION_VERSION, extensionPath: __dirname,
+        runtimePanelOpen: Boolean(runtimeAnalysisPanel) }));
+      return;
+    }
     if (request.method === 'GET' && requestUrl.pathname === '/runtime-highlight') {
       const after = Number(requestUrl.searchParams.get('after') || 0);
       const functionStableId = String(requestUrl.searchParams.get('functionStableId') || '');
@@ -702,8 +708,6 @@ async function openRuntimeAnalysis(context, workspaceRoot, item) {
       vscode.ViewColumn.Beside,
       { enableScripts: true, retainContextWhenHidden: true },
     );
-    const { boxImage } = await import(require('node:url').pathToFileURL(path.join(workspaceRoot, 'dev/localCoordinateDrawio.mjs')).href);
-    runtimeAnalysisPanel.webview.html = buildRuntimeAnalysisHtml(boxImage());
     runtimeAnalysisPanel.onDidDispose(() => {
       const diagramPanel = runtimeAnalysisState?.diagramPanel || null;
       const functionStableId = runtimeAnalysisState?.functionStableId || '';
@@ -754,6 +758,8 @@ async function openRuntimeAnalysis(context, workspaceRoot, item) {
     analysis: null,
   };
   runtimeAnalysisPanel.title = 'Статистика цикла';
+  const { boxImage } = await import(require('node:url').pathToFileURL(path.join(workspaceRoot, 'dev/localCoordinateDrawio.mjs')).href);
+  runtimeAnalysisPanel.webview.html = buildRuntimeAnalysisHtml(boxImage());
   try {
     const analysis = await loadRuntimeAnalysis(stableId);
     runtimeAnalysisState.analysis = analysis;
@@ -792,34 +798,34 @@ function buildRuntimeAnalysisHtml(variableBoxImage) {
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   * { box-sizing: border-box; }
-  body { color-scheme:light; --vscode-foreground:#202124; --vscode-editor-background:#ffffff; --vscode-panel-border:#d8dce0; --vscode-focusBorder:#1670b7; --vscode-editorWidget-background:#f5f7f9; --vscode-descriptionForeground:#59636e; --vscode-list-hoverBackground:#edf4fa; --vscode-errorForeground:#b42318; --vscode-font-family:Arial,sans-serif; }
+  body { color-scheme:light; --loop-panel-foreground:#202124; --loop-panel-editor-background:#ffffff; --loop-panel-panel-border:#d8dce0; --loop-panel-focusBorder:#1670b7; --loop-panel-editorWidget-background:#f5f7f9; --loop-panel-descriptionForeground:#59636e; --loop-panel-list-hoverBackground:#edf4fa; --loop-panel-errorForeground:#b42318; --loop-panel-font-family:Arial,sans-serif; }
   .variable-box { display:inline-grid; place-items:center; width:64px; height:44px; background:center/100% 100% no-repeat url("${variableBoxImage}"); padding-bottom:3px; font-weight:600; }
   .details td { overflow-wrap:anywhere; }
   .details tr.selected { background:#e1effa; }
-  body { margin: 0; color: var(--vscode-foreground); background: var(--vscode-editor-background); font: 13px/1.4 var(--vscode-font-family); }
-  header { min-height:44px; padding:11px 12px; border-bottom:1px solid var(--vscode-panel-border); }
-  header code { display:block; overflow:hidden; color:var(--vscode-foreground); text-overflow:ellipsis; white-space:nowrap; }
-  section { padding:12px; border-bottom:1px solid var(--vscode-panel-border); }
-  .all-frame { width:100%; padding:8px; color:var(--vscode-foreground); background:transparent; border:1px solid var(--vscode-panel-border); border-radius:3px; cursor:pointer; text-align:left; }
-  .all-frame:hover,.all-frame.selected { border-color:var(--vscode-focusBorder); }
+  body { margin: 0; color: var(--loop-panel-foreground); background: var(--loop-panel-editor-background); font: 13px/1.4 var(--loop-panel-font-family); }
+  header { min-height:44px; padding:11px 12px; border-bottom:1px solid var(--loop-panel-panel-border); }
+  header code { display:block; overflow:hidden; color:var(--loop-panel-foreground); text-overflow:ellipsis; white-space:nowrap; }
+  section { padding:12px; border-bottom:1px solid var(--loop-panel-panel-border); }
+  .all-frame { width:100%; padding:8px; color:var(--loop-panel-foreground); background:transparent; border:1px solid var(--loop-panel-panel-border); border-radius:3px; cursor:pointer; text-align:left; }
+  .all-frame:hover,.all-frame.selected { border-color:var(--loop-panel-focusBorder); }
   .all-label { display:block; margin-bottom:6px; font-size:11px; font-weight:600; }
-  .bar { display:flex; width:100%; height:34px; overflow:hidden; border:1px solid var(--vscode-panel-border); background:var(--vscode-editorWidget-background); }
-  .bar-segment { min-width:2px; height:100%; border:0; border-right:1px solid var(--vscode-editor-background); cursor:pointer; }
-  .bar-segment:hover,.bar-segment.selected { outline:2px solid var(--vscode-focusBorder); outline-offset:-2px; }
+  .bar { display:flex; width:100%; height:34px; overflow:hidden; border:1px solid var(--loop-panel-panel-border); background:var(--loop-panel-editorWidget-background); }
+  .bar-segment { min-width:2px; height:100%; border:0; border-right:1px solid var(--loop-panel-editor-background); cursor:pointer; }
+  .bar-segment:hover,.bar-segment.selected { outline:2px solid var(--loop-panel-focusBorder); outline-offset:-2px; }
   .legend { display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:8px; }
-  .segment { display:grid; grid-template-columns:11px minmax(0,1fr) auto; align-items:center; gap:6px; min-width:170px; padding:2px 4px; color:var(--vscode-foreground); background:transparent; border:1px solid transparent; cursor:pointer; text-align:left; }
-  .segment.selected { border-color:var(--vscode-focusBorder); }
+  .segment { display:grid; grid-template-columns:11px minmax(0,1fr) auto; align-items:center; gap:6px; min-width:170px; padding:2px 4px; color:var(--loop-panel-foreground); background:transparent; border:1px solid transparent; cursor:pointer; text-align:left; }
+  .segment.selected { border-color:var(--loop-panel-focusBorder); }
   .swatch,.case-marker { width:9px; height:9px; border-radius:50%; }
   .segment-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .segment-count { color:var(--vscode-descriptionForeground); font-variant-numeric:tabular-nums; }
+  .segment-count { color:var(--loop-panel-descriptionForeground); font-variant-numeric:tabular-nums; }
   .details { width:100%; border-collapse:collapse; }
-  th,td { padding:5px 7px; border-bottom:1px solid var(--vscode-panel-border); text-align:left; }
+  th,td { padding:5px 7px; border-bottom:1px solid var(--loop-panel-panel-border); text-align:left; }
   tbody tr { cursor:pointer; }
-  tbody tr:hover { background:var(--vscode-list-hoverBackground); }
+  tbody tr:hover { background:var(--loop-panel-list-hoverBackground); }
   .marker-cell { width:22px; }
   .accumulator { max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .muted { color:var(--vscode-descriptionForeground); }
-  .error-box { padding:12px; color:var(--vscode-errorForeground); white-space:pre-wrap; }
+  .muted { color:var(--loop-panel-descriptionForeground); }
+  .error-box { padding:12px; color:var(--loop-panel-errorForeground); white-space:pre-wrap; }
 </style></head>
 <body>
   <header><code id="stableId"></code><span id="loopCounts"></span></header>

@@ -57,6 +57,12 @@ try {
   await page.addInitScript(() => { window.messages = []; window.acquireVsCodeApi = () => ({ postMessage: message => window.messages.push(message) }); });
   await page.goto('about:blank');
   await page.setContent(buildRuntimeAnalysisHtml(boxImage()));
+  // VS Code injects theme variables directly on the webview body.
+  await page.locator('body').evaluate(node => {
+    node.classList.add('vscode-dark');
+    node.style.setProperty('--vscode-editor-background', '#1f1f1f');
+    node.style.setProperty('--vscode-foreground', '#cccccc');
+  });
   await page.evaluate(analysis => window.dispatchEvent(new MessageEvent('message', { data: { type: 'analysis', analysis } })), analysis);
   assert.equal(await page.locator('#details tr').count(), 8);
   assert.equal(await page.locator('#itemHeader').innerText(), 'last');
@@ -64,6 +70,7 @@ try {
   assert.equal(await page.locator('#accumulatorHeader').isVisible(), false);
   assert.equal(await page.locator('#details tr').first().locator('td').count(), 5);
   assert.equal(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(255, 255, 255)');
+  assert.equal(await page.locator('body').evaluate(node => getComputedStyle(node).color), 'rgb(32, 33, 36)');
   assert(await page.locator('#itemHeader').evaluate(async node => {
     const background = getComputedStyle(node).backgroundImage;
     if (!background.startsWith('url(')) return false;
