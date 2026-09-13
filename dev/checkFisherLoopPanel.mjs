@@ -68,7 +68,9 @@ try {
   assert.equal(await page.locator('#itemHeader').innerText(), 'last');
   assert.equal(await page.locator('#outcomeHeader').innerText(), 'Transition');
   assert.equal(await page.locator('#accumulatorHeader').isVisible(), false);
-  assert.equal(await page.locator('#details tr').first().locator('td').count(), 5);
+  assert.equal(await page.locator('#details tr').first().locator('td').count(), 6);
+  assert.equal(await page.locator('th[data-variable="selected"] .variable-box').innerText(), 'selected');
+  assert.equal(await page.locator('#itemHeader').evaluate(node => getComputedStyle(node).paddingTop), '9px');
   assert.equal(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(255, 255, 255)');
   assert.equal(await page.locator('body').evaluate(node => getComputedStyle(node).color), 'rgb(32, 33, 36)');
   assert(await page.locator('#itemHeader').evaluate(async node => {
@@ -79,12 +81,16 @@ try {
   }));
   for (let index = 0; index < 8; index++) {
     const row = page.locator('#details tr').nth(index);
-    assert.equal(await row.locator('td').nth(2).innerText(), String(7 - index));
-    assert.equal(await row.locator('td').nth(3).innerText(), index === 7 ? 'break' : 'continue');
+    assert.deepEqual(JSON.parse(await row.locator('td').nth(2).innerText()), JSON.parse(analysis.cases[index].itemPreview).last);
+    assert.equal(await row.locator('td').nth(2).evaluate(node => getComputedStyle(node).textAlign), 'center');
+    assert.equal(await row.locator('td').nth(3).innerText(), analysis.cases[index].variableValues.selected ?? '—');
+    assert.equal(await row.locator('td').nth(3).evaluate(node => getComputedStyle(node).textAlign), 'center');
+    assert.equal(await row.locator('td').nth(4).innerText(), index === 7 ? 'false' : 'repeat');
+    assert.equal(await row.locator('.case-marker').evaluate(node => getComputedStyle(node).backgroundColor), index === 7 ? 'rgb(204, 0, 0)' : 'rgb(0, 0, 255)');
     await row.click();
     assert.equal(await page.evaluate(() => window.messages.at(-1).index), index);
   }
-  for (const [transition, count] of [['break', 1], ['continue', 7]]) {
+  for (const [transition, count] of [['false', 1], ['repeat', 7]]) {
     await page.locator('#segments button').filter({ hasText: transition }).click();
     assert.equal(await page.locator('#details tr').count(), count);
     assert.equal(await page.evaluate(() => window.messages.at(-1).type), 'showSegment');

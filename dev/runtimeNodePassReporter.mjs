@@ -51,6 +51,7 @@ export function createNodePassPayload(target, now = Date.now(), options = {}) {
       endLine: target.endLine,
       endColumn: target.endColumn,
       instrumentation: 'babel',
+      instrumentationKind: target.instrumentationKind,
       eventSequence: options.eventSequence,
       methodName: options.methodName,
       iterationGuardStableId: target.iterationGuardStableId,
@@ -152,7 +153,7 @@ export function evaluateNode(target, evaluator, readValue) {
       resultType: observedValue === null ? 'null' : typeof observedValue,
       methodName: iteration?.methodName,
       iterationIndex: iteration?.iterationIndex,
-      itemPreview: iteration?.itemPreview,
+      itemPreview: predicate && readValue ? previewRuntimeValue(observedValue) : iteration?.itemPreview,
       valuePreview: predicate
         ? undefined
         : target.role === 'set-value' || target.role === 'parameter-value'

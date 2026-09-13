@@ -58,7 +58,14 @@ for (const fn of sourceFile.statements.filter(ts.isFunctionDeclaration)) {
         ...(firstArgument && ts.isIdentifier(firstArgument) ? { valueBinding: firstArgument.text } : {}),
       });
     } else if (ts.isForStatement(node.parent) && node.parent.condition === node) {
-      add(node, graphNode(node, 'Branch'), 'expression', 'predicate');
+      const declaration = node.parent.initializer?.declarations?.[0];
+      const initializer = declaration?.initializer;
+      const length = initializer && ts.isBinaryExpression(initializer) ? initializer.left : null;
+      const collection = length && ts.isPropertyAccessExpression(length) && length.name.text === 'length'
+        && ts.isIdentifier(length.expression) ? length.expression.text : null;
+      add(node, graphNode(node, 'Branch'), 'expression', 'predicate', collection ? {
+        iterationCollection: collection, iterationBinding: declaration.name.text,
+      } : {});
     } else if (ts.isForStatement(node.parent) && node.parent.incrementor === node) {
       add(node, graphNode(node), 'expression', 'set-value', {
         variableName: node.operand.getText(sourceFile), valueBinding: node.operand.getText(sourceFile),
@@ -102,10 +109,25 @@ for (let attempt = 0; attempt < 40; attempt++) {
 }
 assert.equal(analysis.totalIterations, 7);
 assert.deepEqual(analysis.conditionChecks, { total: 8, true: 7, false: 1 });
-assert.deepEqual(analysis.iterations.map(i => JSON.parse(i.itemPreview).last), [7, 6, 5, 4, 3, 2, 1]);
+assert.deepEqual(analysis.iterations.map(i => JSON.parse(i.itemPreview).last.index), [7, 6, 5, 4, 3, 2, 1]);
+assert.deepEqual(JSON.parse(analysis.cases[0].itemPreview).last, { index: 7, value: 'H' });
+assert(analysis.iterations.every(c => Number.isInteger(JSON.parse(c.variableValues.selected))));
 assert.equal(analysis.totalCases, 8);
 assert.deepEqual(analysis.cases.map(c => c.transition), [...Array(7).fill('continue'), 'break']);
-assert.equal(JSON.parse(analysis.cases.at(-1).itemPreview).last, 0);
+assert.deepEqual(JSON.parse(analysis.cases.at(-1).itemPreview).last, { index: 0, value: shuffled[0] });
+assert.deepEqual(analysis.variableColumns, ['selected']);
+let beforeIteration = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+for (const c of analysis.cases) {
+  const pair = JSON.parse(c.itemPreview).last;
+  assert.equal(pair.value, beforeIteration[pair.index], 'Capture the letter before swap, not after it');
+  if (c.terminal) {
+    assert.equal(c.variableValues.selected, undefined);
+  } else {
+    const selected = JSON.parse(c.variableValues.selected);
+    assert(selected >= 0 && selected <= pair.index);
+    beforeIteration = JSON.parse(c.events.find(event => event.stableId.endsWith(':7:4:7:34')).valuePreview);
+  }
+}
 assert(analysis.cases.slice(0, 7).every(c => c.edgePairs.length === 5 && c.edgePairs.at(-1).edgeType === 'REPEATS'));
 assert.deepEqual(analysis.cases.at(-1).edgePairs.map(e => e.edgeType), ['NEXT', 'FALSE']);
 const trace = (await query('/runtime-trace', root)).trace;

@@ -799,7 +799,8 @@ function buildRuntimeAnalysisHtml(variableBoxImage) {
 <style>
   * { box-sizing: border-box; }
   body { color-scheme:light; --loop-panel-foreground:#202124; --loop-panel-editor-background:#ffffff; --loop-panel-panel-border:#d8dce0; --loop-panel-focusBorder:#1670b7; --loop-panel-editorWidget-background:#f5f7f9; --loop-panel-descriptionForeground:#59636e; --loop-panel-list-hoverBackground:#edf4fa; --loop-panel-errorForeground:#b42318; --loop-panel-font-family:Arial,sans-serif; }
-  .variable-box { display:inline-grid; place-items:center; width:64px; height:44px; background:center/100% 100% no-repeat url("${variableBoxImage}"); padding-bottom:3px; font-weight:600; }
+  .variable-box { display:inline-grid; place-items:center; width:72px; height:44px; background:center/100% 100% no-repeat url("${variableBoxImage}"); padding-top:9px; font-weight:600; }
+  .variable-cell { text-align:center; }
   .details td { overflow-wrap:anywhere; }
   .details tr.selected { background:#e1effa; }
   body { margin: 0; color: var(--loop-panel-foreground); background: var(--loop-panel-editor-background); font: 13px/1.4 var(--loop-panel-font-family); }
@@ -840,8 +841,8 @@ function buildRuntimeAnalysisHtml(variableBoxImage) {
   let selectedSegmentId = null;
   const byId = (id) => document.getElementById(id);
   function caseColor(outcome, analysis) {
-    if (outcome === 'continue') return '#17834b';
-    if (outcome === 'break') return '#c33a3a';
+    if (analysis?.methodName === 'for' && outcome === 'continue') return '#0000ff';
+    if (analysis?.methodName === 'for' && outcome === 'break') return '#cc0000';
     if (analysis?.segments?.length === 1 && !(analysis.segments[0].branchPath || []).length) return '#F2C185';
     if (outcome === 'accepted' || outcome === 'matched' || outcome === 'accumulated') return '#006600';
     if (outcome === 'error') return '#c27d00';
@@ -850,6 +851,9 @@ function buildRuntimeAnalysisHtml(variableBoxImage) {
   function selectedRowsFor(segment) {
     const indexes = new Set(segment?.iterationIndexes || []);
     return (current?.cases || current?.iterations || []).filter((item) => indexes.has(item.index));
+  }
+  function outcomeLabel(value) {
+    return current?.methodName === 'for' ? ({continue:'repeat',break:'false'}[value] || value) : value;
   }
   function selectSegment(item) {
     selectedSegmentId = item.id;
@@ -873,11 +877,13 @@ function buildRuntimeAnalysisHtml(variableBoxImage) {
     items.forEach((item) => {
       const color = caseColor(item.outcome, analysis);
       const slice = document.createElement('span'); slice.className = 'bar-segment'; slice.setAttribute('data-segment-id', item.id);
-      slice.style.width = (item.count / total * 100) + '%'; slice.style.background = color; slice.title = item.label + ': ' + item.count;
+      const label = analysis.methodName === 'for' ? outcomeLabel(item.outcome) : item.label;
+      slice.style.width = (item.count / total * 100) + '%'; slice.style.background = color; slice.title = label + ': ' + item.count;
       slice.onclick = (event) => { event.stopPropagation(); selectSegment(item); }; bar.appendChild(slice);
       const button = document.createElement('button'); button.type = 'button'; button.className = 'segment'; button.setAttribute('data-segment-id', item.id); button.title = item.label;
       const swatch = document.createElement('span'); swatch.className = 'swatch'; swatch.style.background = color;
-      const name = document.createElement('span'); name.className = 'segment-label'; name.textContent = item.label;
+      button.title = label;
+      const name = document.createElement('span'); name.className = 'segment-label'; name.textContent = label;
       const count = document.createElement('span'); count.className = 'segment-count'; count.textContent = item.count + ' · ' + Math.round(item.count / total * 100) + '%';
       button.append(swatch, name, count); button.onclick = () => selectSegment(item); legend.appendChild(button);
     });
@@ -901,6 +907,13 @@ function buildRuntimeAnalysisHtml(variableBoxImage) {
     byId('accumulatorHeader').hidden = !current.hasAccumulator;
     byId('itemHeader').textContent = analysis.iterationVariable || 'Item';
     byId('itemHeader').className = analysis.iterationVariable ? 'variable-box' : '';
+    byId('itemHeader').parentElement.className = 'variable-cell';
+    document.querySelectorAll('th[data-variable]').forEach(node => node.remove());
+    (analysis.variableColumns || []).forEach(name => {
+      const header = document.createElement('th'); header.dataset.variable = name; header.className = 'variable-cell';
+      const box = document.createElement('span'); box.className = 'variable-box'; box.textContent = name;
+      header.appendChild(box); byId('outcomeHeader').before(header);
+    });
     byId('outcomeHeader').textContent = analysis.methodName === 'for' ? 'Transition' : 'Outcome';
     renderDistribution(analysis);
   }
@@ -913,8 +926,12 @@ function buildRuntimeAnalysisHtml(variableBoxImage) {
       if (current.iterationVariable && item.itemPreview) {
         try { itemValue = JSON.parse(item.itemPreview)[current.iterationVariable]; } catch {}
       }
-      [item.index + 1, itemValue, item.transition || item.outcome, ...(current.hasAccumulator ? [item.accumulatorState || '—'] : []), item.durationMs + ' ms'].forEach((value, index) => {
-        const cell=document.createElement('td'); cell.textContent=String(value); if (current.hasAccumulator && index === 3) cell.className = 'accumulator'; row.appendChild(cell);
+      const variables = current.variableColumns || [];
+      [item.index + 1, itemValue, ...variables.map(name => item.variableValues?.[name] ?? '—'), outcomeLabel(item.transition || item.outcome), ...(current.hasAccumulator ? [item.accumulatorState || '—'] : []), item.durationMs + ' ms'].forEach((value, index) => {
+        const cell=document.createElement('td'); cell.textContent=value && typeof value === 'object' ? JSON.stringify(value) : String(value);
+        if (index >= 1 && index <= variables.length + 1) cell.className = 'variable-cell';
+        if (current.hasAccumulator && index === variables.length + 3) cell.className = 'accumulator';
+        row.appendChild(cell);
       });
       row.onclick = () => {
         document.querySelectorAll('#details tr').forEach(element => element.classList.remove('selected'));

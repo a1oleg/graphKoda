@@ -92,7 +92,12 @@ function buildEvaluatedExpression(t, target, originalExpression) {
   const call = t.callExpression(evaluator, [
     buildTargetDetails(t, target),
     t.arrowFunctionExpression([], evaluatedExpression),
-    ...(target.valueBinding ? [t.arrowFunctionExpression([], t.identifier(target.valueBinding))] : []),
+    ...(target.iterationCollection ? [t.arrowFunctionExpression([], t.objectExpression([
+      t.objectProperty(t.identifier(target.iterationBinding), t.objectExpression([
+        t.objectProperty(t.identifier('index'), t.identifier(target.iterationBinding)),
+        t.objectProperty(t.identifier('value'), t.memberExpression(t.identifier(target.iterationCollection), t.identifier(target.iterationBinding), true)),
+      ])),
+    ]))] : target.valueBinding ? [t.arrowFunctionExpression([], t.identifier(target.valueBinding))] : []),
   ]);
   if (awaited) return t.awaitExpression(call);
   return call;

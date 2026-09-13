@@ -16,6 +16,7 @@ function projectEvent(record) {
     itemPreview: props.itemPreview || null,
     valuePreview: props.valuePreview || null,
     variableName: props.variableName || null,
+    instrumentationKind: props.instrumentationKind || null,
     matched: props.matched === true,
     accumulatorState: props.accumulatorState || props.accumulatorPreview || null,
     accumulatorBefore: props.accumulatorBefore || null,
@@ -297,14 +298,18 @@ function buildForCases(chain, guardId) {
     const guard = observed[0];
     const pop = observed.find(event => event.role === 'collection-pop');
     const priorValue = events.slice(0, start).findLast(event => event.role === 'set-value' && event.variableName === initial.variableName);
-    const itemPreview = pop?.itemPreview || JSON.stringify({ [initial.variableName]: JSON.parse(priorValue?.valuePreview || 'null') });
+    const itemPreview = guard.itemPreview || pop?.itemPreview || JSON.stringify({ [initial.variableName]: JSON.parse(priorValue?.valuePreview || 'null') });
+    const variableValues = Object.fromEntries(observed.filter(event => event.role === 'set-value'
+      && event.variableName && event.variableName !== initial.variableName
+      && event.instrumentationKind === 'binding-value'
+      && event.valuePreview != null).map(event => [event.variableName, event.valuePreview]));
     const outcome = observed.some(event => event.completion === 'throw') ? 'error' : guard.outcome ? 'continue' : 'break';
     const path = observed.filter(event => !['collection-pop', 'collection-predicate', 'collection-result'].includes(event.role));
     const pairs = [{ sourceStableId: initial.stableId, targetStableId: guard.stableId, edgeType: 'NEXT' }, ...buildEdgePairs(path)];
     if (outcome === 'continue' && path.at(-1)) pairs.push({ sourceStableId: path.at(-1).stableId, targetStableId: initial.stableId, edgeType: 'REPEATS' });
     const highlighted = [initial, ...path];
     return {
-      index, itemPreview, outcome, transition: outcome, terminal: !guard.outcome,
+      index, itemPreview, variableValues, outcome, transition: outcome, terminal: !guard.outcome,
       terminationReason: !guard.outcome ? 'condition-false' : null,
       variableName: initial.variableName, accumulatorState: null,
       durationMs: Math.max(0, (observed.at(-1)?.score || 0) - guard.score),
@@ -384,6 +389,7 @@ export function buildCollectionRuntimeAnalysis(records, {
     totalCases: cases.length,
     cases,
     iterationVariable: methodName === 'for' ? cases[0]?.variableName || null : null,
+    variableColumns: methodName === 'for' ? unique(cases.flatMap(item => Object.keys(item.variableValues))) : [],
     matchedIterations: successfulIterations,
     acceptedIterations: iterations.filter((iteration) => iteration.outcome === 'accepted').length,
     rejectedIterations: iterations.filter((iteration) => iteration.outcome === 'rejected').length,
