@@ -63,15 +63,15 @@ test('Fisher extracts both writes and preserves source identity of nested calls'
   assert(p.edges.some(e => e.fromId === index.stableId && e.toId === mathReturn.stableId && e.type === 'NEXT'));
   assert.equal(p.nodes.filter(n => !n.labels.includes('Step')
     && n.renderPartsJson?.includes('floor(')).length, 1);
-  for (const name of ['length', 'first', 'second']) {
+  for (const name of ['length', 'current', 'random']) {
     const parameter = p.nodes.find(n => n.labels.includes('Parameter') && n.diaName === name);
     assert(parameter, name);
     assert(!parameter.labels.includes('OperationProvider'), name);
     assert.equal(JSON.parse(parameter.renderPartsJson)[0].kind, 'value-container');
   }
   assert.equal(p.nodes.filter(n => n.labels.includes('Action') && n.renderPartsJson?.includes('setAt(')).length, 2);
-  const write = p.nodes.find(n => n.stableId === 'examples/fisher-yates/src/shuffle.ts:20:2:20:31');
-  const reads = p.nodes.filter(n => n.stableId === 'examples/fisher-yates/src/shuffle.ts:20:17:20:30');
+  const write = p.nodes.find(n => n.stableId === 'examples/fisher-yates/src/shuffle.ts:20:2:20:39');
+  const reads = p.nodes.filter(n => n.stableId === 'examples/fisher-yates/src/shuffle.ts:20:22:20:38');
   assert.equal(reads.length, 1);
   assert(reads[0].labels.includes('IndexedRead'));
   assert.equal(JSON.parse(reads[0].renderPartsJson)[0].kind, 'collection-container');
@@ -89,15 +89,20 @@ test('Fisher extracts both writes and preserves source identity of nested calls'
   assert.equal(returned.targetRenderPartStableId, `${slotId}:set`);
   assert.equal(returned.sourceRenderPartStableId, `${reads[0].stableId}:get`);
   assert.equal(returned.producerRouteRole, 'return-bottom');
-  const savedRead = p.nodes.find(n => n.stableId.startsWith('examples/fisher-yates/src/shuffle.ts:19:16:19:28'));
+  const savedRead = p.nodes.find(n => n.stableId.startsWith('examples/fisher-yates/src/shuffle.ts:19:19:19:36'));
   assert(savedRead);
   assert.equal(JSON.parse(savedRead.renderPartsJson)[0].kind, 'collection-container');
-  assert(!JSON.parse(write.renderPartsJson).some(p => p.text === 'second'));
-  const current = 'examples/fisher-yates/src/shuffle.ts:21:2:21:24';
+  assert(!JSON.parse(write.renderPartsJson).some(p => p.text === 'random'));
+  const current = 'examples/fisher-yates/src/shuffle.ts:21:2:21:30';
   const args = p.edges.filter(e => e.fromId === current && e.type === 'ARG');
   assert.equal(args.length, 2);
+  for (const writeId of [write.stableId, current]) {
+    const argumentsInOrder = p.edges.filter(e => e.fromId === writeId && e.type === 'ARG').sort((a, b) => a.argumentIndex - b.argumentIndex);
+    assert.deepEqual(argumentsInOrder.map(e => e.argumentName), ['index', 'value']);
+    assert.deepEqual(argumentsInOrder.map(e => e.displayLabel), ['index', 'value']);
+  }
   const saved = args.find(e => e.argumentIndex === 1).toId;
-  assert.equal(p.nodes.find(n => n.stableId === saved).diaName, 'saved');
+  assert.equal(p.nodes.find(n => n.stableId === saved).diaName, 'temporal');
   assert(!p.edges.some(e => [current, saved].includes(e.fromId) && e.type === 'EVAL'));
   const calls = p.nodes.filter(n => n.calleeName === 'getRandom' && !n.labels.includes('Parameter'));
   assert(calls.length);

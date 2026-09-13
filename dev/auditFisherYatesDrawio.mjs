@@ -50,6 +50,11 @@ try {
         && (index === 0 || Math.abs(parts[index - 1].bounds.x + parts[index - 1].bounds.width - part.bounds.x) < 0.5));
   };
   const checks = {
+    setAtArgumentLabels: ['20:2:20:39', '21:2:21:30'].every(suffix => {
+      const args = region.elements.filter(e => e.kind === 'edge' && e.edgeType === 'ARG' && e.stableId === prefix + suffix);
+      return args.length === 2 && args.map(e => e.label).sort().join('|') === 'index|value'
+        && args.every(e => e.renderedVisible);
+    }),
     shuffleReturnMosaic: returnMosaic('10:2:10:18:return', 'alphabet'),
     getRandomReturnMosaic: returnMosaic('15:2:15:15:return', 'index'),
     indexCreatedBeforeReturn: vertex('14:8:14:13', 'index').bounds.y

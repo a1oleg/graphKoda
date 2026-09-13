@@ -15,8 +15,8 @@ function getRandom(length: number): number {
   return index;
 }
 
-function swap<T>(items: T[], first: number, second: number): void {
-  const saved = items[first];
-  items[first] = items[second];
-  items[second] = saved;
+function swap<T>(alphabet: T[], current: number, random: number): void {
+  const temporal = alphabet[current];
+  alphabet[current] = alphabet[random];
+  alphabet[random] = temporal;
 }

@@ -18018,8 +18018,10 @@ class FunctionFlowGraphBuilder {
         ]) } : {}),
     }, slotId);
     [indexId, slotId].forEach((id, argumentIndex) => {
+      const argumentName = argumentIndex === 0 ? 'index' : 'value';
       this.addEdge(undefined, assignmentId, undefined, id, 'ARG', {
-        label: '', argumentIndex, flowLayer: 'data', sourceRenderPartStableId: `${assignmentId}:set`,
+        label: argumentName, displayLabel: argumentName, argumentName, argumentIndex,
+        flowLayer: 'data', sourceRenderPartStableId: `${assignmentId}:set`,
       });
       this.addEdge(undefined, id, undefined, closeId, 'ArgJoin', {
         label: '', argumentIndex, flowLayer: 'data', callSiteStableId: assignmentId,
