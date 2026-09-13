@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { DOMParser } from '@xmldom/xmldom';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -15,30 +16,30 @@ try {
     if (result.isError) throw new Error(JSON.stringify(result.content));
     return result.structuredContent;
   };
-  const region = await call('inspect_region', { stableId: `${prefix}5:2:8:3:for`, padding: 10000 });
+  const region = await call('inspect_region', { stableId: `${prefix}6:2:10:3:for`, padding: 10000 });
   const validation = await call('validate_geometry', {});
   if (region.truncated || validation.truncated) throw new Error('Incomplete MCP report');
   const vertex = (suffix, label) => region.elements.find(e => e.kind === 'vertex'
     && e.stableId === prefix + suffix && (label === undefined || e.label === label));
-  const start = vertex('1:7:11:1:flow-start', 'Start');
-  const entry = vertex('5:2:8:3:for', 'for');
-  const initial = vertex('5:11:5:18', 'current');
-  const condition = vertex('5:42:5:53', '');
-  const update = vertex('5:55:5:64', 'current');
-  const returned = vertex('10:2:10:18:return', '');
+  const start = vertex('1:7:13:1:flow-start', 'Start');
+  const entry = vertex('6:2:10:3:for', 'for');
+  const initial = vertex('3:6:3:13', 'current');
+  const condition = vertex('6:9:6:26', '');
+  const update = vertex('6:28:6:43', 'current.index');
+  const returned = vertex('12:2:12:18:return', '');
   const repeat = region.elements.find(e => e.kind === 'edge' && e.edgeType === 'REPEATS'
-    && e.stableId === `${prefix}5:55:5:64`);
+    && e.stableId === `${prefix}6:28:6:43`);
   const falseEdge = region.elements.find(e => e.kind === 'edge' && e.edgeType === 'FALSE'
-    && e.stableId === `${prefix}5:42:5:53`);
+    && e.stableId === `${prefix}6:9:6:26`);
   const falseRoute = falseEdge?.route || [];
   const initializationEdge = region.elements.find(e => e.kind === 'edge' && e.edgeType === 'NEXT'
-    && e.stableId === `${prefix}5:2:8:3:for`);
+    && e.stableId === `${prefix}6:2:10:3:for`);
   const initializationRoute = initializationEdge?.route || [];
   const parentIds = new Set(region.elements.map(e => e.parent));
   const namespace = entry.cellId.slice(0, entry.cellId.indexOf('-') + 1);
   const loopRight = Math.max(...region.elements.filter(e => e.kind === 'vertex'
     && e.cellId.startsWith(namespace) && !parentIds.has(e.cellId)
-    && e.bounds.y >= initial.bounds.y - 100 && e.bounds.y <= update.bounds.y + update.bounds.height)
+    && e.bounds.y >= condition.bounds.y - 100 && e.bounds.y <= update.bounds.y + update.bounds.height)
     .map(e => e.bounds.x + e.bounds.width));
   const center = e => e.bounds.x + e.bounds.width / 2;
   const returnMosaic = (suffix, value) => {
@@ -50,27 +51,52 @@ try {
         && (index === 0 || Math.abs(parts[index - 1].bounds.x + parts[index - 1].bounds.width - part.bounds.x) < 0.5));
   };
   const checks = {
-    setAtArgumentLabels: ['20:2:20:39', '21:2:21:30'].every(suffix => {
+    collectionBracketsSystemPurple: (() => {
+      const document = new DOMParser().parseFromString(fs.readFileSync(file, 'utf8'), 'application/xml');
+      const brackets = Array.from(document.getElementsByTagName('mxCell')).filter(cell => ['[', ']'].includes(cell.getAttribute('value')));
+      return brackets.length >= 4 && brackets.every(cell => {
+        const style = decodeURIComponent(cell.getAttribute('style') || '');
+        return style.includes('#E1D5E7') && style.includes('#9673A6')
+          && region.elements.some(element => element.cellId === cell.getAttribute('id') && element.renderedVisible);
+      });
+    })(),
+    alphabetStacksSolid: (() => {
+      const document = new DOMParser().parseFromString(fs.readFileSync(file, 'utf8'), 'application/xml');
+      const stacks = Array.from(document.getElementsByTagName('mxCell')).filter(cell =>
+        cell.getAttribute('value') === 'alphabet' && (cell.getAttribute('style') || '').includes('image=data:image/svg+xml'));
+      return stacks.filter(cell => decodeURIComponent(cell.getAttribute('style')).includes('translate(0 56)')).length >= 7
+        && stacks.every(cell => {
+        const style = decodeURIComponent(cell.getAttribute('style'));
+        return !style.includes('sketch-fill')
+          && region.elements.some(element => element.cellId === cell.getAttribute('id') && element.renderedVisible);
+      });
+    })(),
+    setAtArgumentLabels: ['21:2:21:45', '22:2:22:36'].every(suffix => {
       const args = region.elements.filter(e => e.kind === 'edge' && e.edgeType === 'ARG' && e.stableId === prefix + suffix);
       return args.length === 2 && args.map(e => e.label).sort().join('|') === 'index|value'
         && args.every(e => e.renderedVisible);
     }),
-    shuffleReturnMosaic: returnMosaic('10:2:10:18:return', 'alphabet'),
-    getRandomReturnMosaic: returnMosaic('15:2:15:15:return', 'index'),
-    indexCreatedBeforeReturn: vertex('14:8:14:13', 'index').bounds.y
-      < vertex('15:2:15:15:return', '').bounds.y,
+    shuffleReturnMosaic: returnMosaic('12:2:12:18:return', 'alphabet'),
+    getRandomReturnMosaic: returnMosaic('17:2:17:15:return', 'index'),
+    indexCreatedBeforeReturn: vertex('16:8:16:13', 'index').bounds.y
+      < vertex('17:2:17:15:return', '').bounds.y,
     forOnMainAxis: Math.abs(center(entry) - center(start)) < 2,
-    initializationToRight: initial.bounds.x > entry.bounds.x + entry.bounds.width,
-    initializationUsesHorizontalStep: Math.abs(initial.bounds.x - entry.bounds.x - entry.bounds.width - 56) < 1,
-    initializationOnForRow: Math.abs(initial.bounds.y + initial.bounds.height / 2
-      - entry.bounds.y - entry.bounds.height / 2) < 1,
-    initializationHasFacingSidePorts: initializationEdge?.portStyle.exitX === '1'
-      && initializationEdge?.portStyle.exitY === '0.5'
-      && initializationEdge?.portStyle.entryX === '0'
-      && initializationEdge?.portStyle.entryY === '0.5',
-    initializationRouteIsHorizontal: initializationRoute.length >= 2
-      && initializationRoute.every((point, index, points) => Math.abs(point.y - points[0].y) < 0.5
-        && (index === 0 || point.x >= points[index - 1].x)),
+    initializationBeforeFor: initial.bounds.y + initial.bounds.height < entry.bounds.y,
+    initializationOnMainAxis: Math.abs(center(initial) - center(start)) < 2,
+    conditionToRight: condition.bounds.x > entry.bounds.x + entry.bounds.width,
+    forReachesGuard: initializationEdge?.target === condition.cellId
+      && initializationRoute.length >= 2,
+    repeatReturnsToGuard: repeat?.target === condition.cellId,
+    fieldAssignedInBody: Boolean(vertex('7:4:7:43', 'current.value')),
+    fieldEvaluatedFromAlphabet: region.elements.some(e => e.kind === 'edge' && e.edgeType === 'EVAL'
+      && e.stableId === `${prefix}7:4:7:43` && e.renderedVisible),
+    autoSetReturnHidden: !region.elements.some(e => e.kind === 'edge' && e.edgeType === 'ASSIGNS_VALUE'
+      && e.stableId === 'flow:field-join:' + prefix + '3:62:3:110'
+      && e.renderedVisible),
+    indexedValueReturnsToSet: region.elements.some(e => e.kind === 'edge' && e.edgeType === 'ASSIGNS_VALUE'
+      && e.stableId === prefix + '7:20:7:43' && e.renderedVisible),
+    noDuplicateValueFrom: !region.elements.some(e => e.kind === 'edge' && e.edgeType === 'VALUE_FROM'
+      && e.stableId === prefix + '7:4:7:43' && e.renderedVisible),
     falseLeavesLeft: falseRoute.length >= 2 && falseRoute[1].x < falseRoute[0].x
       && Math.abs(falseRoute[1].y - falseRoute[0].y) < 0.5,
     falseEntersFromAbove: falseRoute.length >= 2

@@ -30,7 +30,7 @@ const edgeChecks = analysis.cases.map(c => {
     assert(matches.length, `Missing real diagram edge: ${JSON.stringify(pair)}`);
     return matches[0].getAttribute('id');
   });
-  assert.equal(ids.length, c.terminal ? 2 : 5);
+  assert.equal(ids.length, c.terminal ? 1 : 5);
   return { case: c.index, transition: c.transition, edges: ids };
 });
 const mcp = new Client({ name: 'fisher-loop-cases-audit', version: '1.0.0' });

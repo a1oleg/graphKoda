@@ -1,9 +1,11 @@
 export function shuffle(): string[] {
   const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  let current: { index: number; value: string | undefined } = { index: alphabet.length - 1, value: undefined };
 
   // Each iteration fixes one position; the prefix remains available for selection.
-  for (let current = alphabet.length - 1; current > 0; current--) {
-    const random = getRandom(current + 1);
+  for (; current.index > 0; current.index--) {
+    current.value = alphabet[current.index];
+    const random = getRandom(current.index + 1);
     swap(alphabet, current, random);
   }
 
@@ -15,8 +17,7 @@ function getRandom(length: number): number {
   return index;
 }
 
-function swap<T>(alphabet: T[], current: number, random: number): void {
-  const temporal = alphabet[current];
-  alphabet[current] = alphabet[random];
-  alphabet[random] = temporal;
+function swap<T>(alphabet: T[], current: { index: number; value: T | undefined }, random: number): void {
+  alphabet[current.index] = alphabet[random];
+  alphabet[random] = current.value!;
 }

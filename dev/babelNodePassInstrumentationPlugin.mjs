@@ -97,6 +97,8 @@ function buildEvaluatedExpression(t, target, originalExpression) {
         t.objectProperty(t.identifier('index'), t.identifier(target.iterationBinding)),
         t.objectProperty(t.identifier('value'), t.memberExpression(t.identifier(target.iterationCollection), t.identifier(target.iterationBinding), true)),
       ])),
+    ]))] : target.iterationBinding ? [t.arrowFunctionExpression([], t.objectExpression([
+      t.objectProperty(t.identifier(target.iterationBinding), t.identifier(target.iterationBinding)),
     ]))] : target.valueBinding ? [t.arrowFunctionExpression([], t.identifier(target.valueBinding))] : []),
   ]);
   if (awaited) return t.awaitExpression(call);
@@ -252,7 +254,11 @@ export default function nodePassInstrumentationPlugin({ types: t }) {
           const target = state.opts.targets.find((candidate) => (
             candidate.instrumentationKind === 'binding-value'
               && normalizePath(candidate.filePath) === this.repoRelativePath
-              && locationMatches(declaratorPath.node.id, candidate)
+              && locationMatches(t.isIdentifier(declaratorPath.node.id) && declaratorPath.node.id.typeAnnotation
+                ? { loc: { start: declaratorPath.node.id.loc.start, end: {
+                  line: declaratorPath.node.id.loc.start.line,
+                  column: declaratorPath.node.id.loc.start.column + declaratorPath.node.id.name.length,
+                } } } : declaratorPath.node.id, candidate)
           ));
           if (!target) return;
 

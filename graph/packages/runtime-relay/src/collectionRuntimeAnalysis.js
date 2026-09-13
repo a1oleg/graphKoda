@@ -287,31 +287,36 @@ function buildSegments(iterations) {
   return [...groups.values()].sort((left, right) => right.count - left.count);
 }
 
-function buildForCases(chain, guardId) {
+function buildForCases(chain, guardId, externalVariable) {
   const events = chain.map(projectEvent);
   const guards = events.map((event, index) => event.stableId === guardId && typeof event.outcome === 'boolean' ? index : -1).filter(index => index >= 0);
-  const initial = events.slice(0, guards[0]).findLast(event => event.role === 'set-value');
+  const initial = events.slice(0, guards[0]).findLast(event => event.role === 'set-value')
+    || (externalVariable ? events[guards[0]] : null);
   if (!initial || !guards.length) return [];
+  const variableName = externalVariable || initial.variableName;
   return guards.map((start, index) => {
     const end = guards[index + 1] ?? events.length;
     const observed = events.slice(start, end);
     const guard = observed[0];
     const pop = observed.find(event => event.role === 'collection-pop');
     const priorValue = events.slice(0, start).findLast(event => event.role === 'set-value' && event.variableName === initial.variableName);
-    const itemPreview = guard.itemPreview || pop?.itemPreview || JSON.stringify({ [initial.variableName]: JSON.parse(priorValue?.valuePreview || 'null') });
+    const assignment = observed.find(event => event.role === 'set-value' && event.variableName === variableName);
+    const itemPreview = externalVariable && guard.outcome && assignment
+      ? JSON.stringify({ [variableName]: JSON.parse(assignment.valuePreview) })
+      : guard.itemPreview || pop?.itemPreview || JSON.stringify({ [variableName]: JSON.parse(priorValue?.valuePreview || 'null') });
     const variableValues = Object.fromEntries(observed.filter(event => event.role === 'set-value'
-      && event.variableName && event.variableName !== initial.variableName
+      && event.variableName && event.variableName !== variableName
       && event.instrumentationKind === 'binding-value'
       && event.valuePreview != null).map(event => [event.variableName, event.valuePreview]));
     const outcome = observed.some(event => event.completion === 'throw') ? 'error' : guard.outcome ? 'continue' : 'break';
     const path = observed.filter(event => !['collection-pop', 'collection-predicate', 'collection-result'].includes(event.role));
-    const pairs = [{ sourceStableId: initial.stableId, targetStableId: guard.stableId, edgeType: 'NEXT' }, ...buildEdgePairs(path)];
+    const pairs = [...(initial.stableId === guard.stableId ? [] : [{ sourceStableId: initial.stableId, targetStableId: guard.stableId, edgeType: 'NEXT' }]), ...buildEdgePairs(path)];
     if (outcome === 'continue' && path.at(-1)) pairs.push({ sourceStableId: path.at(-1).stableId, targetStableId: initial.stableId, edgeType: 'REPEATS' });
     const highlighted = [initial, ...path];
     return {
       index, itemPreview, variableValues, outcome, transition: outcome, terminal: !guard.outcome,
       terminationReason: !guard.outcome ? 'condition-false' : null,
-      variableName: initial.variableName, accumulatorState: null,
+      variableName, accumulatorState: null,
       durationMs: Math.max(0, (observed.at(-1)?.score || 0) - guard.score),
       pathSignature: path.map(eventSignature).join('>'),
       branchPath: [], destination: outcome, branchSignature: `for:${outcome}`,
@@ -354,7 +359,7 @@ export function buildCollectionRuntimeAnalysis(records, {
   const methodName = runtimeProps(selectedRoot).methodName || null;
   const chain = buildInvocationChain(sorted.filter((record) => record.sessionId === selectedRoot.sessionId), selectedRoot);
   const guardId = runtimeProps(selectedRoot).iterationGuardStableId;
-  const cases = methodName === 'for' ? buildForCases(chain, guardId) : buildIterations(chain, methodName);
+  const cases = methodName === 'for' ? buildForCases(chain, guardId, runtimeProps(selectedRoot).variableName) : buildIterations(chain, methodName);
   const iterations = methodName === 'for' ? cases.filter(item => !item.terminal) : cases;
   const conditionEvents = methodName === 'for' && guardId
     ? chain.filter(record => record.functionStableId === guardId && typeof runtimeProps(record).outcome === 'boolean') : [];

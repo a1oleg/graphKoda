@@ -94,6 +94,7 @@ function isVirtualContainerMethodNode(node) {
 }
 
 function isVirtualValueContainerNode(node) {
+  if (hasLabel(node, 'Parameter')) return false;
   return isVirtualResultNode(node)
     || (hasLabel(node, 'Virtual') && hasLabel(node, 'ValueSlot'))
     || (isSemanticPrimitiveNode(node)
@@ -187,6 +188,7 @@ function booleanActionStyleForNode(node) {
 }
 
 function isVirtualResultNode(node) {
+  if (hasLabel(node, 'Parameter')) return false;
   return hasLabel(node, 'Virtual')
     && (hasLabel(node, 'Result') || hasLabel(node, 'CallbackResult') || hasLabel(node, 'ResultTarget'));
 }
@@ -1059,7 +1061,7 @@ function structuredContainerPartStyle(node, part, height = 40) {
     collection,
     height,
     sketch: isVirtualValueContainerNode(node)
-      || (isEmptyContainer(node, part) && isInlineLiteralSetParts(renderPartsForNode(node))),
+      || (!collection && isEmptyContainer(node, part) && isInlineLiteralSetParts(renderPartsForNode(node))),
   });
 }
 
@@ -1130,7 +1132,7 @@ function structuredContainerOverlayPartStyle(
     && (part?.labels || []).includes('System');
   const virtualValue = part?.kind === 'virtual-value'
     || (part?.labels || []).includes('Virtual');
-  const virtualMethod = method && (
+  const virtualMethod = method && !(part?.labels || []).includes('System') && (
     isVirtualContainerMethodNode(node) || (part?.labels || []).includes('Virtual')
   );
   const systemMethod = method && (part?.labels || []).includes('System');
@@ -1466,7 +1468,7 @@ function structuredRenderPartStyle(node, part, index, count, width) {
     label === 'FieldName' || label === 'ArgumentName'
   ));
   const keywordPart = (part?.labels || []).includes('Keyword');
-  const virtualMethod = callPart && (
+  const virtualMethod = callPart && !(part?.labels || []).includes('System') && (
     isVirtualContainerMethodNode(node) || (part?.labels || []).includes('Virtual')
   );
   const operationProviderPart = hasLabel(node, 'OperationProvider')
@@ -2183,6 +2185,7 @@ function suppressRedundantSlotLabels(nodes, edges) {
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   return edges.map((edge) => {
     const slotName = String(slotNameForEdge(edge) || '').trim();
+    if (edge.type === 'ARG' && hasLabel(nodeById.get(edge.start), 'IndexedWrite')) return edge;
     if (!slotName) return edge;
     const slotEnd = edge.props?.canonicalTargetStableId === edge.start ? 'source' : 'target';
     const passedNode = nodeById.get(slotEnd === 'source' ? edge.start : edge.end);
@@ -8333,6 +8336,14 @@ function buildRenderableEdges(edges, nodes, positions, scale) {
 
   const routedKeys = new Set(routedGroups.keys());
   const visibleNormalEdges = normalEdges.filter((edge) => {
+    if (edge.type === 'ASSIGNS_VALUE') {
+      const target = nodeById.get(edge.end);
+      const source = nodeById.get(edge.start);
+      if (hasLabel(target, 'Set') && hasLabel(target, 'ContainerMethod')
+        && hasLabel(source, 'Field') && hasLabel(source, 'Join')) return false;
+    }
+    if (edge.type === 'VALUE_FROM' && normalEdges.some(candidate => candidate.type === 'EVAL'
+      && candidate.start === edge.start && candidate.end === edge.end)) return false;
     if (isLayoutJunctionNode(nodeById.get(edge.start) || { labels: [] })) return false;
     if (isLayoutJunctionNode(nodeById.get(edge.end) || { labels: [] })) return false;
     if (effectiveBridgeIds.has(edge.start) || effectiveBridgeIds.has(edge.end)) return false;
@@ -8928,6 +8939,9 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
       'column-stage-port',
     ].includes(node?.props?.hybridVisualRole)) return false;
     if (!hasProducerScope || nodeId === edge.start || nodeId === edge.end) return true;
+    if (assignmentReturn && hasLabel(sourceNode, 'Field') && hasLabel(sourceNode, 'Join')
+      && ownerStepStableIdForGraphItem(sourceNode)
+      && ownerStepStableIdForGraphItem(node) === ownerStepStableIdForGraphItem(sourceNode)) return true;
     if (producerScopeStableIds.size > 0) return producerScopeStableIds.has(nodeId);
     const operationIndex = Number(node?.props?.operationIndex ?? node?.props?.operation_index);
     return Number.isFinite(operationIndex)
@@ -9187,7 +9201,7 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
       ? ['right']
       : iterationRepeat
       ? resumeInitialization ? ['top-80']
-        : hasLabel(targetNode, 'Branch') || hasLabel(targetNode, 'OperandBranch') ? ['left'] : ['right']
+        : hasLabel(targetNode, 'Branch') || hasLabel(targetNode, 'OperandBranch') ? ['right', 'left'] : ['right']
       : horizontalArgumentFrame
       ? ['left']
       : horizontalMosaicArgument
@@ -9444,7 +9458,8 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
           routeEnd,
         ],
       ];
-      if (resumeInitialization) {
+      const repeatToBranch = iterationRepeat && isBranchNode(targetNode);
+      if (resumeInitialization || repeatToBranch) {
         // A resumed loop enters the binding from above, outside the entire body.
         const blockId = targetNode.props?.parentFlowBlockStableId || targetNode.props?.parent_flow_block_stable_id;
         const members = [...routeState.nodeById.values()].filter(node => blockId &&
@@ -9452,12 +9467,15 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
         const boxes = members.map(node => scale.nodeBoxes.get(node.id)).filter(Boolean);
         const outerRight = Math.max(rightX, ...boxes.map(box => box.x + box.width)) + clearance;
         const aboveEntry = Math.min(routeEnd.y, topY, ...boxes.map(box => box.y)) - clearance;
-        perimeterCandidates.splice(0, perimeterCandidates.length, [routeStart,
+        perimeterCandidates.splice(0, perimeterCandidates.length, repeatToBranch ? [routeStart,
+          { x: routeStart.x, y: Math.max(routeStart.y, rawSourceBox.y + rawSourceBox.height + clearance) },
+          { x: outerRight, y: Math.max(routeStart.y, rawSourceBox.y + rawSourceBox.height + clearance) },
+          { x: outerRight, y: routeEnd.y }, routeEnd] : [routeStart,
           { x: outerRight, y: routeStart.y }, { x: outerRight, y: aboveEntry },
           { x: routeEnd.x, y: aboveEntry }, routeEnd]);
       }
       routeCore = selectBestRoute(
-        resumeInitialization ? perimeterCandidates : [routeCore.points, ...perimeterCandidates],
+        resumeInitialization || repeatToBranch ? perimeterCandidates : [routeCore.points, ...perimeterCandidates],
         nodeCenters,
         routedCorridors,
         routeContext,

@@ -45,6 +45,8 @@ for (const fn of sourceFile.statements.filter(ts.isFunctionDeclaration)) {
   const walk = node => {
     if (ts.isForStatement(node)) add(node, graphNode(node, 'For'), 'for-iteration', 'loop', {
       iterationGuardStableId: graphNode(node.condition, 'Branch').stableId,
+      variableName: ts.isBinaryExpression(node.condition) && ts.isPropertyAccessExpression(node.condition.left)
+        ? node.condition.left.expression.getText(sourceFile) : undefined,
     });
     else if (ts.isVariableDeclaration(node) && node.initializer && ts.isIdentifier(node.name)) {
       add(node.name, graphNode(node.name, 'ValueCreate'), 'binding-value', 'set-value', { variableName: node.name.text });
@@ -53,8 +55,13 @@ for (const fn of sourceFile.statements.filter(ts.isFunctionDeclaration)) {
     } else if (ts.isExpressionStatement(node)) {
       const call = ts.isCallExpression(node.expression);
       const firstArgument = call ? node.expression.arguments[0] : null;
+      const assigned = ts.isBinaryExpression(node.expression) && node.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken
+        ? ts.isIdentifier(node.expression.left) ? node.expression.left.text
+          : ts.isPropertyAccessExpression(node.expression.left) && ts.isIdentifier(node.expression.left.expression)
+            ? node.expression.left.expression.text : null : null;
       add(node.expression, graphNode(node.expression) || graphNode(node), 'expression', 'set-value', {
-        variableName: call && firstArgument ? firstArgument.getText(sourceFile) : node.expression.getText(sourceFile),
+        variableName: assigned || (call && firstArgument ? firstArgument.getText(sourceFile) : node.expression.getText(sourceFile)),
+        ...(assigned ? { valueBinding: assigned } : {}),
         ...(firstArgument && ts.isIdentifier(firstArgument) ? { valueBinding: firstArgument.text } : {}),
       });
     } else if (ts.isForStatement(node.parent) && node.parent.condition === node) {
@@ -65,10 +72,13 @@ for (const fn of sourceFile.statements.filter(ts.isFunctionDeclaration)) {
         && ts.isIdentifier(length.expression) ? length.expression.text : null;
       add(node, graphNode(node, 'Branch'), 'expression', 'predicate', collection ? {
         iterationCollection: collection, iterationBinding: declaration.name.text,
+      } : ts.isBinaryExpression(node) && ts.isPropertyAccessExpression(node.left) ? {
+        iterationBinding: node.left.expression.getText(sourceFile),
       } : {});
     } else if (ts.isForStatement(node.parent) && node.parent.incrementor === node) {
       add(node, graphNode(node), 'expression', 'set-value', {
-        variableName: node.operand.getText(sourceFile), valueBinding: node.operand.getText(sourceFile),
+        variableName: ts.isPropertyAccessExpression(node.operand) ? node.operand.expression.getText(sourceFile) : node.operand.getText(sourceFile),
+        valueBinding: ts.isPropertyAccessExpression(node.operand) ? node.operand.expression.getText(sourceFile) : node.operand.getText(sourceFile),
       });
     }
     ts.forEachChild(node, walk);
@@ -114,29 +124,29 @@ assert.deepEqual(JSON.parse(analysis.cases[0].itemPreview).current, { index: 7, 
 assert(analysis.iterations.every(c => Number.isInteger(JSON.parse(c.variableValues.random))));
 assert.equal(analysis.totalCases, 8);
 assert.deepEqual(analysis.cases.map(c => c.transition), [...Array(7).fill('continue'), 'break']);
-assert.deepEqual(JSON.parse(analysis.cases.at(-1).itemPreview).current, { index: 0, value: alphabet[0] });
+assert.deepEqual(JSON.parse(analysis.cases.at(-1).itemPreview).current, { index: 0, value: JSON.parse(analysis.iterations.at(-1).itemPreview).current.value });
 assert.deepEqual(analysis.variableColumns, ['random']);
 let beforeIteration = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 for (const c of analysis.cases) {
   const pair = JSON.parse(c.itemPreview).current;
-  assert.equal(pair.value, beforeIteration[pair.index], 'Capture the letter before swap, not after it');
   if (c.terminal) {
     assert.equal(c.variableValues.random, undefined);
   } else {
+    assert.equal(pair.value, beforeIteration[pair.index], 'Capture the letter before swap, not after it');
     const random = JSON.parse(c.variableValues.random);
     assert(random >= 0 && random <= pair.index);
-    beforeIteration = JSON.parse(c.events.find(event => event.stableId.endsWith(':7:4:7:35')).valuePreview);
+    beforeIteration = JSON.parse(c.events.find(event => event.stableId.endsWith(':9:4:9:35')).valuePreview);
   }
 }
 assert(analysis.cases.slice(0, 7).every(c => c.edgePairs.length === 5 && c.edgePairs.at(-1).edgeType === 'REPEATS'));
-assert.deepEqual(analysis.cases.at(-1).edgePairs.map(e => e.edgeType), ['NEXT', 'FALSE']);
+assert.deepEqual(analysis.cases.at(-1).edgePairs.map(e => e.edgeType), ['FALSE']);
 const trace = (await query('/runtime-trace', root)).trace;
 const values = (await query('/runtime-values', root)).values;
 assert(trace.chain.length > 7);
 assert(values.values.length > 0);
-assert.equal(values.values.find(v => v.stableId.endsWith(':5:55:5:64')).valuePreview, '0');
-assert.deepEqual(JSON.parse(values.values.find(v => v.stableId.endsWith(':7:4:7:35')).valuePreview), alphabet);
-assert(analysis.iterations.every(i => !i.staticStableIds.some(id => id.includes(':10:2:10:18'))), 'Return must not be part of every iteration');
+assert.equal(JSON.parse(values.values.find(v => v.stableId.endsWith(':6:28:6:43')).valuePreview).index, 0);
+assert.deepEqual(JSON.parse(values.values.find(v => v.stableId.endsWith(':9:4:9:35')).valuePreview), alphabet);
+assert(analysis.iterations.every(i => !i.staticStableIds.some(id => id.includes(':12:2:12:18'))), 'Return must not be part of every iteration');
 const report = { sessionId, root, loop, alphabet, targets: targets.length, trace, values, analysis };
 await fs.writeFile(path.join(outputDir, 'latest.json'), JSON.stringify(report, null, 2));
 console.log(JSON.stringify({ sessionId, alphabet, instrumented: targets.length, traceEvents: trace.chain.length, values: values.values.length, iterations: analysis.totalIterations, report: path.join(outputDir, 'latest.json') }, null, 2));

@@ -4768,6 +4768,8 @@ class FunctionFlowGraphBuilder {
           : undefined;
         const expandedExplicitObject = explicitObject && !compactExplicitObjectMember;
         const simpleParameterBinding = ts.isIdentifier(parameter.name);
+        const parameterType = this.checker.getTypeAtLocation(parameter);
+        const collectionParameter = this.checker.isArrayType(parameterType) || this.checker.isTupleType(parameterType);
         const operationProviderParameter = Boolean(
           simpleParameterBinding
           && parameter.type
@@ -4775,12 +4777,13 @@ class FunctionFlowGraphBuilder {
         );
         const containerKind: RenderPartDescriptor['kind'] = operationProviderParameter
           ? 'operation-provider-container'
-          : 'value-container';
+          : collectionParameter ? 'collection-container' : 'value-container';
         const containerLabels = uniqueStrings([
           'Value',
           'Parameter',
           simpleParameterBinding ? 'ValueSlot' : 'BindingPattern',
           ...(operationProviderParameter ? ['OperationProvider', 'CapabilityBundle'] : []),
+          ...(collectionParameter ? ['Collection'] : []),
         ]);
         const typeLabels = parameter.type
           ? this.declaredTypeRenderLabels(parameter.type)
@@ -4842,6 +4845,7 @@ class FunctionFlowGraphBuilder {
           labels: uniqueStrings([
             'Parameter',
             simpleParameterBinding ? 'ValueSlot' : 'BindingPattern',
+            ...(collectionParameter ? ['Collection'] : []),
             ...(explicitObject ? ['Object', 'ObjectConstruction'] : []),
           ]),
           diaName: name,
@@ -5215,14 +5219,14 @@ class FunctionFlowGraphBuilder {
           {
             text: '[',
             kind: arrayRead ? 'method' : 'punctuation',
-            labels: arrayRead ? ['Method', 'Virtual', 'IndexedRead'] : ['Op', 'Operand'],
+            labels: arrayRead ? ['Method', 'System', 'IndexedRead'] : ['Op', 'Operand'],
             sourceStableId: getExtendedStableId(this.sourceFile, current),
           },
           ...(current.argumentExpression ? visit(current.argumentExpression) : []),
           {
             text: ']',
             kind: arrayRead ? 'method' : 'punctuation',
-            labels: arrayRead ? ['Method', 'Virtual', 'CallBoundary'] : ['Op', 'Operand'],
+            labels: arrayRead ? ['Method', 'System', 'IndexedRead', 'CallBoundary'] : ['Op', 'Operand'],
             sourceStableId: getExtendedStableId(this.sourceFile, current),
             canonicalStableId: this.canonicalStableIdForExpression(current),
             bindingStableId: this.bindingNodeStableIdForExpression(current),
@@ -5783,6 +5787,7 @@ class FunctionFlowGraphBuilder {
     const argumentValueNode = type === 'ARG' ? target : type === 'ArgJoin' ? source : undefined;
     const redundantArgumentLabel = Boolean(
       argumentName
+      && !(type === 'ARG' && source?.labels.includes('IndexedWrite'))
       && referenceNamesForFlowNode(argumentValueNode).has(argumentName),
     );
     const fieldName = type === 'FIELD' || type === 'FieldJoin'
@@ -10379,7 +10384,17 @@ class FunctionFlowGraphBuilder {
     this.addEdge(sourceKind, sourceId, undefined, assignmentStableId, 'ASSIGNS_VALUE', {
       label: 'value',
       semanticExpansion: 'primitive-execution',
+      ...(this.nodeByStableId(sourceId)?.labels?.includes('Field')
+        && this.nodeByStableId(sourceId)?.labels?.includes('Join') ? {
+          producerRouteRole: 'return-bottom' as const, protocolRole: 'assignment-return',
+          sourcePort: 'bottom', targetPort: 'bottom',
+          sourcePortCandidates: ['bottom'], targetPortCandidates: ['bottom'], lockPortCandidates: true,
+        } : {}),
     });
+    if (this.nodeByStableId(sourceId)?.labels?.includes('Field')
+      && this.nodeByStableId(sourceId)?.labels?.includes('Join')) {
+      this.describeAssignmentProducer(assignmentStableId, sourceId, [sourceId]);
+    }
   }
 
   private connectConditionalAlternative(
@@ -17967,7 +17982,10 @@ class FunctionFlowGraphBuilder {
       const type = this.checker.getTypeAtLocation(value);
       return this.checker.isArrayType(type) || this.checker.isTupleType(type);
     };
-    const simple = (value: ts.Expression) => ts.isIdentifier(unwrapExpression(value)) || isLiteralInlineCallArgument(unwrapExpression(value));
+    const simple = (value: ts.Expression) => ts.isIdentifier(unwrapExpression(value))
+      || ts.isPropertyAccessExpression(unwrapExpression(value))
+        && ts.isIdentifier((unwrapExpression(value) as ts.PropertyAccessExpression).expression)
+      || isLiteralInlineCallArgument(unwrapExpression(value));
     // Complex receivers/indices keep their existing evaluation-order expansion.
     if (!isArray(target.expression) || !simple(target.expression) || !simple(target.argumentExpression)) return undefined;
     const value = unwrapExpression(expression.right);
@@ -17980,11 +17998,11 @@ class FunctionFlowGraphBuilder {
       { stableId: `${owner}:container`, text: access.expression.getText(this.sourceFile), kind: 'collection-container',
         labels: ['Value', 'Variable', 'Collection'], order: 0, fillState: 'filled', sourceStableId: getExtendedStableId(this.sourceFile, access.expression) },
       { stableId: `${owner}:${write ? 'set' : 'get'}`, text: write ? 'setAt(' : '[', kind: 'method',
-        labels: ['Method', 'Virtual', write ? 'Set' : 'IndexedRead'], order: 1, sourceStableId: getExtendedStableId(this.sourceFile, access) },
+        labels: ['Method', write ? 'Virtual' : 'System', write ? 'Set' : 'IndexedRead'], order: 1, sourceStableId: getExtendedStableId(this.sourceFile, access) },
       { stableId: `${owner}:index`, text: access.argumentExpression!.getText(this.sourceFile), kind: 'value',
         labels: ['Value', 'ValueAccess'], order: 2, sourceStableId: getExtendedStableId(this.sourceFile, access.argumentExpression!) },
       { stableId: `${owner}:close`, text: write ? ')' : ']', kind: 'method',
-        labels: ['Method', 'Virtual', 'CallBoundary'], order: 3, sourceStableId: getExtendedStableId(this.sourceFile, access) },
+        labels: write ? ['Method', 'Virtual', 'CallBoundary'] : ['Method', 'System', 'IndexedRead', 'CallBoundary'], order: 3, sourceStableId: getExtendedStableId(this.sourceFile, access) },
     ];
     const assignment = this.createActionNodeFromStatements([statement], incomingExits, undefined, {
       labels: ['Value', 'Collection', 'Assignment', 'ContainerMethod', 'Set', 'IndexedWrite', 'Call'],
@@ -18057,6 +18075,69 @@ class FunctionFlowGraphBuilder {
   }
 
   private materializeLinearStatement(statement: ts.Statement, incomingExits: PendingExit[]): BuildResult {
+    if (ts.isExpressionStatement(statement) && isSimpleAssignmentExpression(statement.expression)
+      && ts.isPropertyAccessExpression(statement.expression.left) && ts.isIdentifier(statement.expression.left.expression)
+      && ts.isElementAccessExpression(statement.expression.right)) {
+      const { left, right } = statement.expression;
+      const index = right.argumentExpression;
+      const arrayType = this.checker.getTypeAtLocation(right.expression);
+      if (ts.isIdentifier(right.expression) && index
+        && (ts.isIdentifier(index) || ts.isPropertyAccessExpression(index) && ts.isIdentifier(index.expression))
+        && (this.checker.isArrayType(arrayType) || this.checker.isTupleType(arrayType))) {
+        const id = getExtendedStableId(this.sourceFile, statement.expression);
+        const producer = getExtendedStableId(this.sourceFile, right);
+        this.createNode('Value', 'assign field', statement.expression, {
+          labels: ['Value', 'Variable', 'ValueWrite', 'FieldWrite', 'Assignment', 'ContainerMethod', 'Set'],
+          diaName: left.getText(this.sourceFile), containerState: 'filled', containerMethodKind: 'set',
+          operationSubjectText: left.getText(this.sourceFile), operationValueText: right.getText(this.sourceFile),
+          renderPartsLayout: 'container-overlay', renderPrimaryPartIndex: 0,
+          renderPartsJson: JSON.stringify([
+            { stableId: `${id}:container`, text: left.getText(this.sourceFile), kind: 'value-container', labels: ['Value', 'Variable', 'ValueWrite'], fillState: 'filled', order: 0 },
+            { stableId: `${id}:set`, text: 'set', kind: 'method', labels: ['Method', 'Virtual', 'Set'], order: 1 },
+          ]),
+        }, id);
+        this.createNode('Op', 'indexed field value', right, {
+          labels: ['Value', 'Collection', 'IndexedRead', 'ContainerMethod'], diaName: right.expression.text,
+          containerState: 'filled', renderPartsLayout: 'container-overlay-side', renderPrimaryPartIndex: 0,
+          renderPartsJson: JSON.stringify([
+            { stableId: `${producer}:container`, text: right.expression.text, kind: 'collection-container', labels: ['Value', 'Collection'], fillState: 'filled', order: 0 },
+            { stableId: `${producer}:get`, text: '[', kind: 'method', labels: ['Method', 'System', 'IndexedRead'], order: 1 },
+            { stableId: `${producer}:index`, text: index.getText(this.sourceFile), kind: 'value', labels: ['Value', 'ValueRead'], order: 2 },
+            { stableId: `${producer}:close`, text: ']', kind: 'method', labels: ['Method', 'System', 'IndexedRead', 'CallBoundary'], order: 3 },
+          ]),
+        }, producer);
+        this.connectPendingToNode(incomingExits, id);
+        this.addEdge(undefined, id, undefined, producer, 'EVAL', {
+          label: 'eval', displayLabel: 'eval', flowLayer: 'mixed', oneWay: true,
+          sourceRenderPartStableId: `${id}:container`, targetRenderPartStableId: `${producer}:container`,
+          sourcePort: 'right', targetPort: 'left', sourcePortCandidates: ['right'], targetPortCandidates: ['left'], lockPortCandidates: true,
+        });
+        this.addEdge(undefined, producer, undefined, id, 'ASSIGNS_VALUE', {
+          label: 'value', displayLabel: 'value', flowLayer: 'data', protocolRole: 'assignment-return',
+          producerRouteRole: 'return-bottom', sourceRenderPartStableId: `${producer}:get`, targetRenderPartStableId: `${id}:set`,
+          sourcePort: 'bottom', targetPort: 'bottom', sourcePortCandidates: ['bottom'], targetPortCandidates: ['bottom'], lockPortCandidates: true,
+        });
+        return { ...buildEmptyResult(), firstNodeId: id, openExits: [this.createPendingExit(undefined, id, 'NEXT')] };
+      }
+    }
+    if (ts.isExpressionStatement(statement) && isSimpleAssignmentExpression(statement.expression)
+      && ts.isIdentifier(statement.expression.left) && ts.isObjectLiteralExpression(statement.expression.right)) {
+      const { left, right } = statement.expression;
+      const declaration = this.checker.getSymbolAtLocation(left)?.valueDeclaration;
+      if (declaration && ts.isVariableDeclaration(declaration)) {
+        const id = getExtendedStableId(this.sourceFile, statement.expression);
+        this.createNode('Value', 'assign object', statement.expression, {
+          labels: ['Value', 'Variable', 'ValueWrite'], diaName: left.text,
+          operationSubjectText: left.text, operationValueText: right.getText(this.sourceFile),
+        }, id);
+        this.connectPendingToNode(incomingExits, id);
+        const assignment = this.createAssignmentPrimitive(declaration, id, right, left);
+        this.materializeConstInitializerValue(declaration, id, right, assignment);
+        const container = this.nodeByStableId(id)!;
+        container.labels = uniqueStrings([...(container.labels || []).filter(label => label !== 'ValueCreate'), 'ValueWrite']);
+        return { ...buildEmptyResult(), firstNodeId: id, openExits: [this.createPendingExit(undefined, id, 'NEXT')] };
+      }
+    }
     const indexedAssignment = this.materializeIndexedArrayAssignment(statement, incomingExits);
     if (indexedAssignment) return indexedAssignment;
     if (ts.isVariableStatement(statement)) {

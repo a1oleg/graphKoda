@@ -17,7 +17,7 @@ for (const endpoint of ['/runtime-trace', '/runtime-values', '/runtime-analysis'
   assert(body.ok);
   if (body.analysis) assert.equal(body.analysis.totalIterations, 7);
   if (body.trace) assert(body.trace.chain.length >= 49);
-  if (body.values) assert.equal(body.values.values.find(v => v.stableId.endsWith(':5:55:5:64')).valuePreview, '0');
+  if (body.values) assert.equal(JSON.parse(body.values.values.find(v => v.stableId.endsWith(':6:28:6:43')).valuePreview).index, 0);
   const missing = await fetch(`${base}${endpoint}`);
   assert.equal(missing.status, 400);
 }

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import dotenv from 'dotenv';
 import neo4j from 'neo4j-driver';
 
-export const fisherYatesRoot = 'examples/fisher-yates/src/shuffle.ts:1:7:11:1';
+export const fisherYatesRoot = 'examples/fisher-yates/src/shuffle.ts:1:7:13:1';
 export const fisherYatesScope = 'fisher-yates';
 export function auraConnection() {
   const env = dotenv.parse(fs.readFileSync(new URL('../graph/.env', import.meta.url)));
