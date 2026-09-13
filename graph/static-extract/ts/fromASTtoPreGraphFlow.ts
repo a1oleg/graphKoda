@@ -3895,7 +3895,7 @@ class FunctionFlowGraphBuilder {
   private readonly flowBlockContexts: Array<{
     stableId: string;
     role: 'side' | 'alternative' | 'switch-case';
-    outcome: 'TRUE' | 'FALSE' | 'CASE' | 'DEFAULT';
+    outcome: 'TRUE' | 'FALSE' | 'CASE' | 'DEFAULT' | 'NEXT';
     order: number;
   }> = [];
 
@@ -14148,7 +14148,7 @@ class FunctionFlowGraphBuilder {
   private runInFlowBlock(
     anchor: ts.Node,
     role: 'side' | 'alternative' | 'switch-case',
-    outcome: 'TRUE' | 'FALSE' | 'CASE' | 'DEFAULT',
+    outcome: 'TRUE' | 'FALSE' | 'CASE' | 'DEFAULT' | 'NEXT',
     ownerBranchStableIds: string[],
     incomingExits: PendingExit[],
     callback: () => BuildResult,
@@ -18279,6 +18279,20 @@ class FunctionFlowGraphBuilder {
   }
 
   private buildReturnStatement(statement: ts.ReturnStatement, incomingExits: PendingExit[]): BuildResult {
+    if (statement.expression && ts.isIdentifier(unwrapExpression(statement.expression))) {
+      const expression = unwrapExpression(statement.expression);
+      const id = this.createReturnNode(statement, true);
+      const node = this.nodeByStableId(id)!;
+      node.renderPartsLayout = 'horizontal';
+      node.renderPartsJson = JSON.stringify([
+        { stableId: id, text: 'return', kind: 'method', labels: ['System', 'Keyword', 'Return'], order: 0 },
+        { stableId: getExtendedStableId(this.sourceFile, expression), text: expression.getText(this.sourceFile),
+          kind: 'value', labels: ['Value', 'ValueRead'], sourceStableId: getExtendedStableId(this.sourceFile, expression), order: 1 },
+      ]);
+      this.connectPendingToNode(incomingExits, id);
+      this.captureCallbackReturn(id);
+      return { ...buildEmptyResult(), firstNodeId: id };
+    }
     if (statement.expression) {
       const rootExpression = unwrapExpression(statement.expression);
       let firstNodeId: string | undefined;
@@ -18566,6 +18580,25 @@ class FunctionFlowGraphBuilder {
   }
 
   private buildForStatement(statement: ts.ForStatement, incomingExits: PendingExit[], environment: BuildEnvironment): BuildResult {
+    const entry = this.runInFlowStep(statement, 'execution', () => {
+      const id = `${getExtendedStableId(this.sourceFile, statement)}:for`;
+      this.createNode('Action', 'for', statement, {
+        labels: ['System', 'Keyword', 'For'], diaName: 'for',
+        renderPartsLayout: 'single', renderPrimaryPartIndex: 0,
+        renderPartsJson: JSON.stringify([{ stableId: id, text: 'for', kind: 'method',
+          labels: ['System', 'Keyword', 'Method'], sourceStableId: getExtendedStableId(this.sourceFile, statement), order: 0 }]),
+      }, id);
+      this.registerFirstNode(id, incomingExits);
+      this.connectPendingToNode(incomingExits, id);
+      return id;
+    });
+    const entries = [this.createPendingExit(undefined, entry, 'NEXT')];
+    const result = this.runInFlowBlock(statement, 'side', 'NEXT', [entry], entries,
+      () => this.buildForBody(statement, entries, environment));
+    return { ...result, firstNodeId: entry };
+  }
+
+  private buildForBody(statement: ts.ForStatement, incomingExits: PendingExit[], environment: BuildEnvironment): BuildResult {
     let pending = incomingExits;
     let firstNodeId: string | undefined;
     const buildHeaderStatement = (header: ts.Statement) => {
@@ -18588,7 +18621,8 @@ class FunctionFlowGraphBuilder {
         buildHeaderStatement(header);
       }
     }
-    const condition = this.runInFlowStep(statement, 'execution', () => {
+    const conditionContext = this.createFlowStepContext(statement.condition || statement, 'condition');
+    const condition = this.runInFlowStepContext(conditionContext, () => {
       if (statement.condition) return this.materializeBooleanConditionFlow(statement.condition, pending, 'Branch');
       const id = this.createNode('Branch', 'for', statement, { diaName: 'true', conditionRaw: 'true' },
         `${getExtendedStableId(this.sourceFile, statement)}:condition`);
@@ -18597,8 +18631,15 @@ class FunctionFlowGraphBuilder {
       return { firstNodeId: id, trueExits: [this.createPendingExit(undefined, id, 'TRUE')], falseExits: [] };
     });
     firstNodeId ||= condition.firstNodeId;
-    const body = this.runInFlowBlock(statement.statement, 'side', 'TRUE',
-      condition.trueExits.map(exit => exit.fromId), condition.trueExits, () => {
+    const repeatEntry = statement.initializer && ts.isVariableDeclarationList(statement.initializer)
+      && statement.initializer.declarations.length === 1 && firstNodeId !== condition.firstNodeId
+      ? firstNodeId : condition.firstNodeId;
+    if (repeatEntry !== condition.firstNodeId) {
+      for (const edge of this.edges) {
+        if (edge.fromId === repeatEntry && edge.type === 'EVAL') edge.executionOutcome = 'initialization-only';
+      }
+    }
+    const body = (() => {
         const result = this.buildFlowBranchBody(statement.statement, condition.trueExits, environment);
         // Both normal completion and continue execute the update before retesting.
         const updateIncoming = [...result.openExits, ...result.pendingContinues];
@@ -18634,10 +18675,13 @@ class FunctionFlowGraphBuilder {
         }
         for (const exit of repeatExits) {
           const repeatSourceId = this.nodeByStableId(getStableIdKey(exit.fromId))?.callBoundaryPeerStableId || exit.fromId;
-          this.addEdge(exit.fromKind, repeatSourceId, undefined, condition.firstNodeId!, 'REPEATS');
+          this.addEdge(exit.fromKind, repeatSourceId, undefined, repeatEntry!, 'REPEATS', {
+            executionOutcome: repeatEntry !== condition.firstNodeId ? 'resume-without-initialization' : undefined,
+            sourcePort: 'right', targetPort: 'top-80', lockPortCandidates: true,
+          });
         }
         return result;
-      });
+      })();
     return { firstNodeId, openExits: [...condition.falseExits, ...body.pendingBreaks],
       pendingBreaks: [], pendingContinues: [], pendingThrows: body.pendingThrows };
   }

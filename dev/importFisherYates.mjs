@@ -30,7 +30,10 @@ try {
     const nodeGroups = Map.groupBy([...nodes.values()], n => n.labels.slice().sort().join(':') || 'CodeEntity');
     const ordinaryParameters = [...nodes.values()].filter(n => n.labels.includes('Parameter') && !n.labels.includes('OperationProvider')).map(n => n.id);
     await tx.run('MATCH (n) WHERE n.stableId IN $ids REMOVE n:OperationProvider:CapabilityBundle', { ids: ordinaryParameters });
-    for (const [labels, rows] of nodeGroups) await tx.run(`UNWIND $rows AS row MERGE (n {stableId:row.id}) SET n:${labels}, n += row.props`, { rows });
+    for (const [labels, rows] of nodeGroups) await tx.run(`UNWIND $rows AS row MERGE (n {stableId:row.id})
+      SET n:${labels}, n += row.props,
+        n.parentFlowBlockStableId = row.props.parentFlowBlockStableId,
+        n.parentStepStableId = row.props.parentStepStableId`, { rows });
     const edgeGroups = Map.groupBy([...edges.values()], e => e.type);
     for (const [type, rows] of edgeGroups) await tx.run(`UNWIND $rows AS row MATCH (a {stableId:row.from}), (b {stableId:row.to})
       MERGE (a)-[r:${type} {extractionScope:'fisher-yates-flow'}]->(b) SET r += row.props`, { rows });

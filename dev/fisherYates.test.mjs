@@ -25,10 +25,25 @@ test('for initializes once, branches, and updates after the body before retestin
   const edge = (from, to, type) => p.edges.some(e => e.fromId === from && e.toId === to && e.type === type);
   assert(edge(initial.stableId, condition.stableId, 'NEXT'));
   assert(edge(condition.stableId, id('6:10:6:18'), 'TRUE'));
-  assert(edge(condition.stableId, id('10:9:10:17'), 'FALSE'));
+  assert(edge(condition.stableId, id('10:2:10:18:return'), 'FALSE'));
   assert(edge(id('7:4:7:34'), update.stableId, 'NEXT'));
-  assert(edge(update.stableId, condition.stableId, 'REPEATS'));
-  assert(!p.edges.some(e => e.type === 'REPEATS' && e.toId === initial.stableId));
+  assert(edge(update.stableId, initial.stableId, 'REPEATS'));
+  assert(p.edges.some(e => e.type === 'REPEATS' && e.toId === initial.stableId
+    && e.executionOutcome === 'resume-without-initialization'));
+  assert(p.edges.some(e => e.fromId === initial.stableId && e.type === 'EVAL'
+    && e.executionOutcome === 'initialization-only'));
+  const entry = p.nodes.find(n => n.labels.includes('For'));
+  assert(entry.labels.includes('System'));
+  assert.notEqual(entry.parentStepStableId, condition.parentStepStableId);
+  assert.equal(entry.parentFlowBlockStableId, undefined);
+  assert.equal(initial.parentFlowBlockStableId, condition.parentFlowBlockStableId);
+  assert.equal(initial.parentFlowBlockStableId, update.parentFlowBlockStableId);
+  assert(initial.flowStepOrder < condition.flowStepOrder);
+  assert(condition.flowStepOrder < update.flowStepOrder);
+  assert(edge(id('2:8:2:16'), entry.stableId, 'NEXT'));
+  assert(edge(entry.stableId, initial.stableId, 'NEXT'));
+  const returned = p.nodes.find(n => n.stableId === id('10:2:10:18:return'));
+  assert.deepEqual(JSON.parse(returned.renderPartsJson).map(part => part.text), ['return', 'shuffled']);
 });
 
 test('for continue passes through update, break bypasses it, and optional clauses work', () => {
@@ -39,7 +54,8 @@ test('for continue passes through update, break bypasses it, and optional clause
   assert(update);
   const repeats = p.edges.filter(e => e.type === 'REPEATS' && e.fromId === update.stableId);
   assert.equal(repeats.length, 1);
-  assert.equal(repeats[0].toId, condition.stableId);
+  assert.equal(repeats[0].executionOutcome, 'resume-without-initialization');
+  assert(p.edges.some(e => e.fromId === repeats[0].toId && e.toId === condition.stableId && e.type === 'NEXT'));
   const continueCondition = p.nodes.find(n => n.parentFnStableId === owner.stableId && n.conditionRaw === 'index === 1');
   const breakCondition = p.nodes.find(n => n.parentFnStableId === owner.stableId && n.conditionRaw === 'index === 3');
   assert(p.edges.some(e => e.fromId === continueCondition.stableId && e.toId === update.stableId && e.type === 'TRUE'));
@@ -51,7 +67,8 @@ test('for continue passes through update, break bypasses it, and optional clause
   assert(!p.edges.some(e => e.fromId === foreverCondition.stableId && e.type === 'FALSE'));
   const noUpdate = p.functions.find(f => f.name === 'forWithoutUpdate');
   const noUpdateCondition = p.nodes.find(n => n.parentFnStableId === noUpdate.stableId && n.labels.includes('Branch'));
-  assert(p.edges.some(e => e.toId === noUpdateCondition.stableId && e.type === 'REPEATS'));
+  assert(p.edges.some(e => e.type === 'REPEATS' && p.edges.some(next => next.fromId === e.toId
+    && next.toId === noUpdateCondition.stableId && next.type === 'NEXT')));
 });
 
 test('indexed array writes use virtual setAt, reads and object assignments do not', () => {

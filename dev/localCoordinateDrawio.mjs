@@ -8687,6 +8687,7 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
   );
   const iterationPass = protocolRole === 'iteration-pass';
   const iterationRepeat = edge.type === 'REPEATS' || protocolRole === 'iteration-repeat';
+  const resumeInitialization = iterationRepeat && hasLabel(targetNode, 'ValueCreate');
   const iterationExhaustion = edge.type === 'FALSE'
     && hasLabel(sourceNode, 'IterationGuard')
     && hasLabel(targetNode, 'CollectionExit');
@@ -9094,7 +9095,7 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
       : iterationPass
       ? ['bottom']
       : iterationRepeat
-      ? ['bottom', 'right']
+      ? resumeInitialization ? ['right'] : ['bottom', 'right']
       : repeatCallFamilySource
       ? ['bottom', 'left']
       : splitCallFamilyArgument
@@ -9125,7 +9126,8 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
       : iterationPass
       ? ['right']
       : iterationRepeat
-      ? hasLabel(targetNode, 'Branch') || hasLabel(targetNode, 'OperandBranch') ? ['left'] : ['right']
+      ? resumeInitialization ? ['top-80']
+        : hasLabel(targetNode, 'Branch') || hasLabel(targetNode, 'OperandBranch') ? ['left'] : ['right']
       : horizontalArgumentFrame
       ? ['left']
       : horizontalMosaicArgument
@@ -9154,6 +9156,8 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
     iterationRepeat,
     },
   ).map((attempt) => {
+    // Circular execution boundaries expose a central top port in the engine.
+    if (hasLabel(targetNode, 'FunctionEnd') || hasLabel(targetNode, 'End')) return attempt;
     const parsedTargetPort = parsePercentPort(attempt.targetPort);
     const centralTopPort = attempt.targetPort === 'top'
       || (parsedTargetPort?.side === 'top' && Math.abs(parsedTargetPort.ratio - 0.5) < 1e-9);
@@ -9379,8 +9383,20 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
           routeEnd,
         ],
       ];
+      if (resumeInitialization) {
+        // A resumed loop enters the binding from above, outside the entire body.
+        const blockId = targetNode.props?.parentFlowBlockStableId || targetNode.props?.parent_flow_block_stable_id;
+        const members = [...routeState.nodeById.values()].filter(node => blockId &&
+          (node.props?.parentFlowBlockStableId || node.props?.parent_flow_block_stable_id) === blockId);
+        const boxes = members.map(node => scale.nodeBoxes.get(node.id)).filter(Boolean);
+        const outerRight = Math.max(rightX, ...boxes.map(box => box.x + box.width)) + clearance;
+        const aboveEntry = Math.min(routeEnd.y, topY, ...boxes.map(box => box.y)) - clearance;
+        perimeterCandidates.splice(0, perimeterCandidates.length, [routeStart,
+          { x: outerRight, y: routeStart.y }, { x: outerRight, y: aboveEntry },
+          { x: routeEnd.x, y: aboveEntry }, routeEnd]);
+      }
       routeCore = selectBestRoute(
-        [routeCore.points, ...perimeterCandidates],
+        resumeInitialization ? perimeterCandidates : [routeCore.points, ...perimeterCandidates],
         nodeCenters,
         routedCorridors,
         routeContext,
