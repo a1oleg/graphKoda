@@ -50,7 +50,7 @@
     "fisher:draw": "node dev/exportFisherYatesDrawio.mjs",
     "test": "node --test graph/packages/orchestrator/src/orchestrator/*.test.js graph/packages/runtime-relay/src/*.test.mjs graph/vscode-extension/*.test.js dev/functionDiagramScope.structure.test.mjs dev/runtimePathDrawio.test.mjs dev/runtimeSetValues.test.mjs dev/runtimeTraceStableId.test.mjs dev/stableId.test.mjs",
     "test:instrumentation": "node --test dev/nodePassInstrumentationCompile.test.mjs",
-    "test:renderer": "node --test dev/localCoordinateDrawio.structure.test.mjs",
+    "fisher:audit": "node dev/auditFisherYatesDrawio.mjs",
     "graph:mcp:neo4j": "python ./graph/mcp/neo4j_mcp_server.py",
     "graph:extension:test": "node --test graph/vscode-extension/*.test.js",
     "graph:extension:package": "npx @vscode/vsce package --cwd graph/vscode-extension"

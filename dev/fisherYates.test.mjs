@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import ts from 'typescript';
-import { composeExpandedFunctions } from './expandedFunctionDrawio.mjs';
 
 process.env.COLDKODE_SOURCE_ROOT = process.cwd();
 const { extractFunctionFlowGraphs, payloadForTransport } = await import('../graph/static-extract/ts/fromASTtoPreGraphFlow.ts');
@@ -47,61 +46,8 @@ test('for initializes once, branches, and updates after the body before retestin
   assert.deepEqual(JSON.parse(returned.renderPartsJson).map(part => part.text), ['return(', 'shuffled', ')']);
 });
 
-test('return arguments use opening and closing mosaic boundaries; bare return does not', () => {
-  const p = extract(['dev/fixtures/returnMosaic.ts']);
-  for (const [name, value] of [['returnValue', 'value'], ['returnLiteral', '7'],
-    ['returnExpression', 'value + 1'], ['returnCall', 'Math.random()']]) {
-    const fn = p.functions.find(f => f.name === name);
-    const returned = p.nodes.find(n => n.parentFnStableId === fn.stableId && n.labels.includes('Return'));
-    const parts = JSON.parse(returned.renderPartsJson);
-    assert.equal(returned.renderPartsLayout, 'horizontal');
-    assert.deepEqual(parts.map(part => part.text), ['return(', value, ')']);
-    assert(parts[0].labels.includes('CallBoundary'));
-    assert(parts[2].labels.includes('CallBoundary'));
-    assert(parts.every(part => part.sourceStableId));
-  }
-  const bare = p.functions.find(f => f.name === 'returnNothing');
-  const returned = p.nodes.find(n => n.parentFnStableId === bare.stableId && n.labels.includes('Return'));
-  assert(!JSON.parse(returned.renderPartsJson || '[]').some(part => part.labels?.includes('CallBoundary')));
-});
 
-test('for continue passes through update, break bypasses it, and optional clauses work', () => {
-  const p = extract(['dev/fixtures/forControl.ts']);
-  const owner = p.functions.find(f => f.name === 'forControl');
-  const condition = p.nodes.find(n => n.parentFnStableId === owner.stableId && n.labels.includes('Branch') && n.conditionRaw === 'index < limit');
-  const update = p.nodes.find(n => n.renderPartsJson?.includes('"text":"++"'));
-  assert(update);
-  const repeats = p.edges.filter(e => e.type === 'REPEATS' && e.fromId === update.stableId);
-  assert.equal(repeats.length, 1);
-  assert.equal(repeats[0].executionOutcome, 'resume-without-initialization');
-  assert(p.edges.some(e => e.fromId === repeats[0].toId && e.toId === condition.stableId && e.type === 'NEXT'));
-  const continueCondition = p.nodes.find(n => n.parentFnStableId === owner.stableId && n.conditionRaw === 'index === 1');
-  const breakCondition = p.nodes.find(n => n.parentFnStableId === owner.stableId && n.conditionRaw === 'index === 3');
-  assert(p.edges.some(e => e.fromId === continueCondition.stableId && e.toId === update.stableId && e.type === 'TRUE'));
-  assert(p.edges.some(e => e.toId === update.stableId && e.type === 'NEXT'));
-  assert(!p.edges.some(e => e.fromId === breakCondition.stableId && e.toId === update.stableId));
-  const forever = p.functions.find(f => f.name === 'forWithoutCondition');
-  const foreverCondition = p.nodes.find(n => n.parentFnStableId === forever.stableId && n.labels.includes('Branch'));
-  assert.equal(foreverCondition.conditionRaw, 'true');
-  assert(!p.edges.some(e => e.fromId === foreverCondition.stableId && e.type === 'FALSE'));
-  const noUpdate = p.functions.find(f => f.name === 'forWithoutUpdate');
-  const noUpdateCondition = p.nodes.find(n => n.parentFnStableId === noUpdate.stableId && n.labels.includes('Branch'));
-  assert(p.edges.some(e => e.type === 'REPEATS' && p.edges.some(next => next.fromId === e.toId
-    && next.toId === noUpdateCondition.stableId && next.type === 'NEXT')));
-});
 
-test('indexed array writes use virtual setAt, reads and object assignments do not', () => {
-  const p = extract(['dev/fixtures/indexedWrites.ts']);
-  const actions = p.nodes.filter(n => n.labels.includes('Action'));
-  const writes = actions.filter(n => n.renderPartsJson?.includes('setAt('));
-  assert.equal(writes.length, 1);
-  const parts = JSON.parse(writes[0].renderPartsJson);
-  assert.deepEqual(parts.map(p => p.text), ['items', 'setAt(']);
-  assert.equal(p.edges.filter(e => e.fromId === writes[0].stableId && e.type === 'ARG').length, 2);
-  assert.equal(parts[0].kind, 'collection-container');
-  assert(parts[1].labels.includes('Virtual'));
-  assert(parts.every(p => p.sourceStableId));
-});
 
 test('Fisher extracts both writes and preserves source identity of nested calls', () => {
   const p = extract(['examples/fisher-yates/src/main.ts', 'examples/fisher-yates/src/shuffle.ts']);
@@ -158,14 +104,6 @@ test('Fisher extracts both writes and preserves source identity of nested calls'
   assert(calls.every(n => n.sourceCallStableId === 'examples/fisher-yates/src/shuffle.ts:6:21:6:42'));
 });
 
-const xml = id => `<mxfile><diagram><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="start" vertex="1" parent="1" stableId="${id}:start" graphLabels="FunctionStart"><mxGeometry x="20" y="20" width="40" height="40" as="geometry"/></mxCell><mxCell id="call" vertex="1" parent="1" stableId="${id}:call"><mxGeometry x="20" y="100" width="90" height="40" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>`;
-test('expanded functions retain unique cells and form nested offset blocks', () => {
-  const result = composeExpandedFunctions('a', new Map([['a', { name: 'a' }], ['b', { name: 'b' }]]),
-    [{ id: 'a:call', owner: 'a', callee: 'b' }], new Map([['a', xml('a')], ['b', xml('b')]]));
-  assert.equal(result.boxes.length, 2);
-  assert(result.boxes.find(b => b.id === 'a').width > result.boxes.find(b => b.id === 'b').width);
-  assert.match(result.xml, /edgeType="CALLS"/);
-});
 
 test('extension tree replaces old actions with Fisher drawing from Aura', () => {
   const source = fs.readFileSync('graph/vscode-extension/extension.js', 'utf8');

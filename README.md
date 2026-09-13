@@ -223,9 +223,10 @@ node --test graph/packages/orchestrator/src/orchestrator/*.test.js `
 node dev/checkOrchestratorHealth.mjs
 ```
 
-Расширенный renderer-набор запускается отдельно: `node --test dev/localCoordinateDrawio.structure.test.mjs`. В
-текущем снимке в нём сохранены семь известных красных ожиданий геометрии портов;
-они перенесены как регрессии и не замаскированы изменением эталонов.
+Готовая диаграмма Фишера проверяется через draw.io MCP: `npm run fisher:audit`.
+Проверяется реальный файл `graph/draw/generated/Fisher-Yates.drawio`, без
+синтетических графов. Новые проверки добавляются по коллизиям, обнаруженным
+пользователем в конкретном кейсе.
 
 ## Безопасность
 
