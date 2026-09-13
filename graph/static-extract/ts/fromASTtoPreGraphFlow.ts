@@ -5709,7 +5709,19 @@ class FunctionFlowGraphBuilder {
     return this.createNode('Return', 'return', statement, {
       diaName: 'Return',
       actionTextRaw: statement.getText(this.sourceFile),
-      ...(valueMaterialized ? {
+      ...(statement.expression ? {
+        renderPartsLayout: 'horizontal' as const, renderPrimaryPartIndex: 0,
+        renderPartsJson: JSON.stringify([
+          { stableId, text: 'return(', kind: 'method',
+            labels: ['System', 'Keyword', 'Return', 'CallBoundary'], order: 0, sourceStableId },
+          { stableId: getExtendedStableId(this.sourceFile, statement.expression),
+            text: statement.expression.getText(this.sourceFile), kind: 'value',
+            labels: ['Value', 'ValueRead'], order: 1,
+            sourceStableId: getExtendedStableId(this.sourceFile, statement.expression) },
+          { stableId: `${stableId}:close`, text: ')', kind: 'punctuation',
+            labels: ['System', 'Return', 'CallBoundary'], order: 2, sourceStableId },
+        ]),
+      } : valueMaterialized ? {
         renderPartsLayout: 'single' as const, renderPrimaryPartIndex: 0,
         renderPartsJson: JSON.stringify([{ stableId, text: 'Return', kind: 'value',
           labels: ['Return', 'System', 'Keyword'], order: 0, sourceStableId }]),
@@ -18280,15 +18292,7 @@ class FunctionFlowGraphBuilder {
 
   private buildReturnStatement(statement: ts.ReturnStatement, incomingExits: PendingExit[]): BuildResult {
     if (statement.expression && ts.isIdentifier(unwrapExpression(statement.expression))) {
-      const expression = unwrapExpression(statement.expression);
       const id = this.createReturnNode(statement, true);
-      const node = this.nodeByStableId(id)!;
-      node.renderPartsLayout = 'horizontal';
-      node.renderPartsJson = JSON.stringify([
-        { stableId: id, text: 'return', kind: 'method', labels: ['System', 'Keyword', 'Return'], order: 0 },
-        { stableId: getExtendedStableId(this.sourceFile, expression), text: expression.getText(this.sourceFile),
-          kind: 'value', labels: ['Value', 'ValueRead'], sourceStableId: getExtendedStableId(this.sourceFile, expression), order: 1 },
-      ]);
       this.connectPendingToNode(incomingExits, id);
       this.captureCallbackReturn(id);
       return { ...buildEmptyResult(), firstNodeId: id };
@@ -18583,7 +18587,7 @@ class FunctionFlowGraphBuilder {
     const entry = this.runInFlowStep(statement, 'execution', () => {
       const id = `${getExtendedStableId(this.sourceFile, statement)}:for`;
       this.createNode('Action', 'for', statement, {
-        labels: ['System', 'Keyword', 'For'], diaName: 'for',
+        labels: ['System', 'Keyword', 'For', 'Method'], diaName: 'for',
         renderPartsLayout: 'single', renderPrimaryPartIndex: 0,
         renderPartsJson: JSON.stringify([{ stableId: id, text: 'for', kind: 'method',
           labels: ['System', 'Keyword', 'Method'], sourceStableId: getExtendedStableId(this.sourceFile, statement), order: 0 }]),

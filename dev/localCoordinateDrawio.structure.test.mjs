@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  alignForInitializationRows,
   alignHorizontalArgumentFamilies,
   alignObjectBraceFamilies,
   assignStepAndFlowBlockColumns,
@@ -24,6 +25,32 @@ test('object-family bounds do not follow declaration-directed binding edges', ()
 });
 
 const stepId = 'flow-step:statement:fixture.ts:1:1:1:20';
+
+test('for initialization aligns its whole block, including nested blocks, with the system method', () => {
+  const nodes = [
+    { id: 'for', labels: ['For', 'System', 'Method'], props: {} },
+    { id: 'last', labels: ['ValueCreate'], props: { parentFlowBlockStableId: 'loop' } },
+    { id: 'body', labels: ['Action'], props: { parentFlowBlockStableId: 'nested' } },
+    { id: 'return', labels: ['Return'], props: {} },
+  ];
+  const boxes = new Map(nodes.map((n, i) => [n.id, { x: i ? 200 : 0, y: i * 100, width: 100, height: 40 }]));
+  const semantic = [{ key: 'nested', props: { parentFlowBlockStableId: 'loop' } }];
+  const edges = [{ start: 'for', end: 'last', type: 'NEXT' }];
+  assert.equal(alignForInitializationRows(nodes, edges, boxes, semantic), 2);
+  assert.equal(boxes.get('last').y, boxes.get('for').y);
+  assert.equal(boxes.get('body').y, 100);
+  assert.equal(boxes.get('return').y, 300);
+  assert.equal(alignForInitializationRows(nodes, edges, boxes, semantic), 0);
+});
+
+test('false returning to the main column leaves left and enters from above', () => {
+  const n = (id, labels, x, y) => ({ id, labels, props: { diaName: id, displayX: x, displayY: y } });
+  const xml = makeDrawio([n('condition', ['Branch'], 2, 0), n('after', ['Return'], 0, 3)],
+    [{ start: 'condition', end: 'after', type: 'FALSE', props: {} }]);
+  const edges = [...xml.matchAll(/<mxCell[^>]*edge="1"[^>]*edgeType="FALSE"[^>]*>/gu)].map(m => m[0]);
+  assert.match(edges.find(e => e.includes('source="n1"')) || '', /exitX=0;exitY=0\.5;/u);
+  assert.match(edges.find(e => e.includes('target="n2"')) || '', /entryX=0\.5;entryY=0;/u);
+});
 
 test('for repeats can enter a branch without taking its occupied true port', () => {
   const n = (id, labels, x, y) => ({ id, labels, props: { diaName: id, displayX: x, displayY: y } });
@@ -85,6 +112,37 @@ test('Steps remain layout groups without frames or controls while FlowBlocks sta
   assert.match(stepGroup, /style="group;html=1;container=1;collapsible=0;"/u);
   assert.doesNotMatch(stepGroup, /coldKodeFoldingFrame|foldingIcon|graphKind="Step"/u);
   assert.match(xml, /flowBlock="1" graphKind="FlowBlock"/u);
+});
+
+test('for is a purple curved system method and its loop has no block frame', () => {
+  const entry = { id: 'for', labels: ['System', 'Method', 'For'], props: { diaName: 'for', displayX: 0, displayY: 0 } };
+  const initial = node('fixture.ts:1:1:1:5', ['ValueCreate'], { displayX: 1, displayY: 1 });
+  const xml = makeDrawio([entry, initial], [{ start: entry.id, end: initial.id, type: 'NEXT', props: {} }], { semanticNodes });
+  assert.doesNotMatch(xml, /graphKind="FlowBlock"/u);
+  const method = xml.match(/<mxCell id="n1"[^>]+>/u)?.[0] || '';
+  assert.match(method, /shape=image;/u);
+  assert.match(decodeURIComponent(method), /#E1D5E7/u);
+  assert.match(decodeURIComponent(method), /#9673A6/u);
+  const nextEdges = [...xml.matchAll(/<mxCell[^>]*edge="1"[^>]*edgeType="NEXT"[^>]*>/gu)].map(m => m[0]);
+  assert.match(nextEdges.find(e => e.includes('source="n1"')) || '', /exitX=1;exitY=0\.5;/u);
+  assert.match(nextEdges.find(e => e.includes('target="n2"')) || '', /entryX=0;entryY=0\.5;/u);
+});
+
+test('return opening has the standard curved method exterior despite its Keyword label', () => {
+  const parts = [
+    { text: 'return(', kind: 'method', labels: ['Return', 'System', 'Keyword', 'CallBoundary'] },
+    { text: 'value', kind: 'value', labels: ['Value'] },
+    { text: ')', kind: 'punctuation', labels: ['Return', 'System', 'CallBoundary'] },
+  ];
+  const xml = makeDrawio([{ id: 'returned', labels: ['Return'], props: {
+    displayX: 0, displayY: 0, renderPartsLayout: 'horizontal', renderPartsJson: JSON.stringify(parts),
+  } }], []);
+  const opening = xml.match(/<mxCell id="n1-part-1"[^>]+>/u)?.[0] || '';
+  const style = opening.replaceAll('&apos;', "'").replaceAll('&#39;', "'");
+  const image = decodeURIComponent(style.match(/image=(data:image\/svg\+xml,[^;]+);/u)?.[1] || '');
+  const width = Number(image.match(/viewBox='0 0 ([\d.]+) 50'/u)?.[1]);
+  assert(width > 0);
+  assert.equal(image, decodeURIComponent(methodMosaicImage('start', '#E1D5E7', '#9673A6', { width })));
 });
 
 test('FlowBlock frames keep their composition without folding mechanics or split edges', () => {

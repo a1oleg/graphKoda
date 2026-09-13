@@ -34,6 +34,7 @@ test('for initializes once, branches, and updates after the body before retestin
     && e.executionOutcome === 'initialization-only'));
   const entry = p.nodes.find(n => n.labels.includes('For'));
   assert(entry.labels.includes('System'));
+  assert(entry.labels.includes('Method'));
   assert.notEqual(entry.parentStepStableId, condition.parentStepStableId);
   assert.equal(entry.parentFlowBlockStableId, undefined);
   assert.equal(initial.parentFlowBlockStableId, condition.parentFlowBlockStableId);
@@ -43,7 +44,25 @@ test('for initializes once, branches, and updates after the body before retestin
   assert(edge(id('2:8:2:16'), entry.stableId, 'NEXT'));
   assert(edge(entry.stableId, initial.stableId, 'NEXT'));
   const returned = p.nodes.find(n => n.stableId === id('10:2:10:18:return'));
-  assert.deepEqual(JSON.parse(returned.renderPartsJson).map(part => part.text), ['return', 'shuffled']);
+  assert.deepEqual(JSON.parse(returned.renderPartsJson).map(part => part.text), ['return(', 'shuffled', ')']);
+});
+
+test('return arguments use opening and closing mosaic boundaries; bare return does not', () => {
+  const p = extract(['dev/fixtures/returnMosaic.ts']);
+  for (const [name, value] of [['returnValue', 'value'], ['returnLiteral', '7'],
+    ['returnExpression', 'value + 1'], ['returnCall', 'Math.random()']]) {
+    const fn = p.functions.find(f => f.name === name);
+    const returned = p.nodes.find(n => n.parentFnStableId === fn.stableId && n.labels.includes('Return'));
+    const parts = JSON.parse(returned.renderPartsJson);
+    assert.equal(returned.renderPartsLayout, 'horizontal');
+    assert.deepEqual(parts.map(part => part.text), ['return(', value, ')']);
+    assert(parts[0].labels.includes('CallBoundary'));
+    assert(parts[2].labels.includes('CallBoundary'));
+    assert(parts.every(part => part.sourceStableId));
+  }
+  const bare = p.functions.find(f => f.name === 'returnNothing');
+  const returned = p.nodes.find(n => n.parentFnStableId === bare.stableId && n.labels.includes('Return'));
+  assert(!JSON.parse(returned.renderPartsJson || '[]').some(part => part.labels?.includes('CallBoundary')));
 });
 
 test('for continue passes through update, break bypasses it, and optional clauses work', () => {
@@ -86,9 +105,16 @@ test('indexed array writes use virtual setAt, reads and object assignments do no
 
 test('Fisher extracts both writes and preserves source identity of nested calls', () => {
   const p = extract(['examples/fisher-yates/src/main.ts', 'examples/fisher-yates/src/shuffle.ts']);
-  assert.equal(p.functions.length, 4);
-  const mathReturn = p.nodes.find(n => n.stableId === 'examples/fisher-yates/src/shuffle.ts:14:2:14:44:return');
-  assert.deepEqual(JSON.parse(mathReturn.renderPartsJson).map(part => part.text), ['Return']);
+  assert.equal(p.functions.length, 3);
+  assert.deepEqual(p.functions.map(f => f.name).sort(), ['randomIndex', 'shuffle', 'swap']);
+  assert(p.functions.every(f => f.stableId.startsWith('examples/fisher-yates/src/shuffle.ts:')));
+  const randomIndex = p.functions.find(f => f.name === 'randomIndex');
+  const mathReturn = p.nodes.find(n => n.parentFnStableId === randomIndex.stableId && n.labels.includes('Return'));
+  assert.deepEqual(JSON.parse(mathReturn.renderPartsJson).map(part => part.text), ['return(', 'index', ')']);
+  const index = p.nodes.find(n => n.parentFnStableId === randomIndex.stableId && n.labels.includes('ValueCreate') && n.diaName === 'index');
+  assert(index);
+  assert(p.edges.some(e => e.fromId === index.stableId && e.type === 'EVAL'));
+  assert(p.edges.some(e => e.fromId === index.stableId && e.toId === mathReturn.stableId && e.type === 'NEXT'));
   assert.equal(p.nodes.filter(n => !n.labels.includes('Step')
     && n.renderPartsJson?.includes('floor(')).length, 1);
   for (const name of ['length', 'first', 'second']) {
@@ -98,8 +124,8 @@ test('Fisher extracts both writes and preserves source identity of nested calls'
     assert.equal(JSON.parse(parameter.renderPartsJson)[0].kind, 'value-container');
   }
   assert.equal(p.nodes.filter(n => n.labels.includes('Action') && n.renderPartsJson?.includes('setAt(')).length, 2);
-  const write = p.nodes.find(n => n.stableId === 'examples/fisher-yates/src/shuffle.ts:19:2:19:31');
-  const reads = p.nodes.filter(n => n.stableId === 'examples/fisher-yates/src/shuffle.ts:19:17:19:30');
+  const write = p.nodes.find(n => n.stableId === 'examples/fisher-yates/src/shuffle.ts:20:2:20:31');
+  const reads = p.nodes.filter(n => n.stableId === 'examples/fisher-yates/src/shuffle.ts:20:17:20:30');
   assert.equal(reads.length, 1);
   assert(reads[0].labels.includes('IndexedRead'));
   assert.equal(JSON.parse(reads[0].renderPartsJson)[0].kind, 'collection-container');
@@ -117,11 +143,11 @@ test('Fisher extracts both writes and preserves source identity of nested calls'
   assert.equal(returned.targetRenderPartStableId, `${slotId}:set`);
   assert.equal(returned.sourceRenderPartStableId, `${reads[0].stableId}:get`);
   assert.equal(returned.producerRouteRole, 'return-bottom');
-  const savedRead = p.nodes.find(n => n.stableId.startsWith('examples/fisher-yates/src/shuffle.ts:18:16:18:28'));
+  const savedRead = p.nodes.find(n => n.stableId.startsWith('examples/fisher-yates/src/shuffle.ts:19:16:19:28'));
   assert(savedRead);
   assert.equal(JSON.parse(savedRead.renderPartsJson)[0].kind, 'collection-container');
   assert(!JSON.parse(write.renderPartsJson).some(p => p.text === 'second'));
-  const last = 'examples/fisher-yates/src/shuffle.ts:20:2:20:24';
+  const last = 'examples/fisher-yates/src/shuffle.ts:21:2:21:24';
   const args = p.edges.filter(e => e.fromId === last && e.type === 'ARG');
   assert.equal(args.length, 2);
   const saved = args.find(e => e.argumentIndex === 1).toId;

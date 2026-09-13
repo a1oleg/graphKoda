@@ -1555,7 +1555,8 @@ function structuredRenderPartStyle(node, part, index, count, width) {
       })
     : callPart && isVirtualCollectionPrimitiveNode(node)
     ? methodMosaicImage(side, callPalette.fill, strokeColor, { sketch: true, width })
-    : callPart && !predicate && !keywordPart
+    : callPart && !predicate && (!keywordPart
+      || ((part?.labels || []).includes('Return') && (part?.labels || []).includes('CallBoundary')))
       ? methodMosaicImage(side, fillColor, strokeColor, {
           sketch: virtualMethod,
           torn: (node.props?.callBoundaryDesign || node.props?.call_boundary_design) === 'split'
@@ -3444,8 +3445,11 @@ function buildRendererFlowBlocks(
     };
   }).filter((candidate) => candidate.source && candidate.seed && candidate.memberRowIds.size);
 
+  const unframedBlocks = new Set(edges.filter(edge => edge.type === 'NEXT'
+    && hasLabel(nodeById.get(edge.start), 'For'))
+    .map(edge => parentFlowBlockStableIdForNode(nodeById.get(edge.end))).filter(Boolean));
   const rootRight = layout.x + layout.width;
-  const blocks = uniqueCandidates.map((candidate, index) => {
+  const blocks = uniqueCandidates.filter(candidate => !unframedBlocks.has(candidate.key)).map((candidate, index) => {
     const memberRows = [...candidate.memberRowIds].map((id) => rowById.get(id)).filter(Boolean);
     const memberEntries = memberRows.flatMap((row) => row.nodes
       .map((node) => ({ node, box: nodeBoxes.get(node.id) }))
@@ -3486,7 +3490,11 @@ function buildRendererFlowBlocks(
     if (parentStableId && !factById.has(parentStableId)) {
       throw new Error(`Extracted parent FlowBlock was not found for ${block.graphFact?.key}: ${parentStableId}`);
     }
-    block.parent = blockByFactId.get(parentStableId) || null;
+    let renderedParentId = parentStableId;
+    while (unframedBlocks.has(renderedParentId)) {
+      renderedParentId = parentFlowBlockStableIdForNode(factById.get(renderedParentId));
+    }
+    block.parent = blockByFactId.get(renderedParentId) || null;
   }
   const assignDepth = (block) => {
     if (!block.parent) return 0;
@@ -3652,6 +3660,8 @@ function buildRendererFlowBlocks(
 
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   renderBlocks.forEach((block) => { block.rowsById = rowsById; });
+  alignForInitializationRows(visibleNodes, edges, nodeBoxes, semanticNodes,
+    { ...layout, rowByNodeId, blocks: renderBlocks });
   return { blocks: renderBlocks, deepestBlockByRowId };
 }
 
@@ -7056,6 +7066,48 @@ function positionIterationShiftCollections(nodes, edges, nodeBoxes) {
   return positioned;
 }
 
+export function alignForInitializationRows(nodes, edges, nodeBoxes, semanticNodes = [], foldingLayout = null) {
+  const byId = new Map([...semanticNodes, ...nodes].map(node => [node.id || node.key, node]));
+  const blockOf = node => node?.props?.parentFlowBlockStableId || node?.props?.parent_flow_block_stable_id;
+  let moved = 0;
+  for (const edge of edges) {
+    const entry = byId.get(edge.start);
+    const initial = byId.get(edge.end);
+    if (edge.type !== 'NEXT' || !hasLabel(entry, 'For') || !hasLabel(initial, 'ValueCreate')) continue;
+    const entryBox = nodeBoxes.get(entry.id);
+    const initialBox = nodeBoxes.get(initial.id);
+    const block = blockOf(initial);
+    if (!entryBox || !initialBox || !block) continue;
+    const effectiveEntry = foldingLayout ? effectiveFoldedRoutingBox(entry.id, entryBox, foldingLayout) : entryBox;
+    const effectiveInitial = foldingLayout ? effectiveFoldedRoutingBox(initial.id, initialBox, foldingLayout) : initialBox;
+    const container = structuredContainerOverlayPartBox(initial, effectiveInitial, 'container');
+    const deltaY = effectiveEntry.y + effectiveEntry.height / 2 - (container.y + container.height / 2);
+    if (Math.abs(deltaY) < 0.01) continue;
+    const movedRows = new Set();
+    for (const node of nodes) {
+      let owner = blockOf(node);
+      const seen = new Set();
+      while (owner && owner !== block && !seen.has(owner)) {
+        seen.add(owner);
+        owner = blockOf(byId.get(owner));
+      }
+      if (owner !== block) continue;
+      const box = nodeBoxes.get(node.id);
+      if (!box) continue;
+      if (foldingLayout) {
+        const row = foldingLayout.rowByNodeId.get(node.id);
+        if (row && !movedRows.has(row)) { row.y += deltaY; movedRows.add(row); moved++; }
+      } else { box.y += deltaY; moved++; }
+    }
+    for (const framedBlock of foldingLayout?.blocks || []) {
+      if ([...framedBlock.memberRowIds].every(id => [...movedRows].some(row => row.id === id))) {
+        framedBlock.globalY += deltaY;
+      }
+    }
+  }
+  return moved;
+}
+
 function positionForOfIterationColumns(nodes, edges, nodeBoxes) {
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   let positioned = 0;
@@ -7420,6 +7472,7 @@ export function makeDrawio(nodes, edges, options = {}) {
     FLOW_BLOCK_SIDE_COLUMN_INSET,
   );
   positionForOfIterationColumns(visibleNodes, edges, nodeBoxes);
+  alignForInitializationRows(visibleNodes, edges, nodeBoxes, options.semanticNodes || []);
   alignInlineFlowJoins(
     visibleNodes,
     edges,
@@ -8820,11 +8873,16 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
   const lockedTargetPort = edge.props?.targetPort || edge.props?.target_port;
   const lockedSourcePortCandidates = edge.props?.sourcePortCandidates || edge.props?.source_port_candidates;
   const lockedTargetPortCandidates = edge.props?.targetPortCandidates || edge.props?.target_port_candidates;
+  const horizontalStepTransition = edge.type === 'NEXT'
+    && Math.abs(boxCenter(sourceBox).y - boxCenter(targetBox).y) < 1
+    && (sourceBox.x + sourceBox.width < targetBox.x || targetBox.x + targetBox.width < sourceBox.x);
   const crossFoldTargetPort = !lockPortCandidates && sourceFoldRow && targetFoldRow && sourceFoldRow !== targetFoldRow
-    ? (sourceFoldRow.y < targetFoldRow.y ? 'top' : 'bottom')
+    ? horizontalStepTransition
+      ? (sourceBox.x < targetBox.x ? 'left' : 'right')
+      : (boxCenter(sourceBox).y < boxCenter(targetBox).y ? 'top' : 'bottom')
     : null;
   const crossFoldSourcePort = crossFoldTargetPort
-    ? (crossFoldTargetPort === 'top' ? 'bottom' : 'top')
+    ? ({ top: 'bottom', bottom: 'top', left: 'right', right: 'left' }[crossFoldTargetPort])
     : null;
   const relevantFoldGroups = new Set([sourceFoldGroup, targetFoldGroup].filter(Boolean));
   const producerScopeStartOrder = Number(
@@ -9034,6 +9092,9 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
   const lateralFlowJoinEntry = isFlowJoinNode(targetNode)
     && Boolean(flowJoinBackboneSourceId)
     && edge.start !== flowJoinBackboneSourceId;
+  const returningFalse = edge.type === 'FALSE' && !isFlowJoinNode(targetNode)
+    && boxCenter(targetBox).x < boxCenter(sourceBox).x
+    && targetBox.y > sourceBox.y + sourceBox.height;
   // Keep a same-subColumn descent on its final visual axis. Composite endpoints
   // use their active overlay box above, so their diagonal backings do not skew it.
   const basePortAttempts = buildPortAttempts(
@@ -9074,7 +9135,7 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
     // Folding changes the nodes' effective vertical order. Once that order
     // selects the boundary-facing ports, do not let raw graph coordinates
     // reopen the candidate set and replace them with a farther side port.
-    explicitSourcePorts: lockPortCandidates && lockedSourcePortCandidates?.length
+    explicitSourcePorts: returningFalse ? ['left'] : lockPortCandidates && lockedSourcePortCandidates?.length
       ? lockedSourcePortCandidates
       : producerEntry
       ? ['right']
@@ -9107,7 +9168,7 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
       : lockPortCandidates
       ? lockedSourcePortCandidates
       : crossFoldSourcePort ? [crossFoldSourcePort] : undefined,
-    explicitTargetPorts: lockPortCandidates && lockedTargetPortCandidates?.length
+    explicitTargetPorts: returningFalse ? ['top'] : lockPortCandidates && lockedTargetPortCandidates?.length
       ? lockedTargetPortCandidates
       : producerEntry
       ? ['left']
@@ -9292,7 +9353,7 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
       crossingCorridors: repeatCrossingCorridors,
       // A FlowJoin is aligned to its lowest lateral entry. Higher siblings
       // should first reach the Join-side vertical and only then descend.
-      preferredInitialAxis: lateralFlowJoinEntry ? 'h' : null,
+      preferredInitialAxis: lateralFlowJoinEntry || returningFalse ? 'h' : null,
     };
     const routeStart = sourceStub || sourcePoint;
     const routeEnd = targetStub || targetPoint;
@@ -9577,6 +9638,7 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
         || edge.props?.optional_return_group_stable_id
         || edge.type === 'ASSIGNS_VALUE'
         || lateralFlowJoinEntry
+        || returningFalse
         || edge.props?.lockResolvedRoutePoints
         || edge.type === 'ARG'
         || edge.type === 'FIELD')

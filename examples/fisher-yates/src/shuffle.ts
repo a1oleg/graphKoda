@@ -11,7 +11,8 @@ export function shuffle<T>(items: readonly T[]): T[] {
 }
 
 function randomIndex(length: number): number {
-  return Math.floor(Math.random() * length);
+  const index = Math.floor(Math.random() * length);
+  return index;
 }
 
 function swap<T>(items: T[], first: number, second: number): void {

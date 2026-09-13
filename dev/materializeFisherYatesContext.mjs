@@ -6,7 +6,7 @@ import neo4j from 'neo4j-driver';
 import { auraConnection, fisherYatesRoot, fisherYatesScope } from './fisherYatesConfig.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const files = ['main.ts', 'shuffle.ts'].map(f => path.join(root, 'examples/fisher-yates/src', f));
+const files = ['shuffle.ts'].map(f => path.join(root, 'examples/fisher-yates/src', f));
 const program = ts.createProgram(files, { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext, types: [], strict: true });
 const checker = program.getTypeChecker();
 const diagnostics = ts.getPreEmitDiagnostics(program);
@@ -34,7 +34,6 @@ for (const fn of functions) {
   walk(fn.body);
 }
 const annotations = {
-  createTurnOrder:'Создаёт случайный порядок ходов участников. Получает новый массив от shuffle; исходный список игроков остаётся неизменным.',
   shuffle:'Копирует список и идёт с конца к началу. Для каждой позиции выбирает индекс от нуля до неё включительно и меняет элементы местами. Возвращает перестановку без потерь и повторного добавления участников.',
   randomIndex:'Выбирает случайный индекс в доступной части списка: умножает Math.random() на её длину и округляет вниз.',
   swap:'Меняет местами два элемента массива через временную переменную. Если индексы совпали, массив не изменяется. Здесь достаточно операций JavaScript, дальнейших вызовов нет.',

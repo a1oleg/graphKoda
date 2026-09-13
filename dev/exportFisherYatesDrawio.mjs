@@ -12,7 +12,8 @@ const aura = auraConnection();
 let functions, calls;
 try {
   const result = await aura.session.run(`MATCH (root:Fn {stableId:$id}) WHERE root.expandDeveloperCalls = true
-    MATCH (fn:Fn) WHERE fn.repo_relative_path STARTS WITH 'examples/fisher-yates/' AND NOT fn:VisualProxy AND fn.name IS NOT NULL
+    MATCH (fn:Fn)-[:NEXT {extractionScope:'fisher-yates-flow'}]->(:FunctionStart)
+    WHERE fn.repo_relative_path STARTS WITH 'examples/fisher-yates/' AND NOT fn:VisualProxy AND fn.name IS NOT NULL
     RETURN fn.stableId AS id, fn.name AS name`, { id: fisherYatesRoot });
   functions = new Map(result.records.map(r => [r.get('id'), { name: r.get('name') }]));
   if (!functions.has(fisherYatesRoot)) throw new Error('Extract Fisher-Yates into Aura first (npm run fisher:import)');

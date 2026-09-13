@@ -28,6 +28,12 @@ try {
   const returned = vertex('10:2:10:18:return', '');
   const repeat = region.elements.find(e => e.kind === 'edge' && e.edgeType === 'REPEATS'
     && e.stableId === `${prefix}5:49:5:55`);
+  const falseEdge = region.elements.find(e => e.kind === 'edge' && e.edgeType === 'FALSE'
+    && e.stableId === `${prefix}5:39:5:47`);
+  const falseRoute = falseEdge?.route || [];
+  const initializationEdge = region.elements.find(e => e.kind === 'edge' && e.edgeType === 'NEXT'
+    && e.stableId === `${prefix}5:2:8:3:for`);
+  const initializationRoute = initializationEdge?.route || [];
   const parentIds = new Set(region.elements.map(e => e.parent));
   const namespace = entry.cellId.slice(0, entry.cellId.indexOf('-') + 1);
   const loopRight = Math.max(...region.elements.filter(e => e.kind === 'vertex'
@@ -35,9 +41,36 @@ try {
     && e.bounds.y >= initial.bounds.y - 100 && e.bounds.y <= update.bounds.y + update.bounds.height)
     .map(e => e.bounds.x + e.bounds.width));
   const center = e => e.bounds.x + e.bounds.width / 2;
+  const returnMosaic = (suffix, value) => {
+    const group = vertex(suffix, '');
+    const parts = region.elements.filter(e => e.kind === 'vertex' && e.parent === group?.cellId)
+      .sort((a, b) => a.bounds.x - b.bounds.x);
+    return parts.length === 3 && parts.map(p => p.label).join('|') === `return(|${value}|)`
+      && parts.every((part, index) => Math.abs(part.bounds.y - parts[0].bounds.y) < 0.5
+        && (index === 0 || Math.abs(parts[index - 1].bounds.x + parts[index - 1].bounds.width - part.bounds.x) < 0.5));
+  };
   const checks = {
+    shuffleReturnMosaic: returnMosaic('10:2:10:18:return', 'shuffled'),
+    randomIndexReturnMosaic: returnMosaic('15:2:15:15:return', 'index'),
+    indexCreatedBeforeReturn: vertex('14:8:14:13', 'index').bounds.y
+      < vertex('15:2:15:15:return', '').bounds.y,
     forOnMainAxis: Math.abs(center(entry) - center(start)) < 2,
     initializationToRight: initial.bounds.x > entry.bounds.x + entry.bounds.width,
+    initializationOnForRow: Math.abs(initial.bounds.y + initial.bounds.height / 2
+      - entry.bounds.y - entry.bounds.height / 2) < 1,
+    initializationHasFacingSidePorts: initializationEdge?.portStyle.exitX === '1'
+      && initializationEdge?.portStyle.exitY === '0.5'
+      && initializationEdge?.portStyle.entryX === '0'
+      && initializationEdge?.portStyle.entryY === '0.5',
+    initializationRouteIsHorizontal: initializationRoute.length >= 2
+      && initializationRoute.every((point, index, points) => Math.abs(point.y - points[0].y) < 0.5
+        && (index === 0 || point.x >= points[index - 1].x)),
+    falseLeavesLeft: falseRoute.length >= 2 && falseRoute[1].x < falseRoute[0].x
+      && Math.abs(falseRoute[1].y - falseRoute[0].y) < 0.5,
+    falseEntersFromAbove: falseRoute.length >= 2
+      && falseRoute.at(-1).y > falseRoute.at(-2).y
+      && Math.abs(falseRoute.at(-1).x - falseRoute.at(-2).x) < 0.5
+      && Number(falseEdge.portStyle.entryY) === 0,
     conditionAfterInitialization: condition.bounds.y > initial.bounds.y + initial.bounds.height,
     updateAfterCondition: update.bounds.y > condition.bounds.y + condition.bounds.height,
     returnBelowLoopOnMainAxis: returned.bounds.y > update.bounds.y + update.bounds.height

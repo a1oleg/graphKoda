@@ -6,7 +6,7 @@ import ts from 'typescript';
 const root = fileURLToPath(new URL('../', import.meta.url));
 process.env.COLDKODE_SOURCE_ROOT = root;
 const { extractFunctionFlowGraphs, payloadForTransport } = await import('../graph/static-extract/ts/fromASTtoPreGraphFlow.ts');
-const files = ['main.ts', 'shuffle.ts'].map(name => path.join(root, 'examples/fisher-yates/src', name));
+const files = ['shuffle.ts'].map(name => path.join(root, 'examples/fisher-yates/src', name));
 const program = ts.createProgram(files, { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.NodeNext,
   moduleResolution: ts.ModuleResolutionKind.NodeNext, types: [], strict: true });
 const diagnostics = ts.getPreEmitDiagnostics(program);
