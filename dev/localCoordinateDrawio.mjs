@@ -340,9 +340,11 @@ export function horizontalMosaicImage(side, fillColor, strokeColor, predicate = 
 }
 
 export function collectionTileImage(fillColor = DRAWIO_PALETTE.valueFill, strokeColor = DRAWIO_PALETTE.valueStroke, width = 100) {
-  const w = Math.max(30, Number(width) || 100);
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${w} 50' preserveAspectRatio='none'><g fill='${fillColor}' stroke='${strokeColor}' stroke-width='1'><rect x='5' y='1' width='${w - 6}' height='43'/><rect x='1' y='6' width='${w - 6}' height='43'/></g></svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  return horizontalMosaicImage('middle', fillColor, strokeColor, false, width);
+}
+
+export function collectionTileBackCells(id, parent, x, y, width, height) {
+  return [14, 7].map(offset => `<mxCell id="${xml(id)}-back-${offset}" value="" style="rounded=0;fillColor=${DRAWIO_PALETTE.valueFill};strokeColor=${DRAWIO_PALETTE.valueStroke};" vertex="1" connectable="0" collectionDecoration="1" parent="${xml(parent)}"><mxGeometry x="${x - offset}" y="${y - offset}" width="${width}" height="${height}" as="geometry" /></mxCell>`);
 }
 
 function verticalMosaicImage(side, fillColor, strokeColor) {
@@ -1222,7 +1224,8 @@ function structuredContainerOverlayPartStyle(
         : horizontalMosaicImage(side, fillColor, strokeColor, predicateOverlay, width, virtualValue)
     : verticalMosaicImage(side, fillColor, strokeColor);
   const bold = virtualMethod || typeAnnotationMethod || operator;
-  return `shape=image;imageAspect=0;image=${image};whiteSpace=wrap;html=1;labelPosition=center;verticalLabelPosition=middle;verticalAlign=middle;spacing=3;${mosaicFieldAccessAlignment(part, nextPart)}fontColor=${renderPartFontColor(part)};${bold ? 'fontStyle=1;' : ''}`;
+  const collectionSpacing = '';
+  return `shape=image;imageAspect=0;image=${image};whiteSpace=wrap;html=1;labelPosition=center;verticalLabelPosition=middle;verticalAlign=middle;spacing=3;${mosaicFieldAccessAlignment(part, nextPart)}${collectionSpacing}fontColor=${renderPartFontColor(part)};${bold ? 'fontStyle=1;' : ''}`;
 }
 
 function structuredContainerOverlayPartBox(node, box, role) {
@@ -1584,7 +1587,8 @@ function structuredRenderPartStyle(node, part, index, count, width) {
         ? collectionTileImage(fillColor, strokeColor, width)
         : horizontalMosaicImage(side, fillColor, strokeColor, predicate, width);
   const nextPart = renderPartsForNode(node)[index + 1];
-  return `shape=image;imageAspect=0;image=${image};whiteSpace=wrap;html=1;labelPosition=center;verticalLabelPosition=middle;verticalAlign=middle;spacing=4;${mosaicFieldAccessAlignment(part, nextPart)}fontColor=${failurePart ? '#CC0000' : renderPartFontColor(part)};${namedSlotPart ? 'fontStyle=2;' : typeAnnotationPart || operatorPart || systemProviderPart && !callPart ? 'fontStyle=1;' : ''}`;
+  const collectionSpacing = '';
+  return `shape=image;imageAspect=0;image=${image};whiteSpace=wrap;html=1;labelPosition=center;verticalLabelPosition=middle;verticalAlign=middle;spacing=4;${mosaicFieldAccessAlignment(part, nextPart)}${collectionSpacing}fontColor=${failurePart ? '#CC0000' : renderPartFontColor(part)};${namedSlotPart ? 'fontStyle=2;' : typeAnnotationPart || operatorPart || systemProviderPart && !callPart ? 'fontStyle=1;' : ''}`;
 }
 
 function structuredHorizontalPartBox(node, box, kind) {
@@ -7703,6 +7707,7 @@ export function makeDrawio(nodes, edges, options = {}) {
     const structuredVertical = structuredVerticalSize(node);
     const structuredContainerOverlay = structuredContainerOverlaySize(node);
     if (structuredHorizontal) {
+      const collectionBackCells = [];
       const totalNaturalWidth = structuredHorizontal.width;
       const scale = localBox.width / totalNaturalWidth;
       let partX = 0;
@@ -7719,12 +7724,17 @@ export function makeDrawio(nodes, edges, options = {}) {
           : 0;
         const y = slotY + Math.round((slotHeight - height) / 2);
         const id = `${cellId}-part-${index + 1}`;
+        if ((part.labels || []).includes('Collection') && part.kind !== 'method'
+          && !(index === 0 && collectionMosaic) && !node.labels.includes('Branch')) {
+          collectionBackCells.push(...collectionTileBackCells(id, cellId, partX, y, width, height));
+        }
         const cells = [`<mxCell id="${xml(id)}" value="${xml(part.text || '')}" style="${xml(structuredRenderPartStyle(node, part, index, structuredHorizontal.parts.length, width))}" vertex="1" connectable="0" parent="${xml(cellId)}" ${metadata}><mxGeometry x="${partX}" y="${y}" width="${width}" height="${height}" as="geometry" /></mxCell>`];
         partX += width;
         return cells;
       });
       nodeCells.push(
         `<mxCell id="${xml(cellId)}" value="" style="group;html=1;container=1;collapsible=0;" vertex="1" parent="${nodeParentId}" ${metadata}><mxGeometry x="${localBox.x}" y="${localBox.y}" width="${localBox.width}" height="${localBox.height}" as="geometry" /></mxCell>`,
+        ...collectionBackCells,
         ...partCells,
       );
       continue;
@@ -7740,6 +7750,7 @@ export function makeDrawio(nodes, edges, options = {}) {
       const overlayY = Math.round(structuredContainerOverlay.overlayY * scaleY);
       const overlayWidth = localBox.width - overlayX;
       let partX = overlayX;
+      const collectionBackCells = [];
       let partY = overlayY;
       const overlayCells = structuredContainerOverlay.overlays.map((part, index) => {
         const width = structuredContainerOverlay.sideBySide
@@ -7758,6 +7769,9 @@ export function makeDrawio(nodes, edges, options = {}) {
         const y = structuredContainerOverlay.sideBySide
           ? partY + Math.round((slotHeight - height) / 2)
           : partY;
+        if ((part.labels || []).includes('Collection') && part.kind !== 'method' && !node.labels.includes('Branch')) {
+          collectionBackCells.push(...collectionTileBackCells(`${cellId}-part-${index + 2}`, cellId, partX, y, width, height));
+        }
         const cell = `<mxCell id="${xml(cellId)}-part-${index + 2}" value="${xml(part.text || '')}" style="${xml(structuredContainerOverlayPartStyle(
           node,
           part,
@@ -7783,6 +7797,7 @@ export function makeDrawio(nodes, edges, options = {}) {
         : [];
       nodeCells.push(
         `<mxCell id="${xml(cellId)}" value="" style="group;html=1;container=1;collapsible=0;" vertex="1" parent="${nodeParentId}" ${metadata}><mxGeometry x="${localBox.x}" y="${localBox.y}" width="${localBox.width}" height="${localBox.height}" as="geometry" /></mxCell>`,
+        ...collectionBackCells,
         ...containerCells,
         ...overlayCells,
         ...predicateOverlayCell,
@@ -7815,6 +7830,7 @@ export function makeDrawio(nodes, edges, options = {}) {
     const plainCollectionArgument = hasLabels(node, 'Arg', 'ValueAccess', 'Collection')
       && !['Join', 'Method', 'Call', 'ContainerMethod'].some(label => hasLabel(node, label));
     if (renderAsSimpleCallClosure || hybridSimpleNode || plainCollectionArgument || (!objectMethod && !hasLabel(node, 'Collection'))) {
+      if (plainCollectionArgument) nodeCells.push(...collectionTileBackCells(cellId, nodeParentId, localBox.x, localBox.y, localBox.width, localBox.height));
       nodeCells.push(
         `<mxCell id="${xml(cellId)}" value="${xml(label)}" style="${xml(styleForNode(styleNode, localBox))}" vertex="1" parent="${nodeParentId}" ${metadata}><mxGeometry x="${localBox.x}" y="${localBox.y}" width="${localBox.width}" height="${localBox.height}" as="geometry" /></mxCell>`,
       );

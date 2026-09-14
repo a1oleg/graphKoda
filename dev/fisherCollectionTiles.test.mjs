@@ -2,13 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { DOMParser } from '@xmldom/xmldom';
-import { collectionTileImage } from './localCoordinateDrawio.mjs';
+import { collectionTileImage, collectionTileBackCells } from './localCoordinateDrawio.mjs';
 
-test('collection tile has two opaque rectangles inside its bounds', () => {
-  const svg = decodeURIComponent(collectionTileImage().split(',')[1]);
-  const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
-  assert.equal(doc.getElementsByTagName('rect').length, 2);
-  assert.equal(doc.getElementsByTagName('g')[0].getAttribute('fill'), '#FFE6CC');
+test('collection backs extend outside the unchanged front tile bounds', () => {
+  const doc = new DOMParser().parseFromString(`<root>${collectionTileBackCells('tile', 'group', 60, 0, 100, 40).join('')}</root>`, 'application/xml');
+  const layers = Array.from(doc.getElementsByTagName('mxGeometry'));
+  assert.deepEqual(layers.map(n => Number(n.getAttribute('x'))), [46, 53]);
+  assert.deepEqual(layers.map(n => Number(n.getAttribute('y'))), [-14, -7]);
+  assert.ok(layers.every(n => n.getAttribute('width') === '100' && n.getAttribute('height') === '40'));
+  assert.ok(decodeURIComponent(collectionTileImage()).includes("H 100 V 49"));
 });
 
 test('Fisher extraction splits index access and marks collection arguments and returns', () => {
