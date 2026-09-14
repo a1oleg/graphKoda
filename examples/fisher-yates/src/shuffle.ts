@@ -24,8 +24,9 @@ export function shuffle(): string[] {
   
   
   
-  
-      for (; current.index > 0; current.index--) {
+ 
+ 
+ for (; current.index > 0; current.index--) {
     current.value = alphabet[current.index];
     const random = getRandom(current.index + 1);
     swap(alphabet, current, random);

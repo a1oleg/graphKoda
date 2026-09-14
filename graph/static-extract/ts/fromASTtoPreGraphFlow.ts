@@ -5037,7 +5037,7 @@ class FunctionFlowGraphBuilder {
       return {
         text,
         kind: literal ? 'literal' : 'value',
-        labels: literal ? literalValueLabels(expression) : ['Value', 'ValueAccess'],
+        labels: literal ? literalValueLabels(expression) : ['Value', 'ValueAccess', ...(this.isCollectionExpression(expression) ? ['Collection'] : [])],
         sourceStableId: getExtendedStableId(this.sourceFile, expression),
         canonicalStableId: systemValue ? undefined : this.canonicalStableIdForExpression(expression),
         bindingStableId: systemValue ? undefined : this.bindingNodeStableIdForExpression(expression),
@@ -5720,7 +5720,7 @@ class FunctionFlowGraphBuilder {
             labels: ['System', 'Keyword', 'Return', 'CallBoundary'], order: 0, sourceStableId },
           { stableId: getExtendedStableId(this.sourceFile, statement.expression),
             text: statement.expression.getText(this.sourceFile), kind: 'value',
-            labels: ['Value', 'ValueRead'], order: 1,
+            labels: ['Value', 'ValueRead', ...(this.isCollectionExpression(statement.expression) ? ['Collection'] : [])], order: 1,
             sourceStableId: getExtendedStableId(this.sourceFile, statement.expression) },
           { stableId: `${stableId}:close`, text: ')', kind: 'punctuation',
             labels: ['System', 'Return', 'CallBoundary'], order: 2, sourceStableId },
@@ -17788,6 +17788,7 @@ class FunctionFlowGraphBuilder {
         ...(isLiteralInlineCallArgument(argumentValue) ? ['Literal'] : []),
         ...(bindingStableId ? ['ValueRead', 'ValuePass'] : []),
         ...(argumentHasJsx ? ['VirtualView'] : []),
+        ...(this.isCollectionExpression(argumentValue) ? ['Collection'] : []),
       ]),
       diaName: unwrapExpression(argument).getText(this.sourceFile),
       operationSubjectText: parameterName,
@@ -18102,9 +18103,11 @@ class FunctionFlowGraphBuilder {
           renderPartsJson: JSON.stringify([
             { stableId: `${producer}:container`, text: right.expression.text, kind: 'collection-container', labels: ['Value', 'Collection'], fillState: 'filled', order: 0 },
             { stableId: `${producer}:get`, text: '[', kind: 'method', labels: ['Method', 'System', 'IndexedRead'], order: 1 },
-            { stableId: `${producer}:index`, text: index.getText(this.sourceFile), kind: 'value', labels: ['Value', 'ValueRead'], order: 2 },
-            { stableId: `${producer}:close`, text: ']', kind: 'method', labels: ['Method', 'System', 'IndexedRead', 'CallBoundary'], order: 3 },
-          ]),
+            ...JSON.parse(this.buildRenderParts(index, `${producer}:index`)?.json || JSON.stringify([
+              { stableId: `${producer}:index`, text: index.getText(this.sourceFile), kind: 'value', labels: ['Value', 'ValueRead'] },
+            ])),
+            { stableId: `${producer}:close`, text: ']', kind: 'method', labels: ['Method', 'System', 'IndexedRead', 'CallBoundary'] },
+          ].map((part, order) => ({ ...part, order }))),
         }, producer);
         this.connectPendingToNode(incomingExits, id);
         this.addEdge(undefined, id, undefined, producer, 'EVAL', {

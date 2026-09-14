@@ -339,6 +339,12 @@ export function horizontalMosaicImage(side, fillColor, strokeColor, predicate = 
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+export function collectionTileImage(fillColor = DRAWIO_PALETTE.valueFill, strokeColor = DRAWIO_PALETTE.valueStroke, width = 100) {
+  const w = Math.max(30, Number(width) || 100);
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${w} 50' preserveAspectRatio='none'><g fill='${fillColor}' stroke='${strokeColor}' stroke-width='1'><rect x='5' y='1' width='${w - 6}' height='43'/><rect x='1' y='6' width='${w - 6}' height='43'/></g></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 function verticalMosaicImage(side, fillColor, strokeColor) {
   const path = side === 'start'
     ? 'M 8 1 H 92 Q 99 1 99 8 V 50 H 1 V 8 Q 1 1 8 1 Z'
@@ -1211,7 +1217,9 @@ function structuredContainerOverlayPartStyle(
           sketch: virtualMethod,
           width,
         })
-      : horizontalMosaicImage(side, fillColor, strokeColor, predicateOverlay, width, virtualValue)
+      : !predicateOverlay && (part?.labels || []).includes('Collection')
+        ? collectionTileImage(fillColor, strokeColor, width)
+        : horizontalMosaicImage(side, fillColor, strokeColor, predicateOverlay, width, virtualValue)
     : verticalMosaicImage(side, fillColor, strokeColor);
   const bold = virtualMethod || typeAnnotationMethod || operator;
   return `shape=image;imageAspect=0;image=${image};whiteSpace=wrap;html=1;labelPosition=center;verticalLabelPosition=middle;verticalAlign=middle;spacing=3;${mosaicFieldAccessAlignment(part, nextPart)}fontColor=${renderPartFontColor(part)};${bold ? 'fontStyle=1;' : ''}`;
@@ -1572,7 +1580,9 @@ function structuredRenderPartStyle(node, part, index, count, width) {
             && (side === 'start' || side === 'end'),
           width,
         })
-      : horizontalMosaicImage(side, fillColor, strokeColor, predicate, width);
+      : !predicate && ((part?.labels || []).includes('Collection') || part?.kind === 'collection-container')
+        ? collectionTileImage(fillColor, strokeColor, width)
+        : horizontalMosaicImage(side, fillColor, strokeColor, predicate, width);
   const nextPart = renderPartsForNode(node)[index + 1];
   return `shape=image;imageAspect=0;image=${image};whiteSpace=wrap;html=1;labelPosition=center;verticalLabelPosition=middle;verticalAlign=middle;spacing=4;${mosaicFieldAccessAlignment(part, nextPart)}fontColor=${failurePart ? '#CC0000' : renderPartFontColor(part)};${namedSlotPart ? 'fontStyle=2;' : typeAnnotationPart || operatorPart || systemProviderPart && !callPart ? 'fontStyle=1;' : ''}`;
 }
@@ -2009,7 +2019,9 @@ function styleForNode(node, box) {
   }
   if (hasLabels(node, 'Arg', 'ValueAccess')
     && !['Join', 'Method', 'Call', 'Literal', 'ContainerMethod'].some(label => hasLabel(node, label))) {
-    return variableRectangleStyle({ empty: false, bold: false });
+    return hasLabel(node, 'Collection')
+      ? `shape=image;imageAspect=0;image=${collectionTileImage(undefined, undefined, box?.width)};whiteSpace=wrap;html=1;spacing=6;`
+      : variableRectangleStyle({ empty: false, bold: false });
   }
   if (node.labels.includes('EndProxy')) return 'ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;dashed=1;fontColor=#000000;fontStyle=1;';
   if (node.labels.includes('ResourceProxy') && isUiNode(node)) return 'rounded=1;whiteSpace=wrap;html=1;fillColor=#eaf3ff;strokeColor=#6c8ebf;dashed=1;fontColor=#000000;';
@@ -7800,7 +7812,9 @@ export function makeDrawio(nodes, edges, options = {}) {
       && node.props.hybridVisualRole !== 'collection-receiver'
       && (!hasLabel(node, 'Collection') || hasLabel(node, 'Method'))
       && !objectMethod;
-    if (renderAsSimpleCallClosure || hybridSimpleNode || (!objectMethod && !hasLabel(node, 'Collection'))) {
+    const plainCollectionArgument = hasLabels(node, 'Arg', 'ValueAccess', 'Collection')
+      && !['Join', 'Method', 'Call', 'ContainerMethod'].some(label => hasLabel(node, label));
+    if (renderAsSimpleCallClosure || hybridSimpleNode || plainCollectionArgument || (!objectMethod && !hasLabel(node, 'Collection'))) {
       nodeCells.push(
         `<mxCell id="${xml(cellId)}" value="${xml(label)}" style="${xml(styleForNode(styleNode, localBox))}" vertex="1" parent="${nodeParentId}" ${metadata}><mxGeometry x="${localBox.x}" y="${localBox.y}" width="${localBox.width}" height="${localBox.height}" as="geometry" /></mxCell>`,
       );
