@@ -1,6 +1,18 @@
+
+
+
+
 export function shuffle(): string[] {
+
+
+
   const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  let current: { index: number; value: string | undefined } = { index: alphabet.length - 1, value: undefined };
+  //пример результата: ['E', 'C', 'A', 'G', 'B', 'H', 'D', 'F']
+  
+  
+  let current: { index: number; value: string | undefined } 
+  = { index: alphabet.length - 1, 
+      value: undefined };
 
   for (; current.index > 0; current.index--) {
     current.value = alphabet[current.index];

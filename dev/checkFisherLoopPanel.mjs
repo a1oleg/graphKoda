@@ -56,7 +56,7 @@ try {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => { window.messages = []; window.acquireVsCodeApi = () => ({ postMessage: message => window.messages.push(message) }); });
   await page.goto('about:blank');
-  await page.setContent(buildRuntimeAnalysisHtml(boxImage()));
+  await page.setContent(buildRuntimeAnalysisHtml(boxImage(), boxImage({ collection: true })));
   // VS Code injects theme variables directly on the webview body.
   await page.locator('body').evaluate(node => {
     node.classList.add('vscode-dark');
@@ -68,7 +68,8 @@ try {
   assert.equal(await page.locator('#itemHeader').innerText(), 'current');
   assert.equal(await page.locator('#outcomeHeader').innerText(), 'Transition');
   assert.equal(await page.locator('#accumulatorHeader').isVisible(), false);
-  assert.equal(await page.locator('#details tr').first().locator('td').count(), 6);
+  assert.equal(await page.locator('#details tr').first().locator('td').count(), 7);
+  assert.equal(await page.locator('th[data-variable="alphabet"] .collection-box').innerText(), 'alphabet');
   assert.equal(await page.locator('th[data-variable="random"] .variable-box').innerText(), 'random');
   assert.equal(await page.locator('#itemHeader').evaluate(node => getComputedStyle(node).paddingTop), '9px');
   assert.equal(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(255, 255, 255)');
@@ -85,7 +86,8 @@ try {
     assert.equal(await row.locator('td').nth(2).evaluate(node => getComputedStyle(node).textAlign), 'center');
     assert.equal(await row.locator('td').nth(3).innerText(), analysis.cases[index].variableValues.random ?? '—');
     assert.equal(await row.locator('td').nth(3).evaluate(node => getComputedStyle(node).textAlign), 'center');
-    assert.equal(await row.locator('td').nth(4).innerText(), index === 7 ? 'false' : 'repeat');
+    assert.deepEqual(JSON.parse(await row.locator('td').nth(4).innerText()), JSON.parse(analysis.cases[index].variableValues.alphabet));
+    assert.equal(await row.locator('td').nth(5).innerText(), index === 7 ? 'false' : 'repeat');
     assert.equal(await row.locator('.case-marker').evaluate(node => getComputedStyle(node).backgroundColor), index === 7 ? 'rgb(204, 0, 0)' : 'rgb(0, 0, 255)');
     await row.click();
     assert.equal(await page.evaluate(() => window.messages.at(-1).index), index);

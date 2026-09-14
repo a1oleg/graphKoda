@@ -738,10 +738,13 @@ async function openRuntimeAnalysis(context, workspaceRoot, item) {
       }
       if (message.type === 'showCase') {
         const iteration = (state.analysis?.cases || state.analysis?.iterations)?.find((candidate) => candidate.index === Number(message.index));
-        if (iteration) await postRuntimeHighlight(state.diagramPanel, iteration, state.functionStableId);
+        if (iteration) await postRuntimeHighlight(state.diagramPanel, { ...iteration, eventSequences: [iteration.events || []] }, state.functionStableId);
       } else if (message.type === 'showSegment') {
         const segment = state.analysis?.segments?.find((candidate) => candidate.id === message.id);
-        if (segment) await postRuntimeHighlight(state.diagramPanel, segment, state.functionStableId);
+        if (segment) await postRuntimeHighlight(state.diagramPanel, { ...segment,
+          eventSequences: (state.analysis.cases || state.analysis.iterations || [])
+            .filter(item => segment.iterationIndexes.includes(item.index)).map(item => item.events || []),
+        }, state.functionStableId);
       } else if (message.type === 'clearHighlight') {
         await postRuntimeHighlightClear(state.diagramPanel, state.functionStableId);
       }
@@ -759,7 +762,7 @@ async function openRuntimeAnalysis(context, workspaceRoot, item) {
   };
   runtimeAnalysisPanel.title = 'Статистика цикла';
   const { boxImage } = await import(require('node:url').pathToFileURL(path.join(workspaceRoot, 'dev/localCoordinateDrawio.mjs')).href);
-  runtimeAnalysisPanel.webview.html = buildRuntimeAnalysisHtml(boxImage());
+  runtimeAnalysisPanel.webview.html = buildRuntimeAnalysisHtml(boxImage(), boxImage({ collection: true }));
   try {
     const analysis = await loadRuntimeAnalysis(stableId);
     runtimeAnalysisState.analysis = analysis;
@@ -782,6 +785,7 @@ async function postRuntimeHighlight(panel, selection, functionStableId = '') {
       staticStableIds: selection.staticStableIds || [],
       nodeHighlights: selection.nodeHighlights || [],
       edgePairs: selection.edgePairs || [],
+      eventSequences: selection.eventSequences || [],
     },
   };
   publishRuntimeHighlight({ action: 'runtimeHighlight', selection: message.selection }, functionStableId);
@@ -793,7 +797,7 @@ async function postRuntimeHighlightClear(panel, functionStableId = '') {
   if (panel) await panel.webview.postMessage({ type: 'runtimeHighlightClear' });
 }
 
-function buildRuntimeAnalysisHtml(variableBoxImage) {
+function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variableBoxImage) {
   return `<!doctype html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
@@ -801,6 +805,7 @@ function buildRuntimeAnalysisHtml(variableBoxImage) {
   body { color-scheme:light; --loop-panel-foreground:#202124; --loop-panel-editor-background:#ffffff; --loop-panel-panel-border:#d8dce0; --loop-panel-focusBorder:#1670b7; --loop-panel-editorWidget-background:#f5f7f9; --loop-panel-descriptionForeground:#59636e; --loop-panel-list-hoverBackground:#edf4fa; --loop-panel-errorForeground:#b42318; --loop-panel-font-family:Arial,sans-serif; }
   .variable-box { display:inline-grid; place-items:center; width:72px; height:44px; background:center/100% 100% no-repeat url("${variableBoxImage}"); padding-top:9px; font-weight:600; }
   .variable-cell { text-align:center; }
+  .variable-box.collection-box { width:84px; height:54px; background-image:url("${collectionBoxImage}"); }
   .details td { overflow-wrap:anywhere; }
   .details tr.selected { background:#e1effa; }
   body { margin: 0; color: var(--loop-panel-foreground); background: var(--loop-panel-editor-background); font: 13px/1.4 var(--loop-panel-font-family); }
@@ -820,6 +825,7 @@ function buildRuntimeAnalysisHtml(variableBoxImage) {
   .segment-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .segment-count { color:var(--loop-panel-descriptionForeground); font-variant-numeric:tabular-nums; }
   .details { width:100%; border-collapse:collapse; }
+  section:has(> .details) { overflow-x:auto; }
   th,td { padding:5px 7px; border-bottom:1px solid var(--loop-panel-panel-border); text-align:left; }
   tbody tr { cursor:pointer; }
   tbody tr:hover { background:var(--loop-panel-list-hoverBackground); }
@@ -912,6 +918,7 @@ function buildRuntimeAnalysisHtml(variableBoxImage) {
     (analysis.variableColumns || []).forEach(name => {
       const header = document.createElement('th'); header.dataset.variable = name; header.className = 'variable-cell';
       const box = document.createElement('span'); box.className = 'variable-box'; box.textContent = name;
+      if ((analysis.collectionColumns || []).includes(name)) box.classList.add('collection-box');
       header.appendChild(box); byId('outcomeHeader').before(header);
     });
     byId('outcomeHeader').textContent = analysis.methodName === 'for' ? 'Transition' : 'Outcome';

@@ -550,7 +550,7 @@ Draw.loadPlugin(function(ui) {
       : normalized;
   }
 
-  function runtimeTraceEdgePairs(sequence) {
+  function runtimeTraceEdgePairs(sequence, dataOnly) {
     var nodesByStableId = {};
     var outgoingBySource = {};
     var relatedStableIds = {};
@@ -747,10 +747,10 @@ Draw.loadPlugin(function(ui) {
         }) || null;
         return outcomeEdge != null;
       });
-      if (!outcomeEdge) return;
+      if (!outcomeEdge || (dataOnly && !getAttribute(outcomeEdge, 'producerOutcome'))) return;
       selected[outcomeEdge.id] = outcomeEdge;
     });
-    for (var index = 0; index + 1 < visibleSequence.length; index += 1) {
+    for (var index = 0; !dataOnly && index + 1 < visibleSequence.length; index += 1) {
       var event = visibleSequence[index];
       var nextEvent = visibleSequence[index + 1];
       addEdges(shortestPath(
@@ -772,7 +772,7 @@ Draw.loadPlugin(function(ui) {
       if (target != null) activateCell(target, activeNodeIds);
     });
     expandObservedDataEdges(selected, activeNodeIds);
-    expandDeterministicControlEdges(selected, activeNodeIds);
+    if (!dataOnly) expandDeterministicControlEdges(selected, activeNodeIds);
     expandObservedDataEdges(selected, activeNodeIds);
 
     var nodeHighlights = {};
@@ -1125,6 +1125,19 @@ Draw.loadPlugin(function(ui) {
 
   function runtimeHighlight(selection) {
     clearRuntimeHighlight();
+    if (selection && selection.eventSequences && selection.eventSequences.length) {
+      selection = Object.assign({}, selection, {
+        edgePairs: (selection.edgePairs || []).slice(),
+        nodeHighlights: (selection.nodeHighlights || []).slice()
+      });
+      selection.eventSequences.forEach(function(events) {
+        var detail = runtimeTraceEdgePairs(events.filter(function(event) {
+          return ['collection-pop', 'collection-predicate', 'collection-result'].indexOf(event.role) < 0;
+        }), true);
+        selection.edgePairs = selection.edgePairs.concat(detail.edgePairs);
+        selection.nodeHighlights = selection.nodeHighlights.concat(detail.nodeHighlights);
+      });
+    }
     var nodeHighlights = (selection && selection.nodeHighlights) || [];
     if (!nodeHighlights.length) {
       nodeHighlights = ((selection && selection.staticStableIds) || []).map(function(stableId) {

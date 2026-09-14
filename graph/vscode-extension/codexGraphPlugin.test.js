@@ -9,6 +9,67 @@ const pluginSource = fs.readFileSync(
   'utf8',
 );
 
+test('case events expand eval, argument and value edges without following next', () => {
+  const result = loadMenu({ stableId: 'fixture', graphLabels: 'Value' });
+  result.model.isVertex = cell => cell?.vertex === true;
+  result.model.getChildCount = () => 0;
+  const node = id => {
+    const cell = { id, vertex: true, style: '', getAttribute: key => key === 'stableId' ? id : '' };
+    result.model.cells[id] = cell;
+    return cell;
+  };
+  const box = node('box'), call = node('call'), arg = node('arg'), close = node('close'), next = node('next'), other = node('other');
+  const edge = (id, source, target, type) => {
+    const cell = { id, edge: true, source, target, style: 'strokeWidth=1;',
+      getAttribute: key => ({ stableId: source.id, targetStableId: target.id, edgeType: type }[key] || '') };
+    result.model.cells[id] = cell;
+    return cell;
+  };
+  const included = [edge('eval', box, call, 'EVAL'), edge('arg-edge', call, arg, 'ARG'),
+    edge('join', arg, close, 'ArgJoin'), edge('value', close, box, 'ASSIGNS_VALUE')];
+  const excluded = [edge('next-edge', box, next, 'NEXT'), edge('other-eval', next, other, 'EVAL')];
+  result.dispatchWindowMessage({ action: 'runtimeHighlight', selection: {
+    eventSequences: [[{ stableId: 'box', role: 'set-value' }]],
+  } });
+  included.forEach(cell => assert.match(cell.style, /strokeWidth=3;/));
+  excluded.forEach(cell => assert.equal(cell.style, 'strokeWidth=1;'));
+  result.dispatchWindowMessage({ action: 'runtimeHighlight', selection: {
+    eventSequences: [[{ stableId: 'unexecuted', role: 'predicate', outcome: false }]],
+  } });
+  included.forEach(cell => assert.equal(cell.style, 'strokeWidth=1;'));
+});
+
+test('Fisher recorded case highlights internal diagram edges', {
+  skip: !fs.existsSync(path.resolve(__dirname, '../../tmp/fisher-yates/runtime/latest.json')),
+}, () => {
+  const { DOMParser } = require('@xmldom/xmldom');
+  const latest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../tmp/fisher-yates/runtime/latest.json'), 'utf8'));
+  const xml = fs.readFileSync(path.resolve(__dirname, '../draw/generated/Fisher-Yates.drawio'), 'utf8');
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  const result = loadMenu({ stableId: latest.loop, graphLabels: 'Loop' });
+  result.model.cells = {};
+  result.model.isVertex = cell => cell?.vertex;
+  result.model.getChildCount = () => 0;
+  for (const el of Array.from(doc.getElementsByTagName('mxCell'))) {
+    const cell = { id: el.getAttribute('id'), vertex: el.getAttribute('vertex') === '1',
+      edge: el.getAttribute('edge') === '1', style: el.getAttribute('style') || '',
+      getAttribute: key => el.getAttribute(key) || '', element: el };
+    result.model.cells[cell.id] = cell;
+  }
+  for (const cell of Object.values(result.model.cells)) {
+    cell.source = result.model.cells[cell.element.getAttribute('source')];
+    cell.target = result.model.cells[cell.element.getAttribute('target')];
+  }
+  const highlighted = () => Object.values(result.model.cells).filter(cell => cell.edge && /strokeWidth=3;/.test(cell.style)).map(cell => cell.getAttribute('edgeType'));
+  const active = latest.analysis.cases[0];
+  result.dispatchWindowMessage({ action: 'runtimeHighlight', selection: { ...active, eventSequences: [active.events] } });
+  for (const type of ['EVAL', 'ASSIGNS_VALUE', 'ARG', 'ArgJoin']) assert.ok(highlighted().includes(type), `Missing ${type}`);
+  const terminal = latest.analysis.cases.at(-1);
+  result.dispatchWindowMessage({ action: 'runtimeHighlight', selection: { ...terminal, eventSequences: [terminal.events] } });
+  assert.ok(!highlighted().includes('EVAL'));
+  assert.ok(!highlighted().includes('ARG'));
+});
+
 function loadMenu(attributes, options = {}) {
   const posted = [];
   const items = [];

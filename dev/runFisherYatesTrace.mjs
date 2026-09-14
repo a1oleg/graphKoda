@@ -103,6 +103,13 @@ await reporter.flushPendingNodePassEvents();
 assert.deepEqual([...alphabet].sort(), ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
 const sessionId = process.env.GRAPH_RUNTIME_SESSION_ID;
 const root = graph.functions.find(f => f.name === 'shuffle').stableId;
+const rootFunction = sourceFile.statements.find(n => ts.isFunctionDeclaration(n) && n.name.text === 'shuffle');
+const forStatement = rootFunction.body.statements.find(ts.isForStatement);
+const swapStatement = forStatement.statement.statements.find(n => ts.isExpressionStatement(n)
+  && ts.isCallExpression(n.expression) && n.expression.expression.getText(sourceFile) === 'swap');
+const swapId = graphNode(swapStatement.expression).stableId;
+const incrementId = graphNode(forStatement.incrementor).stableId;
+const returnIds = targets.filter(t => t.ownerFnStableId === root && t.role === 'return').map(t => t.stableId);
 const loop = targets.find(t => t.instrumentationKind === 'for-iteration').stableId;
 const query = async (endpoint, stableId) => {
   const url = new URL(endpoint, process.env.RUNTIME_RELAY_URL || 'http://127.0.0.1:8787');
@@ -125,7 +132,8 @@ assert(analysis.iterations.every(c => Number.isInteger(JSON.parse(c.variableValu
 assert.equal(analysis.totalCases, 8);
 assert.deepEqual(analysis.cases.map(c => c.transition), [...Array(7).fill('continue'), 'break']);
 assert.deepEqual(JSON.parse(analysis.cases.at(-1).itemPreview).current, { index: 0, value: JSON.parse(analysis.iterations.at(-1).itemPreview).current.value });
-assert.deepEqual(analysis.variableColumns, ['random']);
+assert.deepEqual(analysis.variableColumns, ['random', 'alphabet']);
+assert.deepEqual(analysis.collectionColumns, ['alphabet']);
 let beforeIteration = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 for (const c of analysis.cases) {
   const pair = JSON.parse(c.itemPreview).current;
@@ -135,8 +143,9 @@ for (const c of analysis.cases) {
     assert.equal(pair.value, beforeIteration[pair.index], 'Capture the letter before swap, not after it');
     const random = JSON.parse(c.variableValues.random);
     assert(random >= 0 && random <= pair.index);
-    beforeIteration = JSON.parse(c.events.find(event => event.stableId.endsWith(':9:4:9:35')).valuePreview);
+    beforeIteration = JSON.parse(c.events.find(event => event.stableId === swapId).valuePreview);
   }
+  assert.deepEqual(JSON.parse(c.variableValues.alphabet), beforeIteration);
 }
 assert(analysis.cases.slice(0, 7).every(c => c.edgePairs.length === 5 && c.edgePairs.at(-1).edgeType === 'REPEATS'));
 assert.deepEqual(analysis.cases.at(-1).edgePairs.map(e => e.edgeType), ['FALSE']);
@@ -144,9 +153,9 @@ const trace = (await query('/runtime-trace', root)).trace;
 const values = (await query('/runtime-values', root)).values;
 assert(trace.chain.length > 7);
 assert(values.values.length > 0);
-assert.equal(JSON.parse(values.values.find(v => v.stableId.endsWith(':6:28:6:43')).valuePreview).index, 0);
-assert.deepEqual(JSON.parse(values.values.find(v => v.stableId.endsWith(':9:4:9:35')).valuePreview), alphabet);
-assert(analysis.iterations.every(i => !i.staticStableIds.some(id => id.includes(':12:2:12:18'))), 'Return must not be part of every iteration');
+assert.equal(JSON.parse(values.values.find(v => v.stableId === incrementId).valuePreview).index, 0);
+assert.deepEqual(JSON.parse(values.values.find(v => v.stableId === swapId).valuePreview), alphabet);
+assert(analysis.iterations.every(i => !i.staticStableIds.some(id => returnIds.includes(id))), 'Return must not be part of every iteration');
 const report = { sessionId, root, loop, alphabet, targets: targets.length, trace, values, analysis };
 await fs.writeFile(path.join(outputDir, 'latest.json'), JSON.stringify(report, null, 2));
 console.log(JSON.stringify({ sessionId, alphabet, instrumented: targets.length, traceEvents: trace.chain.length, values: values.values.length, iterations: analysis.totalIterations, report: path.join(outputDir, 'latest.json') }, null, 2));

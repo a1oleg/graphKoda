@@ -294,6 +294,10 @@ function buildForCases(chain, guardId, externalVariable) {
     || (externalVariable ? events[guards[0]] : null);
   if (!initial || !guards.length) return [];
   const variableName = externalVariable || initial.variableName;
+  const collectionValues = {};
+  const isArrayPreview = value => {
+    try { return Array.isArray(JSON.parse(value)); } catch { return false; }
+  };
   return guards.map((start, index) => {
     const end = guards[index + 1] ?? events.length;
     const observed = events.slice(start, end);
@@ -308,6 +312,13 @@ function buildForCases(chain, guardId, externalVariable) {
       && event.variableName && event.variableName !== variableName
       && event.instrumentationKind === 'binding-value'
       && event.valuePreview != null).map(event => [event.variableName, event.valuePreview]));
+    for (const event of observed) {
+      if (event.role === 'set-value' && event.variableName && event.variableName !== variableName
+        && event.valuePreview != null && isArrayPreview(event.valuePreview)) {
+        collectionValues[event.variableName] = event.valuePreview;
+      }
+    }
+    Object.assign(variableValues, collectionValues);
     const outcome = observed.some(event => event.completion === 'throw') ? 'error' : guard.outcome ? 'continue' : 'break';
     const path = observed.filter(event => !['collection-pop', 'collection-predicate', 'collection-result'].includes(event.role));
     const pairs = [...(initial.stableId === guard.stableId ? [] : [{ sourceStableId: initial.stableId, targetStableId: guard.stableId, edgeType: 'NEXT' }]), ...buildEdgePairs(path)];
@@ -395,6 +406,9 @@ export function buildCollectionRuntimeAnalysis(records, {
     cases,
     iterationVariable: methodName === 'for' ? cases[0]?.variableName || null : null,
     variableColumns: methodName === 'for' ? unique(cases.flatMap(item => Object.keys(item.variableValues))) : [],
+    collectionColumns: methodName === 'for' ? unique(cases.flatMap(item => Object.entries(item.variableValues)
+      .filter(([, value]) => { try { return Array.isArray(JSON.parse(value)); } catch { return false; } })
+      .map(([name]) => name))) : [],
     matchedIterations: successfulIterations,
     acceptedIterations: iterations.filter((iteration) => iteration.outcome === 'accepted').length,
     rejectedIterations: iterations.filter((iteration) => iteration.outcome === 'rejected').length,
