@@ -8407,6 +8407,7 @@ async function main() {
         },
       };
     });
+    nodes = await (await import('./mosaicVerticesV2.mjs')).loadMosaicVertices(driver, config.database, nodes);
     let edges = loadedGraph.edges;
     let semanticEdges = loadedGraph.semanticEdges || loadedGraph.edges;
     if (!nodes.length) throw new Error(`No local nodes found for ${fnStableId}`);
