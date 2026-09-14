@@ -1,0 +1,302 @@
+[
+  {
+    "file": "HLA1.drawio",
+    "sha256": "a127b8d716720c700388442eedc9791efe5652fda0f43469370312b1d174f82b",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "fd7a08b25c9c732dfa380b060f815b06d1669dee",
+        "date": "2026-08-07T14:14:18+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "d7544ab285a3689bac39351143f795eeb8eeda63"
+      }
+    ]
+  },
+  {
+    "file": "HLA2.drawio",
+    "sha256": "98b296d5c0e14c516d67b321f64aa0de7ed24830d5e4304e988ba718aea1790f",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "2185660faa6f93832f5d0346153d31d34f9e7ab5",
+        "date": "2026-08-07T14:16:42+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "b850574a41dda0839f808f093ca2320494aef516"
+      }
+    ]
+  },
+  {
+    "file": "HLA3.drawio",
+    "sha256": "fc5a19f411fdd820d345beaeb1fb44cadf988bafbc9d320b36ca4173d561b647",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "b1d69efd1a1881aae8ab75c63e1653b2651f51ae",
+        "date": "2026-08-07T14:27:18+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "12be862c5ca9912cdd1297db5054187ada3eda8a"
+      }
+    ]
+  },
+  {
+    "file": "HLA4.drawio",
+    "sha256": "10c05da359141356996bbe13e28047e80f0209ff329cd4ef94edd70a85152143",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "ff1211a68e39e654d596969174212aac5546a7cd",
+        "date": "2026-08-07T14:33:27+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "a79eb1ab6f948502715746eef40a6b5ece178661"
+      },
+      {
+        "repository": "claude-code",
+        "commit": "45bee69ba645be9cf41f782fa039be2bc2778af1",
+        "date": "2026-08-29T11:35:23+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "a79eb1ab6f948502715746eef40a6b5ece178661"
+      }
+    ]
+  },
+  {
+    "file": "HLA5.drawio",
+    "sha256": "8ca938d4a6ec310a305dd7ac8e0a40137df6dfc847bb7ecd417fe903ef2eaa3a",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "45bee69ba645be9cf41f782fa039be2bc2778af1",
+        "date": "2026-08-29T11:35:23+04:00",
+        "path": "graph/draw/HLA copy.drawio",
+        "blob": "4ab8b0b5f4f29680f10afccc9b1d153af525d2c0"
+      }
+    ]
+  },
+  {
+    "file": "HLA6.drawio",
+    "sha256": "ffbf1f05a0c2e34e1aa3b56eedc0f961fe05896edf46c6f645d7919d73451760",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "3913144e53b2ca5d97d4ba9fb8c5d97d86a9c34d",
+        "date": "2026-08-30T10:24:54+04:00",
+        "path": "graph/draw/HLA copy.drawio",
+        "blob": "4290aa03dfddd8d3c0165b3c122cf202ba5a8313"
+      },
+      {
+        "repository": "claude-code",
+        "commit": "905039638886b324b2e7127c6a9614439d81231a",
+        "date": "2026-08-30T12:47:44+04:00",
+        "path": "graph/draw/HLA copy.drawio",
+        "blob": "4290aa03dfddd8d3c0165b3c122cf202ba5a8313"
+      }
+    ]
+  },
+  {
+    "file": "HLA7.drawio",
+    "sha256": "f69e811a92f19e601aaa984d04307d82b4867b1db24301c4c8ed5346fce220f8",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "3913144e53b2ca5d97d4ba9fb8c5d97d86a9c34d",
+        "date": "2026-08-30T10:24:54+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "2bf392db6b2edfd879b7117f7bd356c6cec51ff2"
+      }
+    ]
+  },
+  {
+    "file": "HLA8.drawio",
+    "sha256": "fddee2dead9a5db2b42d2345793f8c0e42330c258982a51bcf4ed973f9208926",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "905039638886b324b2e7127c6a9614439d81231a",
+        "date": "2026-08-30T12:47:44+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "bd7002098db123b5bbe6e5e7941071d85a12e8cf"
+      },
+      {
+        "repository": "claude-code",
+        "commit": "86b09d3c994090cba6c9b56e430383b9f7168bbb",
+        "date": "2026-09-02T11:34:53+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "bd7002098db123b5bbe6e5e7941071d85a12e8cf"
+      },
+      {
+        "repository": "claude-code",
+        "commit": "6bf2bb6c7615985c7c4be4d99f32ae4b169212da",
+        "date": "2026-09-02T15:41:40+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "bd7002098db123b5bbe6e5e7941071d85a12e8cf"
+      },
+      {
+        "repository": "claude-code",
+        "commit": "b9a81eb227db1f0b77c3e89adcab30ec02bc6962",
+        "date": "2026-09-03T11:58:02+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "bd7002098db123b5bbe6e5e7941071d85a12e8cf"
+      },
+      {
+        "repository": "claude-code",
+        "commit": "88c9b33394d6badb0338030892cf6c46cf3e49c7",
+        "date": "2026-09-04T09:33:35+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "bd7002098db123b5bbe6e5e7941071d85a12e8cf"
+      },
+      {
+        "repository": "claude-code",
+        "commit": "8956f5c524088137bdc1c09e2e2bb4a7143c106d",
+        "date": "2026-09-10T15:05:27+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "bd7002098db123b5bbe6e5e7941071d85a12e8cf"
+      },
+      {
+        "repository": "coldKode",
+        "commit": "c4327f6d8989cb755e079ae894d9802232786dae",
+        "date": "2026-09-10T15:07:51+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "bd7002098db123b5bbe6e5e7941071d85a12e8cf"
+      },
+      {
+        "repository": "coldKode",
+        "commit": "3c2a57f97808dcdc11d29f29d542404f8769e28c",
+        "date": "2026-09-10T16:39:57+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "bd7002098db123b5bbe6e5e7941071d85a12e8cf"
+      },
+      {
+        "repository": "coldKode",
+        "commit": "95d55951878c09866b2d4336a8b587d8c4c32697",
+        "date": "2026-09-11T09:51:37+04:00",
+        "path": "graph/draw/HLA.drawio",
+        "blob": "bd7002098db123b5bbe6e5e7941071d85a12e8cf"
+      }
+    ]
+  },
+  {
+    "file": "HLA9.drawio",
+    "sha256": "c54a2a7a390d66c4f332443d600eb0077cff91fbc67ccf859442089d58829922",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "86b09d3c994090cba6c9b56e430383b9f7168bbb",
+        "date": "2026-09-02T11:34:53+04:00",
+        "path": "graph/draw/HLA copy.drawio",
+        "blob": "38c768084dde31b5429540417605750e8facd130"
+      }
+    ]
+  },
+  {
+    "file": "HLA10.drawio",
+    "sha256": "ee5a4458bb05ee7276e829a9bbc43be910494bc99b57ab6e8cd68cd7471442c6",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "6bf2bb6c7615985c7c4be4d99f32ae4b169212da",
+        "date": "2026-09-02T15:41:40+04:00",
+        "path": "graph/draw/HLA copy.drawio",
+        "blob": "8c6552ccfeca2b01eab03e20a36e239e2da0a9b6"
+      }
+    ]
+  },
+  {
+    "file": "HLA11.drawio",
+    "sha256": "9217a04065ca1856a2bcf34b23fb8769b82ac918957d934159613643b85837ff",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "b9a81eb227db1f0b77c3e89adcab30ec02bc6962",
+        "date": "2026-09-03T11:58:02+04:00",
+        "path": "graph/draw/HLA copy.drawio",
+        "blob": "2fccca0bbf95d9e3e12fe1a59506fda01bdf7847"
+      }
+    ]
+  },
+  {
+    "file": "HLA12.drawio",
+    "sha256": "75abc6a9b2afed004821ccadd29515c9a77c9f235ac550229806823c64b95c63",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "88c9b33394d6badb0338030892cf6c46cf3e49c7",
+        "date": "2026-09-04T09:33:35+04:00",
+        "path": "graph/draw/HLA copy.drawio",
+        "blob": "b74afa707f4b842730e93cdddc9d8da92a05a441"
+      },
+      {
+        "repository": "claude-code",
+        "commit": "8956f5c524088137bdc1c09e2e2bb4a7143c106d",
+        "date": "2026-09-10T15:05:27+04:00",
+        "path": "graph/draw/HLA copy.drawio",
+        "blob": "b74afa707f4b842730e93cdddc9d8da92a05a441"
+      },
+      {
+        "repository": "coldKode",
+        "commit": "c4327f6d8989cb755e079ae894d9802232786dae",
+        "date": "2026-09-10T15:07:51+04:00",
+        "path": "graph/draw/HLA copy.drawio",
+        "blob": "b74afa707f4b842730e93cdddc9d8da92a05a441"
+      },
+      {
+        "repository": "coldKode",
+        "commit": "3c2a57f97808dcdc11d29f29d542404f8769e28c",
+        "date": "2026-09-10T16:39:57+04:00",
+        "path": "graph/draw/HLA copy.drawio",
+        "blob": "b74afa707f4b842730e93cdddc9d8da92a05a441"
+      },
+      {
+        "repository": "coldKode",
+        "commit": "95d55951878c09866b2d4336a8b587d8c4c32697",
+        "date": "2026-09-11T09:51:37+04:00",
+        "path": "graph/draw/HLA copy.drawio",
+        "blob": "b74afa707f4b842730e93cdddc9d8da92a05a441"
+      }
+    ]
+  },
+  {
+    "file": "HLA13.drawio",
+    "sha256": "68a64d1e0c71c286e0918779c2619f2de64923443dbfeaca8795c0572ad7e792",
+    "origins": [
+      {
+        "repository": "claude-code",
+        "commit": "8956f5c524088137bdc1c09e2e2bb4a7143c106d",
+        "date": "2026-09-10T15:05:27+04:00",
+        "path": "graph/draw/HLA copy 2.drawio",
+        "blob": "985eb7189e58d31d5e57d3c6ea39fdc35be2d01f"
+      },
+      {
+        "repository": "coldKode",
+        "commit": "c4327f6d8989cb755e079ae894d9802232786dae",
+        "date": "2026-09-10T15:07:51+04:00",
+        "path": "graph/draw/HLA copy 2.drawio",
+        "blob": "985eb7189e58d31d5e57d3c6ea39fdc35be2d01f"
+      }
+    ]
+  },
+  {
+    "file": "HLA14.drawio",
+    "sha256": "5ca4237d3d89a89823e66cf29003c705ee1d235951a44db2c67e82950cb65e6b",
+    "origins": [
+      {
+        "repository": "coldKode",
+        "commit": "3c2a57f97808dcdc11d29f29d542404f8769e28c",
+        "date": "2026-09-10T16:39:57+04:00",
+        "path": "graph/draw/HLA copy 2.drawio",
+        "blob": "57b0ca68ced1a4685e3476939e0d987550f8992e"
+      }
+    ]
+  },
+  {
+    "file": "HLA15.drawio",
+    "sha256": "46b0dbfea9abbfeee87d26d1290cfc9e87b3be74bfde1cf8a49b9b6185938327",
+    "origins": [
+      {
+        "repository": "coldKode",
+        "commit": "95d55951878c09866b2d4336a8b587d8c4c32697",
+        "date": "2026-09-11T09:51:37+04:00",
+        "path": "graph/draw/HLA copy 2.drawio",
+        "blob": "cd40d62803d2c3f7a29fd37b721a6449527e25f3"
+      }
+    ]
+  }
+]
