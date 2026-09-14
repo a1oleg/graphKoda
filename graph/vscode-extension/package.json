@@ -2,7 +2,7 @@
   "name": "coldkode-graph-explorer",
   "displayName": "coldKode Graph Explorer",
   "description": "VS Code graph explorer for function diagrams.",
-  "version": "0.0.419",
+  "version": "0.0.420",
   "publisher": "local",
   "private": true,
   "engines": {
@@ -26,6 +26,10 @@
   "main": "./extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "coldKodeGraphExplorer.demoStep",
+        "title": "Demo: execute a structured step"
+      },
       {
         "command": "coldKodeGraphExplorer.openFisherYates",
         "title": "Нарисовать Фишера"

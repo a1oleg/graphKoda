@@ -4,6 +4,8 @@ const http = require('node:http');
 const crypto = require('node:crypto');
 const { execFile, spawn } = require('node:child_process');
 const vscode = require('vscode');
+const { createDemoControl } = require('./demoControl');
+let demoControl = null;
 const { diagramFilePath, ensureDiagramFile } = require('./diagramFiles');
 const { resolveActiveDiagramPath } = require('./diagramContext');
 const {
@@ -118,6 +120,11 @@ class GraphExplorerProvider {
 
 async function activate(context) {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || context.extensionPath;
+  demoControl = createDemoControl({ workspaceRoot,
+    runtimeSend: message => runtimeAnalysisPanel?.webview.postMessage(message) || false,
+    runtimeState: () => runtimeAnalysisState });
+  context.subscriptions.push({ dispose: () => demoControl?.dispose() },
+    vscode.commands.registerCommand('coldKodeGraphExplorer.demoStep', step => demoControl.step(step)));
   const provider = new GraphExplorerProvider(workspaceRoot, context.extensionPath);
 
   try {
@@ -407,7 +414,7 @@ async function handleGraphContextItem(context, workspaceRoot, item) {
 async function startGraphCommandServer(context, workspaceRoot) {
   if (graphCommandServer) return;
 
-  const server = http.createServer((request, response) => {
+  const server = http.createServer(async (request, response) => {
     response.setHeader('Access-Control-Allow-Origin', '*');
     response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -417,6 +424,7 @@ async function startGraphCommandServer(context, workspaceRoot) {
       return;
     }
     const requestUrl = new URL(request.url || '/', `http://127.0.0.1:${GRAPH_COMMAND_PORT}`);
+    if (await demoControl?.handle(request, response, requestUrl)) return;
     if (request.method === 'GET' && requestUrl.pathname === '/health') {
       response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       response.end(JSON.stringify({ version: EXTENSION_VERSION, extensionPath: __dirname,
@@ -720,6 +728,7 @@ async function openRuntimeAnalysis(context, workspaceRoot, item) {
       }
     }, null, context.subscriptions);
     runtimeAnalysisPanel.webview.onDidReceiveMessage(async (message) => {
+      if (message?.type === 'demoResult') { demoControl?.finish(message.requestId, message); return; }
       const state = runtimeAnalysisState;
       if (!state || !message) return;
       if (message.type === 'ready' || message.type === 'refresh' || message.type === 'selectInvocation') {
@@ -927,6 +936,7 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
   function showRows(items) {
     const rows = items.map((item) => {
       const row = document.createElement('tr');
+      row.dataset.caseIndex = String(item.index);
       const markerCell = document.createElement('td'); markerCell.className = 'marker-cell';
       const marker = document.createElement('span'); marker.className = 'case-marker'; marker.style.display = 'block'; marker.style.background = caseColor(item.outcome, current); markerCell.appendChild(marker); row.appendChild(markerCell);
       let itemValue = item.itemPreview || '';
@@ -951,6 +961,25 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
   }
   window.addEventListener('message', (event) => {
     if (event.data?.type === 'analysis') render(event.data.analysis);
+    if (event.data?.type === 'demoAction') {
+      const command = event.data;
+      try {
+        if (!current) throw new Error('Analysis not ready');
+        if (command.action === 'selectCase') {
+          const row = [...document.querySelectorAll('#details tr')].find(row => Number(row.dataset.caseIndex) === command.index);
+          if (!row) throw new Error('Case not visible; select all or the matching segment first');
+          row.scrollIntoView({ block: 'nearest' }); row.click();
+        } else if (command.action === 'selectSegment') {
+          const segment = current.segments.find(item => item.id === command.id);
+          if (!segment) throw new Error('Segment not found');
+          const element = [...document.querySelectorAll('[data-segment-id]')].find(el => el.getAttribute('data-segment-id') === command.id);
+          if (!element) throw new Error('Segment control not visible');
+          element.click();
+        } else if (command.action === 'selectAll') byId('all').click();
+        else throw new Error('Unsupported runtime demo action');
+        requestAnimationFrame(() => vscode.postMessage({type:'demoResult', requestId:command.requestId, result:{action:command.action,index:command.index,id:command.id,stage:'panel-clicked'}}));
+      } catch (error) { vscode.postMessage({type:'demoResult',requestId:command.requestId,error:error.message}); }
+    }
     if (event.data?.type === 'analysisError') { byId('main').hidden=true; byId('error').hidden=false; byId('error').textContent=event.data.error; }
   });
   byId('all').onclick = selectAll;

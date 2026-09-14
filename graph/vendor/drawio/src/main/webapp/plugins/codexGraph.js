@@ -1236,6 +1236,7 @@ Draw.loadPlugin(function(ui) {
   }
 
   function pollRuntimeHighlightBridge() {
+    pollDemoBridge();
     if (runtimeHighlightBridgePolling) return;
     runtimeHighlightBridgePolling = true;
     var functionStableId = diagramFunctionStableId(graph.getSelectionCell());
@@ -1263,6 +1264,76 @@ Draw.loadPlugin(function(ui) {
     if (runtimeHighlightBridgeTimer != null || typeof window.setInterval !== 'function') return;
     runtimeHighlightBridgeTimer = window.setInterval(pollRuntimeHighlightBridge, 500);
     pollRuntimeHighlightBridge();
+  }
+
+  // Demonstration commands operate on the real popup, using its own item handlers.
+  // Never change graph geometry or resolve a semantic id to an arbitrary first tile.
+  var demoPolling = false;
+  var demoMenuItems = [];
+  function demoFrame() { return new Promise(function(resolve) { requestAnimationFrame(resolve); }); }
+  async function performDemoCommand(command) {
+    var menu = graph.popupMenuHandler;
+    if (command.action === 'dismissMenu') { menu.hideMenu(); demoMenuItems = []; return { stage: 'menu-closed' }; }
+    if (command.action === 'contextMenu') {
+      var cells = Object.keys(graph.getModel().cells).map(function(id) { return graph.getModel().cells[id]; });
+      var candidates = cells.filter(function(cell) {
+        return command.cellId ? cell.id === command.cellId : getAttribute(cell, 'stableId') === command.stableId;
+      });
+      if (candidates.length !== 1) throw new Error('Target missing or ambiguous; provide exact cellId');
+      var cell = candidates[0];
+      graph.setSelectionCell(cell); graph.scrollCellToVisible(cell);
+      await demoFrame();
+      var state = graph.getView().getState(cell);
+      if (!state) throw new Error('Target is hidden/collapsed');
+      var rect = graph.container.getBoundingClientRect();
+      var x = rect.left + state.x + state.width / 2 - graph.container.scrollLeft;
+      var y = rect.top + state.y + state.height / 2 - graph.container.scrollTop;
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) throw new Error('Target is outside visible diagram');
+      var originalAdd = menu.addItem;
+      demoMenuItems = [];
+      menu.addItem = function(label, image, callback) {
+        var args = Array.prototype.slice.call(arguments);
+        var item = { label: label, invoked: false, row: null };
+        if (typeof callback === 'function') args[2] = function() { item.invoked = true; return callback.apply(this, arguments); };
+        var row = originalAdd.apply(this, args);
+        if (typeof callback === 'function') { item.row = row; demoMenuItems.push(item); }
+        return row;
+      };
+      try { menu.popup(x, y, cell, new MouseEvent('contextmenu', { clientX:x,clientY:y,button:2,buttons:2 })); }
+      finally { menu.addItem = originalAdd; }
+      await demoFrame();
+      if (!menu.isMenuShowing()) throw new Error('Context menu did not open');
+      return { stage:'menu-open',cellId:cell.id,items:demoMenuItems.map(function(item){return item.label;}) };
+    }
+    if (command.action === 'menuClick') {
+      if (!menu.isMenuShowing()) throw new Error('Open the context menu first');
+      var matches = demoMenuItems.filter(function(item){return item.label === command.label;});
+      if (matches.length !== 1 || !matches[0].row || !matches[0].row.isConnected) throw new Error('Menu item missing or ambiguous');
+      var item = matches[0];
+      var EventType = mxClient.IS_POINTER ? PointerEvent : MouseEvent;
+      item.row.dispatchEvent(new EventType(mxClient.IS_POINTER ? 'pointerdown' : 'mousedown',{bubbles:true,button:0,buttons:1}));
+      item.row.dispatchEvent(new EventType(mxClient.IS_POINTER ? 'pointerup' : 'mouseup',{bubbles:true,button:0}));
+      await demoFrame();
+      if (!item.invoked) throw new Error('Menu item handler did not run');
+      return {stage:'menu-handler-invoked',label:item.label};
+    }
+    throw new Error('Unsupported diagram demo action');
+  }
+  async function pollDemoBridge() {
+    if (demoPolling) return;
+    demoPolling = true;
+    try {
+      var owner = diagramFunctionStableId(graph.getSelectionCell());
+      if (!owner) return;
+      var response = await fetch('http://127.0.0.1:17843/demo/next?functionStableId=' + encodeURIComponent(owner));
+      if (!response.ok) return;
+      var command = (await response.json()).command;
+      if (!command) return;
+      var reply = {requestId:command.requestId};
+      try { reply.result = await performDemoCommand(command); } catch(error) { reply.error = error.message; }
+      await fetch('http://127.0.0.1:17843/demo/ack',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(reply)});
+    } catch(error) { /* Bridge may be unavailable while VS Code reloads. */ }
+    finally { demoPolling = false; }
   }
 
   window.addEventListener('message', function(event) {
@@ -1348,6 +1419,7 @@ Draw.loadPlugin(function(ui) {
     });
   };
 
+  ensureRuntimeHighlightBridge();
   postLoaded();
 });
 
