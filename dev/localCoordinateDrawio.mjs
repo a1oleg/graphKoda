@@ -1240,8 +1240,9 @@ function structuredContainerOverlayPartBox(node, box, role) {
         : layout.overlayHeights.reduce((sum, height) => sum + height, 0)) * scaleY,
     };
   }
-  const methodIndex = structuredContainerOverlayMethodIndex(layout);
-  if (methodIndex < 0) return box;
+  const methodIndex = role.startsWith('part:')
+    ? Number(role.slice(5)) : structuredContainerOverlayMethodIndex(layout);
+  if (methodIndex < 0 || methodIndex >= layout.overlays.length) return box;
   const precedingHeight = layout.sideBySide ? 0 : layout.overlayHeights
     .slice(0, methodIndex)
     .reduce((sum, height) => sum + height, 0);
@@ -1273,6 +1274,7 @@ function containerOverlayEndpointCell(node, cellId, edge, endpoint) {
     ? `${cellId}-part-${objectOpeningIndex + 2}`
     : cellId;
   const endpointPart = containerOverlayEndpointPart(node, edge, endpoint);
+  if (endpointPart.startsWith('part:')) return `${cellId}-part-${Number(endpointPart.slice(5)) + 2}`;
   if (endpointPart === 'method') return methodCellId;
   if (endpointPart === 'container') return `${cellId}-part-1`;
   if (endpointPart === 'overlay') return `${cellId}-predicate-overlay`;
@@ -1383,6 +1385,8 @@ function containerOverlayEndpointPart(node, edge, endpoint) {
   if (explicitPartStableId) {
     const explicitPart = layout.parts.find((part) => part.stableId === explicitPartStableId);
     if (explicitPart === layout.container) return 'container';
+    const overlayIndex = layout.overlays.indexOf(explicitPart);
+    if (overlayIndex >= 0 && overlayIndex !== structuredContainerOverlayMethodIndex(layout)) return `part:${overlayIndex}`;
     if (explicitPart?.kind === 'method') return 'method';
     if (explicitPart) return 'overlay';
   }
@@ -2901,7 +2905,7 @@ function sizeForNode(node, label) {
   if (node.labels.includes('Loop')) return { width: Math.max(72, compactMethodWidth(label)), height: 40 };
   if (node.labels.includes('Branch') || node.labels.includes('Switch') || node.labels.includes('Case')) return { width: Math.max(150, label.length * 7), height: 30 };
   if (node.labels.includes('EndProxy')) return { width: 74, height: 74 };
-  if (node.labels.includes('FunctionEnd')) return { width: 74, height: 74 };
+  if (node.labels.includes('FunctionEnd')) return { width: 42, height: 42 };
   if (node.labels.includes('Return')) return { width: 150, height: 50 };
   if (node.labels.includes('ResourceProxy')) return { width: Math.max(160, label.length * 6), height: 52 };
   if (isFlowValueOutcomeNode(node)) return { width: 43, height: 21 };
@@ -3593,24 +3597,12 @@ function buildRendererFlowBlocks(
     }
   }
 
-  const rowSemanticOrder = (row) => {
-    const orders = (row?.nodes || [])
-      .map((node) => Number(node.props?.flowStepOrder))
-      .filter(Number.isFinite);
-    return orders.length ? Math.min(...orders) : undefined;
-  };
+  // Rows already have dependency order. Mixing Step ordinals with graph Y
+  // coordinates here could move an unowned End ahead of its predecessor.
   const itemAnchorY = (item) => {
     if (item.id.startsWith('fold-row-')) {
-      const semanticOrder = rowSemanticOrder(item);
-      if (Number.isFinite(semanticOrder)) return semanticOrder;
-      return Number.isFinite(item.graphY)
-        ? item.graphY
-        : originalRowY.get(item.id) ?? 0;
+      return originalRowY.get(item.id) ?? 0;
     }
-    const memberYs = [...item.memberRowIds]
-      .map((rowId) => rowSemanticOrder(rowById.get(rowId)))
-      .filter(Number.isFinite);
-    if (memberYs.length) return Math.min(...memberYs);
     const originalMemberYs = [...item.memberRowIds]
       .map((rowId) => originalRowY.get(rowId))
       .filter(Number.isFinite);
@@ -4554,10 +4546,16 @@ function buildFoldingRows(visibleNodes, positions, nodeBoxes, edges, semanticNod
   };
 
   // Preserve normal forward control order between extracted Steps.
+  const sourcePartOwners = new Map();
+  for (const node of visibleNodes) {
+    for (const part of renderPartsForNode(node)) sourcePartOwners.set(part.stableId, node.id);
+  }
   for (const edge of edges) {
     if (!controlEdgeTypes.has(edge.type)) continue;
     if (edge.type === 'REJOINS') continue;
-    addGroupDependency(groupKeyByNodeId.get(edge.start), groupKeyByNodeId.get(edge.end));
+    const sourcePart = edge.props?.sourceRenderPartStableId || edge.props?.source_render_part_stable_id;
+    const source = sourcePartOwners.get(sourcePart) || edge.start;
+    addGroupDependency(groupKeyByNodeId.get(source), groupKeyByNodeId.get(edge.end));
   }
 
   const unorderedGroups = new Map(groups);
@@ -8172,6 +8170,14 @@ export function buildObjectFamilyRouteObstacles(nodes, edges, nodeBoxes) {
 }
 
 function buildRenderableEdges(edges, nodes, positions, scale) {
+  const sources = new Map(nodes.map(node => [node.id, node]));
+  edges = edges.map(edge => {
+    if (edge.type !== 'ASSIGNS_VALUE' || edge.props?.sourceRenderPartStableId || edge.props?.source_render_part_stable_id) return edge;
+    const source = sources.get(edge.start);
+    const closing = source && renderPartsForNode(source).findLast(part =>
+      part.text === ')' && (part.labels || []).some(label => ['Method', 'CallBoundary'].includes(label)));
+    return closing ? { ...edge, props: { ...edge.props, sourceRenderPartStableId: closing.stableId } } : edge;
+  });
   const partOwners = new Map();
   for (const node of nodes) {
     const parts = renderPartsForNode(node);
@@ -9476,6 +9482,10 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
           { x: outerRight, y: routeEnd.y }, routeEnd] : [routeStart,
           { x: outerRight, y: routeStart.y }, { x: outerRight, y: aboveEntry },
           { x: routeEnd.x, y: aboveEntry }, routeEnd]);
+        if (repeatToBranch) perimeterCandidates.unshift([
+          routeStart, { x: outerRight, y: routeStart.y },
+          { x: outerRight, y: routeEnd.y }, routeEnd,
+        ]);
       }
       routeCore = selectBestRoute(
         resumeInitialization || repeatToBranch ? perimeterCandidates : [routeCore.points, ...perimeterCandidates],

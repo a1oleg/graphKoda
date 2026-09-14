@@ -10,6 +10,20 @@ const extract = files => payloadForTransport(extractFunctionFlowGraphs(ts.create
   target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext, types: [], strict: true,
 })));
 
+test('indexed read assignment returns originate at the closing bracket', () => {
+  const p = extract(['examples/fisher-yates/src/shuffle.ts']);
+  const byId = new Map(p.nodes.map(n => [n.stableId, n]));
+  const returns = p.edges.filter(e => e.type === 'ASSIGNS_VALUE'
+    && byId.get(e.fromId)?.labels.includes('IndexedRead'));
+  assert.equal(returns.length, 2);
+  for (const edge of returns) {
+    const sourcePart = edge.sourceRenderPartStableId || edge.props.source_render_part_stable_id;
+    const part = JSON.parse(byId.get(edge.fromId).renderPartsJson).find(p => p.stableId === sourcePart);
+    assert.equal(part?.text, ']');
+    assert(part.labels.includes('CallBoundary'));
+  }
+});
+
 test('for initializes once, branches, and updates after the body before retesting', () => {
   const p = extract(['examples/fisher-yates/src/shuffle.ts']);
   const id = suffix => `examples/fisher-yates/src/shuffle.ts:${suffix}`;

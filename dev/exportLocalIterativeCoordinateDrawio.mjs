@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import neo4j from 'neo4j-driver';
+import { omitEntryParameters } from './expandedFunctionView.mjs';
 
 import {
   makeDrawio,
@@ -218,6 +219,7 @@ function parseArgs(argv) {
   for (let index = 2; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--aura') result.aura = true;
+    else if (arg === '--hide-entry-parameters') result.hideEntryParameters = true;
     else if (arg === '--output') result.outputPath = argv[++index] || result.outputPath;
     else if (arg === '--fn-stable-id') result.fnStableId = argv[++index] || result.fnStableId;
     else if (arg === '--step-stable-id') result.stepStableId = argv[++index] || result.stepStableId;
@@ -1659,7 +1661,8 @@ function nodeHeightForFanout(node) {
   if (isObjectBraceNode(node)) return 30;
   if (isCurrentNodeBranch(node) || hasLabel(node, 'Switch') || hasLabel(node, 'Case')) return 60;
   if (isFlowJoinNode(node) || isDataJoinNode(node)) return 31;
-  if (hasLabel(node, 'EndProxy') || hasLabel(node, 'FunctionEnd')) return 74;
+  if (hasLabel(node, 'FunctionEnd')) return 42;
+  if (hasLabel(node, 'EndProxy')) return 74;
   if (hasLabel(node, 'Return')) return 50;
   if (isValueOutcomeNode(node)) return 42;
   if (
@@ -8461,6 +8464,12 @@ async function main() {
       }
     }
 
+    if (args.hideEntryParameters) {
+      const view = omitEntryParameters(nodes, edges, fnStableId);
+      semanticEdges = omitEntryParameters(nodes, semanticEdges, fnStableId).edges;
+      nodes = view.nodes;
+      edges = view.edges;
+    }
     nodes = annotateCallCopyCounts(nodes, edges);
 
     const loadFinishedAt = Date.now();

@@ -2,13 +2,18 @@
   "servers": {
     "neo4jGraph": {
       "type": "stdio",
-      "command": "python",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
       "args": [
         "${workspaceFolder}\\graph\\mcp\\neo4j_mcp_server.py",
         "--profile",
         "local"
       ],
       "envFile": "${workspaceFolder}\\graph\\.env"
+    },
+    "neo4jAura": {
+      "type": "stdio",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+      "args": ["${workspaceFolder}\\graph\\mcp\\neo4j_mcp_server.py", "--profile", "aura"]
     },
     "runtimeRedis": {
       "type": "stdio",

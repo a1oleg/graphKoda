@@ -18064,7 +18064,7 @@ class FunctionFlowGraphBuilder {
         producerRouteRole: 'return-bottom', protocolRole: 'assignment-return',
         sourcePort: 'bottom', targetPort: 'bottom',
         sourcePortCandidates: ['bottom'], targetPortCandidates: ['bottom'], lockPortCandidates: true,
-        targetRenderPartStableId: `${slotId}:set`, sourceRenderPartStableId: `${valueId}:get`,
+        targetRenderPartStableId: `${slotId}:set`, sourceRenderPartStableId: `${valueId}:close`,
       });
     }
     return { firstNodeId: assignment.stableId, openExits: [{
@@ -18114,7 +18114,7 @@ class FunctionFlowGraphBuilder {
         });
         this.addEdge(undefined, producer, undefined, id, 'ASSIGNS_VALUE', {
           label: 'value', displayLabel: 'value', flowLayer: 'data', protocolRole: 'assignment-return',
-          producerRouteRole: 'return-bottom', sourceRenderPartStableId: `${producer}:get`, targetRenderPartStableId: `${id}:set`,
+          producerRouteRole: 'return-bottom', sourceRenderPartStableId: `${producer}:close`, targetRenderPartStableId: `${id}:set`,
           sourcePort: 'bottom', targetPort: 'bottom', sourcePortCandidates: ['bottom'], targetPortCandidates: ['bottom'], lockPortCandidates: true,
         });
         return { ...buildEmptyResult(), firstNodeId: id, openExits: [this.createPendingExit(undefined, id, 'NEXT')] };

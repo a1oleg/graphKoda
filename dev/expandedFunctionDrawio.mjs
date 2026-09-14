@@ -1,13 +1,20 @@
 import assert from 'node:assert/strict';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
+import { expandedFunctionView } from './expandedFunctionView.mjs';
 
 const elements = (node, tag) => Array.from(node.getElementsByTagName(tag));
 const geometry = cell => elements(cell, 'mxGeometry')[0];
 const number = (element, key) => Number(element?.getAttribute(key) || 0);
 
-export function composeExpandedFunctions(rootId, functions, calls, documents) {
+export function composeExpandedFunctions(rootId, functions, calls, documents, options = {}) {
+  const view = { ...expandedFunctionView, ...options };
   const output = new DOMParser().parseFromString('<mxfile><diagram id="fisher-yates" name="Fisher-Yates"><mxGraphModel grid="1" gridSize="10" page="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>', 'text/xml');
   const root = elements(output, 'root')[0];
+  const diagram = elements(output, 'diagram')[0];
+  diagram.setAttribute('name', view.name || functions.get(rootId).name);
+  diagram.setAttribute('viewKind', view.kind);
+  diagram.setAttribute('secondaryParameters', view.secondaryParameters);
+  diagram.setAttribute('alignCalledStart', String(view.alignCalledStart));
   let serial = 0;
   const boxes = [];
   function element(tag, attrs, parent) {
@@ -66,15 +73,16 @@ export function composeExpandedFunctions(rootId, functions, calls, documents) {
       }
       root.appendChild(clone);
     }
-    let nextY = 50, width = ownWidth, height = ownHeight;
+    let nextY = 0, width = ownWidth, height = ownHeight;
     for (const call of calls.filter(c => c.owner === fnId)) {
       const candidates = vertices.filter(c => !c.getAttribute('id').startsWith('fold-') &&
         (c.getAttribute('stableId') === call.id || c.getAttribute('sourceCallStableId') === call.id));
       assert(candidates.length, `Call has no rendered anchor: ${call.id}`);
       const anchor = candidates.sort((a, b) => bounds(b).x + bounds(b).width - bounds(a).x - bounds(a).width)[0];
       const pos = bounds(anchor);
-      const y = Math.max(nextY, pos.y - minY + 50);
       const child = build(call.callee, branch);
+      const anchorY = pos.y - minY + 50 + pos.height / 2;
+      const y = Math.max(nextY, view.alignCalledStart ? anchorY - child.startY : pos.y - minY + 50);
       child.group.setAttribute('parent', prefix + 'block');
       child.g.setAttribute('x', ownWidth + 100); child.g.setAttribute('y', y);
       nextY = y + child.height + 60;

@@ -24,6 +24,15 @@ The Fisher-Yates source and tests live in `coldKode/examples/fisher-yates`.
 Its extraction and draw.io export belong to coldKode (`npm run fisher:import`
 and `npm run fisher:draw`). This scoped example overrides the source root only
 inside its extractor process; the Claude Code source root is unchanged.
+Fisher uses the parameterized `expanded-functions` diagram view defined in
+`dev/expandedFunctionView.mjs`: developer calls expand into nested blocks;
+only the root function shows entry parameters. Secondary parameter families
+are omitted before coordinate calculation, without changing extraction or Aura.
+Called Start centers align with their call centers when the preceding expanded
+block leaves room; otherwise the next block keeps a 60px clearance.
+`node dev/exportFisherYatesDrawio.mjs --show-secondary-parameters` restores their
+display; `--no-align-called-start` disables Start alignment. The selected options
+are stored on the draw.io diagram. Standalone function exports are unchanged.
 The standalone UI lives in `../fisher-yates`, kept at its existing local path;
 its GitHub repository is `a1oleg/annotation-visualizer`. It has its own ignored
 Aura configuration. Start it with `npm start` there (port 8793).
@@ -89,6 +98,15 @@ policy blocked its removal. It is not the configured MCP environment and must be
 removed manually to finish filesystem cleanup. Reload VS Code to reconnect MCP
 using the updated configuration. Git history is retained; no commit or push was
 performed by the cleanup.
+
+Neo4j MCP runs from `coldKode/graph/mcp/neo4j_mcp_server.py` with the tool
+checkout's `.venv/Scripts/python.exe`. Install `graph/mcp/requirements.txt`.
+The `local` profile uses `NEO4J_*`; `aura` uses only `AURA_NEO4J_*` from the
+ignored `graph/.env`, with verified TLS and no fallback to the local database.
+Codex user configuration and `.vscode/mcp.json` register separate `neo4jGraph`
+and `neo4jAura` servers. Aura exposes inspection tools only, and read queries
+are checked with EXPLAIN before execution. `node dev/checkAuraMcp.mjs` verifies
+the real stdio MCP handshake and queries the neighbors of Fisher's alphabet.
 
 Extraction now persists the passport in DuckDB `extraction_provenance` and
 `provenance.parquet`. Every node/relationship row has a `provenance_id` column.

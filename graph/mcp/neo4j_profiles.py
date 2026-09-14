@@ -10,7 +10,7 @@ from neo4j import GraphDatabase
 
 
 ENV_PATH = Path(__file__).resolve().parent.parent / '.env'
-SUPPORTED_PROFILES = ('local',)
+SUPPORTED_PROFILES = ('local', 'aura')
 
 
 def load_connection_settings(profile: str = 'local') -> dict[str, str]:
@@ -18,6 +18,23 @@ def load_connection_settings(profile: str = 'local') -> dict[str, str]:
         raise RuntimeError(f"Unsupported Neo4j profile: {profile}")
 
     load_dotenv(ENV_PATH)
+
+    if profile == 'aura':
+        settings = {
+            'uri': os.getenv('AURA_NEO4J_URI') or '',
+            'username': os.getenv('AURA_NEO4J_USERNAME') or os.getenv('AURA_NEO4J_USER') or '',
+            'password': os.getenv('AURA_NEO4J_PASSWORD') or '',
+            'database': os.getenv('AURA_NEO4J_DATABASE') or 'neo4j',
+            'profile': profile,
+            'trust_mode': 'system',
+            'ca_cert_file': '',
+        }
+        missing = [key for key in ('uri', 'username', 'password') if not settings[key]]
+        if missing:
+            raise RuntimeError(f"Missing required Aura settings: {', '.join(missing)}")
+        if not settings['uri'].startswith('neo4j+s://'):
+            raise RuntimeError('Aura requires a neo4j+s:// URI with verified TLS.')
+        return settings
 
     uri = os.getenv('NEO4J_URI')
     username = os.getenv('NEO4J_USER') or os.getenv('NEO4J_USERNAME')
@@ -58,6 +75,9 @@ def build_driver_kwargs(settings: dict[str, str]) -> dict[str, Any]:
     kwargs: dict[str, Any] = {
         'auth': (settings['username'], settings['password']),
     }
+    if settings.get('profile') == 'aura':
+        # The +s URI configures TLS and certificate verification in the driver.
+        return kwargs
 
     if trust_mode == 'all':
         if not settings['uri'].startswith(('neo4j+s://', 'bolt+s://')):

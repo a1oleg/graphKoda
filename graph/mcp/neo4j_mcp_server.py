@@ -16,11 +16,12 @@ if str(WORKSPACE_DIR) not in sys.path:
 from mcp.server.fastmcp import FastMCP
 from graph.mcp.neo4j_profiles import create_driver
 from graph.mcp.neo4j_profiles import load_connection_settings
+from graph.mcp.neo4j_profiles import SUPPORTED_PROFILES
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Run the Neo4j MCP server for a selected connection profile.')
-    parser.add_argument('--profile', default='local', choices=('local',), help='Connection profile to use.')
+    parser.add_argument('--profile', default='local', choices=SUPPORTED_PROFILES, help='Connection profile to use.')
     parser.add_argument('--check', action='store_true', help='Verify connectivity and print a JSON summary.')
     return parser.parse_args(argv)
 
@@ -398,6 +399,12 @@ def run_read_query(query: str, parameters_json: str = '{}', limit: int = 100) ->
     if not isinstance(parameters, dict):
         raise ValueError('parameters_json must decode to an object.')
 
+    if SETTINGS['profile'] == 'aura':
+        with DRIVER.session(database=SETTINGS['database']) as session:
+            plan = session.run(Query('EXPLAIN ' + query_text, timeout=DEFAULT_QUERY_TIMEOUT_SECONDS), parameters).consume()
+            if plan.query_type != 'r':
+                raise ValueError('Only read-only queries are allowed in the Aura MCP profile.')
+
     return fetch_records(query_text, parameters=parameters, limit=limit)
 
 
@@ -563,6 +570,10 @@ def initialize_driver(profile: str) -> None:
 def main() -> int:
     args = parse_args(sys.argv[1:])
     initialize_driver(args.profile)
+    if args.profile == 'aura':
+        for name in ('materialize_function_invocation', 'neo4j_materialize_function_invocation',
+                     'invoke_materialized_function', 'neo4j_invoke_materialized_function'):
+            app.remove_tool(name)
 
     if args.check:
         print(json.dumps(check_connection(), ensure_ascii=True, indent=2))

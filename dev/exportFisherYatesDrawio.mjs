@@ -4,10 +4,15 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { auraConnection, fisherYatesRoot } from './fisherYatesConfig.mjs';
 import { composeExpandedFunctions } from './expandedFunctionDrawio.mjs';
+import { expandedFunctionView } from './expandedFunctionView.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const outputIndex = process.argv.indexOf('--output');
 const output = outputIndex >= 0 ? process.argv[outputIndex + 1] : path.join(root, 'graph/draw/generated/Fisher-Yates.drawio');
+const view = { ...expandedFunctionView, name: 'Fisher-Yates',
+  secondaryParameters: process.argv.includes('--show-secondary-parameters') ? 'visible' : 'hidden',
+  alignCalledStart: !process.argv.includes('--no-align-called-start'),
+};
 const aura = auraConnection();
 let functions, calls;
 try {
@@ -28,12 +33,13 @@ const documents = new Map();
 fs.mkdirSync(path.join(root, 'tmp/fisher-yates'), { recursive: true });
 for (const [id, fn] of functions) {
   const file = path.join(root, 'tmp/fisher-yates', `${fn.name}.drawio`);
-  execFileSync(process.execPath, ['dev/exportLocalIterativeCoordinateDrawio.mjs', '--aura', '--fn-stable-id', id, '--output', file], {
+  execFileSync(process.execPath, ['dev/exportLocalIterativeCoordinateDrawio.mjs', '--aura', '--fn-stable-id', id, '--output', file,
+    ...(id !== fisherYatesRoot && view.secondaryParameters === 'hidden' ? ['--hide-entry-parameters'] : [])], {
     cwd: root, windowsHide: true, timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'],
   });
   documents.set(id, fs.readFileSync(file, 'utf8'));
 }
-const result = composeExpandedFunctions(fisherYatesRoot, functions, calls, documents);
+const result = composeExpandedFunctions(fisherYatesRoot, functions, calls, documents, view);
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, result.xml);
 console.log(JSON.stringify({ output, calls, blocks: result.boxes }));
