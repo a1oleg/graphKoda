@@ -818,10 +818,10 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
   .details td { overflow-wrap:anywhere; }
   .details tr.selected { background:#e1effa; }
   body { margin: 0; color: var(--loop-panel-foreground); background: var(--loop-panel-editor-background); font: 13px/1.4 var(--loop-panel-font-family); }
-  header { min-height:44px; padding:11px 12px; border-bottom:1px solid var(--loop-panel-panel-border); }
+  header { min-height:44px; padding:11px 12px 11px 4px; border-bottom:1px solid var(--loop-panel-panel-border); }
   header code { display:block; overflow:hidden; color:var(--loop-panel-foreground); text-overflow:ellipsis; white-space:nowrap; }
-  section { padding:12px; border-bottom:1px solid var(--loop-panel-panel-border); }
-  .all-frame { width:100%; padding:8px; color:var(--loop-panel-foreground); background:transparent; border:1px solid var(--loop-panel-panel-border); border-radius:3px; cursor:pointer; text-align:left; }
+  section { padding:12px 12px 12px 4px; border-bottom:1px solid var(--loop-panel-panel-border); }
+  .all-frame { display:block; width:100%; max-width:100%; padding:8px; color:var(--loop-panel-foreground); background:transparent; border:1px solid var(--loop-panel-panel-border); border-radius:3px; cursor:pointer; text-align:left; }
   .all-frame:hover,.all-frame.selected { border-color:var(--loop-panel-focusBorder); }
   .all-label { display:block; margin-bottom:6px; font-size:11px; font-weight:600; }
   .bar { display:flex; width:100%; height:34px; overflow:hidden; border:1px solid var(--loop-panel-panel-border); background:var(--loop-panel-editorWidget-background); }
@@ -841,7 +841,7 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
   .marker-cell { width:22px; }
   .accumulator { max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .muted { color:var(--loop-panel-descriptionForeground); }
-  .error-box { padding:12px; color:var(--loop-panel-errorForeground); white-space:pre-wrap; }
+  .error-box { padding:12px 12px 12px 4px; color:var(--loop-panel-errorForeground); white-space:pre-wrap; }
 </style></head>
 <body>
   <header><code id="stableId"></code><span id="loopCounts"></span></header>
@@ -855,6 +855,18 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
   let current = null;
   let selectedSegmentId = null;
   const byId = (id) => document.getElementById(id);
+  function alignDistributionWidth() {
+    if (byId('main').hidden) return;
+    const all = byId('all');
+    const width = Math.max(0, byId('outcomeHeader').getBoundingClientRect().right - all.getBoundingClientRect().left);
+    all.style.width = width + 'px';
+    byId('segments').style.maxWidth = Math.min(width, all.parentElement.clientWidth - 16) + 'px';
+  }
+  const distributionResize = new ResizeObserver(alignDistributionWidth);
+  distributionResize.observe(byId('outcomeHeader'));
+  distributionResize.observe(document.querySelector('.details'));
+  window.addEventListener('resize', alignDistributionWidth);
+  document.querySelector('.details').parentElement.addEventListener('scroll', alignDistributionWidth);
   function caseColor(outcome, analysis) {
     if (analysis?.methodName === 'for' && outcome === 'continue') return '#0000ff';
     if (analysis?.methodName === 'for' && outcome === 'break') return '#cc0000';
@@ -958,6 +970,7 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
       return row;
     });
     byId('details').replaceChildren(...rows);
+    alignDistributionWidth();
   }
   window.addEventListener('message', (event) => {
     if (event.data?.type === 'analysis') render(event.data.analysis);
