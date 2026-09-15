@@ -19,6 +19,13 @@ const health = await fetch(healthUrl);
 assert(health.ok, 'Start the Redis runtime relay before running Fisher');
 const program = ts.createProgram([filename], { target: ts.ScriptTarget.ES2022, types: [] });
 const sourceFile = program.getSourceFile(filename);
+const rootFunction = sourceFile.statements.find(n => ts.isFunctionDeclaration(n) && n.name.text === 'shuffle');
+const alphabetInitializer = rootFunction.body.statements.filter(ts.isVariableStatement)
+  .flatMap(statement => [...statement.declarationList.declarations])
+  .find(declaration => ts.isIdentifier(declaration.name) && declaration.name.text === 'alphabet')?.initializer;
+assert(alphabetInitializer && ts.isArrayLiteralExpression(alphabetInitializer)
+  && alphabetInitializer.elements.every(ts.isStringLiteral), 'Expected a string-array alphabet initializer');
+const initialAlphabet = alphabetInitializer.elements.map(element => element.text);
 const { extractFunctionFlowGraphs, payloadForTransport } = await import('../graph/static-extract/ts/fromASTtoPreGraphFlow.ts');
 const graph = payloadForTransport(extractFunctionFlowGraphs(program));
 const targets = [];
@@ -100,10 +107,9 @@ assert(reporter.installRuntimeNodePassReporter());
 const { shuffle } = await import(pathToFileURL(output));
 const alphabet = shuffle();
 await reporter.flushPendingNodePassEvents();
-assert.deepEqual([...alphabet].sort(), ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
+assert.deepEqual([...alphabet].sort(), [...initialAlphabet].sort());
 const sessionId = process.env.GRAPH_RUNTIME_SESSION_ID;
 const root = graph.functions.find(f => f.name === 'shuffle').stableId;
-const rootFunction = sourceFile.statements.find(n => ts.isFunctionDeclaration(n) && n.name.text === 'shuffle');
 const forStatement = rootFunction.body.statements.find(ts.isForStatement);
 const swapStatement = forStatement.statement.statements.find(n => ts.isExpressionStatement(n)
   && ts.isCallExpression(n.expression) && n.expression.expression.getText(sourceFile) === 'swap');
@@ -127,14 +133,14 @@ for (let attempt = 0; attempt < 40; attempt++) {
 assert.equal(analysis.totalIterations, 7);
 assert.deepEqual(analysis.conditionChecks, { total: 8, true: 7, false: 1 });
 assert.deepEqual(analysis.iterations.map(i => JSON.parse(i.itemPreview).current.index), [7, 6, 5, 4, 3, 2, 1]);
-assert.deepEqual(JSON.parse(analysis.cases[0].itemPreview).current, { index: 7, value: 'H' });
+assert.deepEqual(JSON.parse(analysis.cases[0].itemPreview).current, { index: 7, value: initialAlphabet[7] });
 assert(analysis.iterations.every(c => Number.isInteger(JSON.parse(c.variableValues.random))));
 assert.equal(analysis.totalCases, 8);
 assert.deepEqual(analysis.cases.map(c => c.transition), [...Array(7).fill('continue'), 'break']);
 assert.deepEqual(JSON.parse(analysis.cases.at(-1).itemPreview).current, { index: 0, value: JSON.parse(analysis.iterations.at(-1).itemPreview).current.value });
 assert.deepEqual(analysis.variableColumns, ['random', 'alphabet']);
 assert.deepEqual(analysis.collectionColumns, ['alphabet']);
-let beforeIteration = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+let beforeIteration = [...initialAlphabet];
 for (const c of analysis.cases) {
   const pair = JSON.parse(c.itemPreview).current;
   if (c.terminal) {

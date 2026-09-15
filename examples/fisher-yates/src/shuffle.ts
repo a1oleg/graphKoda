@@ -8,14 +8,11 @@ export function shuffle(): string[] {
 
 
   
-  const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  //пример результата: ['E', 'C', 'A', 'G', 'B', 'H', 'D', 'F']
+  const alphabet = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ё', 'Ж'];
+  //пример результата: ['Е', 'В', 'А', 'Ж', 'Б', 'Ё', 'Г', 'Д']
   
   
-  
-  
-  
-  
+    
   
   let current: { index: number; value: string | undefined } 
   = { index: alphabet.length - 1, 
