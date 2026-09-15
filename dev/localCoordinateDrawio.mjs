@@ -3241,7 +3241,11 @@ export function assignStepAndFlowBlockColumns(
     const predecessorColumn = sourceStepId
       ? blockColumn(stepBlockId(sourceStepId), active)
       : blockColumn(parentBlockId, active);
-    const result = predecessorColumn + columnInset;
+    const followsFor = headIds.some((headId) => (incomingByTarget.get(headId) || [])
+      .some((edge) => edge.type === 'NEXT'
+        && externalSourceIds.includes(edge.start)
+        && hasLabel(nodeById.get(edge.start), 'For')));
+    const result = predecessorColumn + columnInset / (followsFor ? 3 : 1);
     blockColumnCache.set(blockId, result);
     active.delete(blockId);
     return result;
