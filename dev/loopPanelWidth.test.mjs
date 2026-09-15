@@ -19,9 +19,16 @@ test('ALL ends at Transition in a 1600x900 capture, including filtered cases', a
       type: 'analysis', analysis: { methodName: 'for', iterationVariable: 'current', totalIterations: 1,
         totalCases: 1, variableColumns: ['random', 'alphabet'], collectionColumns: ['alphabet'],
         segments: [{ id: 'repeat', count: 1, outcome: 'continue', iterationIndexes: [0] }],
-        cases: [{ index: 0, itemPreview: '{"current":1}', variableValues: { random: '2', alphabet: '["A","B","C"]' },
-          transition: 'continue', durationMs: 1 }] },
+        cases: [{ index: 0, itemPreview: '{"current":{"index":1}}', variableValues: { random: '2', alphabet: '["A","B","C"]' },
+          transition: 'continue', durationMs: 1 },
+          { index: 1, itemPreview: '{"current":{"index":0}}', variableValues: { random: '0', alphabet: '["A","B","C"]' }, transition: 'continue', durationMs: 1 },
+          { index: 2, itemPreview: '{"current":{"index":0}}', variableValues: { random: '0', alphabet: '["A","B","C"]' }, terminal: true, transition: 'break', durationMs: 0 }] },
     } })));
+    assert.deepEqual(await page.locator('#details tr').nth(0).locator('.swap-letter').allTextContents(), ['"B"', '"C"']);
+    assert.equal(await page.locator('.swap-letter').first().evaluate(node => getComputedStyle(node).color), 'rgb(0, 0, 255)');
+    assert.equal(await page.locator('#details tr').nth(0).locator('td').nth(4).innerText(), '["A","B","C"]');
+    assert.equal(await page.locator('#details tr').nth(1).locator('.swap-letter').count(), 1);
+    assert.equal(await page.locator('#details tr').nth(2).locator('.swap-letter').count(), 0);
     for (const width of [1600, 1100]) {
       await page.setViewportSize({ width, height: 900 });
       await page.locator('#segments button').click();

@@ -816,6 +816,7 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
   .variable-cell { text-align:center; }
   .variable-box.collection-box { width:84px; height:54px; background-image:url("${collectionBoxImage}"); }
   .details td { overflow-wrap:anywhere; }
+  .swap-letter { color:#0000ff; }
   .details tr.selected { background:#e1effa; }
   body { margin: 0; color: var(--loop-panel-foreground); background: var(--loop-panel-editor-background); font: 13px/1.4 var(--loop-panel-font-family); }
   header { min-height:44px; padding:11px 12px 11px 4px; border-bottom:1px solid var(--loop-panel-panel-border); }
@@ -958,6 +959,27 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
       const variables = current.variableColumns || [];
       [item.index + 1, itemValue, ...variables.map(name => item.variableValues?.[name] ?? '—'), outcomeLabel(item.transition || item.outcome), ...(current.hasAccumulator ? [item.accumulatorState || '—'] : []), item.durationMs + ' ms'].forEach((value, index) => {
         const cell=document.createElement('td'); cell.textContent=value && typeof value === 'object' ? JSON.stringify(value) : String(value);
+        if (variables[index - 2] === 'alphabet' && !item.terminal
+          && (item.transition || item.outcome) === 'continue') {
+          try {
+            const letters = typeof value === 'string' ? JSON.parse(value) : value;
+            const random = JSON.parse(item.variableValues.random);
+            const first = itemValue?.index;
+            if (Array.isArray(letters) && [first, random].every(position =>
+              Number.isInteger(position) && position >= 0 && position < letters.length)) {
+              cell.replaceChildren(document.createTextNode('['));
+              letters.forEach((letter, position) => {
+                if (position) cell.appendChild(document.createTextNode(','));
+                const text = JSON.stringify(letter);
+                if (position === first || position === random) {
+                  const span = document.createElement('span'); span.className = 'swap-letter';
+                  span.textContent = text; cell.appendChild(span);
+                } else cell.appendChild(document.createTextNode(text));
+              });
+              cell.appendChild(document.createTextNode(']'));
+            }
+          } catch {}
+        }
         if (index >= 1 && index <= variables.length + 1) cell.className = 'variable-cell';
         if (current.hasAccumulator && index === variables.length + 3) cell.className = 'accumulator';
         row.appendChild(cell);
