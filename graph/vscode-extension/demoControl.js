@@ -3,13 +3,13 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function createDemoControl({ workspaceRoot, runtimeSend, runtimeState }) {
+function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagram, tokenFilePath }) {
   const token = crypto.randomBytes(32).toString('hex');
   const pending = new Map();
-  const tokenFile = path.join(workspaceRoot, 'tmp', 'graph-demo-token.local');
+  const tokenFile = tokenFilePath || path.join(workspaceRoot, 'tmp', 'graph-demo-token.local');
   fs.mkdirSync(path.dirname(tokenFile), { recursive: true });
   fs.writeFileSync(tokenFile, token, { mode: 0o600 });
-  const allowed = { diagram: ['contextMenu', 'menuClick', 'dismissMenu', 'sceneRead', 'sceneSync', 'scenePointer'], runtime: ['waitForAnalysis', 'selectCase', 'selectSegment', 'selectAll'] };
+  const allowed = { editor:['openDiagram'], diagram: ['contextMenu', 'menuClick', 'dismissMenu', 'sceneRead', 'sceneSync', 'scenePointer','presentFocus','presentPointer'], runtime: ['waitForAnalysis', 'selectCase', 'selectSegment', 'selectAll'] };
   function finish(id, reply) {
     const job = pending.get(id);
     if (!job) return false;
@@ -18,12 +18,19 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState }) {
     return true;
   }
   async function step(input) {
-    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs']
+    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath']
       .filter(key => input && Object.prototype.hasOwnProperty.call(input, key)).map(key => [key, input[key]]));
     if (!input || !allowed[input.surface]?.includes(input.action)) throw new Error('Unsupported demo surface/action');
     if (typeof input.functionStableId !== 'string' || !input.functionStableId) throw new Error('functionStableId is required');
     if (input.action.startsWith('scene') && !/^graph-scene:[a-zA-Z0-9_-]{1,64}$/.test(input.functionStableId)) throw new Error('Scene identity required');
     if (pending.size) throw new Error('A demo action is already pending; await it before sending the next');
+    if(input.surface==='editor'){
+      if(typeof openDiagram!=='function'||typeof input.filePath!=='string')throw new Error('Diagram opener unavailable');
+      const file=fs.realpathSync(path.resolve(workspaceRoot,input.filePath));
+      const dir=fs.realpathSync(path.join(workspaceRoot,'graph/draw'))+path.sep;
+      if(!file.toLowerCase().startsWith(dir.toLowerCase())||path.extname(file)!=='.drawio')throw new Error('Only workspace draw.io documents can be opened');
+      await openDiagram(file);return {stage:'diagram-opened',file};
+    }
     if (input.surface === 'runtime' && input.action === 'waitForAnalysis') {
       const deadline = Date.now() + 15000;
       while (Date.now() < deadline) {

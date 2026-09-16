@@ -6,6 +6,7 @@ import {createHash} from 'node:crypto';
 import dotenv from 'dotenv';
 import neo4j from 'neo4j-driver';
 import {DOMParser} from '@xmldom/xmldom';
+import {methodMosaicImage} from '../../dev/localCoordinateDrawio.mjs';
 
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const directory=path.join(root,'graph/draw/scenes');
@@ -15,7 +16,7 @@ function paths(id) {
  if(!/^[a-zA-Z0-9_-]{1,64}$/.test(id))throw Error('Invalid sceneId');
  return {file:path.join(directory,id+'.drawio'),state:path.join(directory,id+'.scene.json')};
 }
-async function query(profile,cypher,params={}) {
+export async function query(profile,cypher,params={}) {
  const env=dotenv.parse(await fs.readFile(path.join(root,'graph/.env')));
  const prefix=profile==='aura'?'AURA_':'';
  const uri=env[prefix+'NEO4J_URI'];if(!uri)throw Error('Database profile not configured');
@@ -46,12 +47,30 @@ export async function readScene(sceneId) {
 }
 export function renderScene(s) {
  const cells=Object.values(s.nodes).map(n=>{
-  const role=n.labels.includes('Call')?'вызов':n.labels.includes('FunctionImplementation')?'реализация':'';
-  const label=xml(n.title+(role?'\n'+role:'')).replaceAll('\n','&#10;');
-  return `<object id="${n.cellId}" stableId="${xml(n.stableId)}" label="${label}" labels="${xml(n.labels.join(' '))}"><mxCell vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=0;fontSize=18;fillColor=${n.labels.includes('System')?'#eeeeee':'#d5e8d4'};strokeColor=#5b7862;"><mxGeometry x="${n.x}" y="${n.y}" width="${n.width}" height="${n.height}" as="geometry"/></mxCell></object>`;
+  const isCall=n.labels.includes('Call');
+  const role=!isCall&&n.labels.includes('FunctionImplementation')?'реализация':'';
+  const title=isCall&&!n.title.endsWith(')')?n.title+'()':n.title;
+  const label=xml(title+(role?'\n'+role:'')).replaceAll('\n','&#10;');
+  const fill=n.labels.includes('Call')?'#007FFF':n.labels.includes('FunctionImplementation')?'#004C54':n.labels.includes('System')?'#eeeeee':'#d5e8d4';
+  const font=['#007FFF','#004C54'].includes(fill)?'#ffffff':'#1f2937';
+  const style=isCall
+   ? `shape=image;imageAspect=0;image=${methodMosaicImage('single','#DAE8FC','#007FFF',{width:n.width})};whiteSpace=wrap;html=0;labelPosition=center;align=center;verticalLabelPosition=middle;verticalAlign=middle;spacing=4;fontSize=18;fontColor=#000000;`
+   : `rounded=1;arcSize=20;whiteSpace=wrap;html=0;fontSize=18;fillColor=${fill};fontColor=${font};strokeColor=${fill};`;
+  return `<object id="${n.cellId}" stableId="${xml(n.stableId)}" label="${label}" labels="${xml(n.labels.join(' '))}"><mxCell vertex="1" parent="1" style="${xml(style)}"><mxGeometry x="${n.x}" y="${n.y}" width="${n.width}" height="${n.height}" as="geometry"/></mxCell></object>`;
  });
- for(const e of Object.values(s.edges))cells.push(`<object id="${e.cellId}" relationshipId="${xml(e.id)}" label="${xml(e.type)}"><mxCell edge="1" parent="1" source="${s.nodes[e.from].cellId}" target="${s.nodes[e.to].cellId}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=12;labelBackgroundColor=#ffffff;strokeColor=#64748b;"><mxGeometry relative="1" as="geometry"/></mxCell></object>`);
+ for(const e of Object.values(s.edges)){
+  const from=s.nodes[e.from],to=s.nodes[e.to];
+  const branch=e.type==='AST_CHILD'&&from.labels.includes('FunctionImplementation')&&to.x>from.x+from.width&&to.y>from.y+from.height;
+  const ports=branch?'exitX=0.5;exitY=1;entryX=0;entryY=0.5;':to.x>from.x+from.width?'exitX=1;exitY=0.5;entryX=0;entryY=0.5;':'';
+  const points=branch?`<Array as="points"><mxPoint x="${from.x+from.width/2}" y="${to.y+to.height/2}"/></Array>`:'';
+  cells.push(`<object id="${e.cellId}" relationshipId="${xml(e.id)}" label="${xml(e.type)}"><mxCell edge="1" parent="1" source="${from.cellId}" target="${to.cellId}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=12;labelBackgroundColor=#ffffff;strokeColor=#64748b;${ports}"><mxGeometry relative="1" as="geometry">${points}</mxGeometry></mxCell></object>`);
+ }
  for(const [id,p] of Object.entries(s.pointers))cells.push(`<mxCell id="pointer-${id}" edge="1" parent="1" style="endArrow=classic;endFill=1;strokeColor=#e53935;strokeWidth=4;"><mxGeometry relative="1" as="geometry"><mxPoint x="${p.x+42}" y="${p.y+55}" as="sourcePoint"/><mxPoint x="${p.x}" y="${p.y}" as="targetPoint"/></mxGeometry></mxCell>`);
+ for(const a of s.snippets||[]){
+  const owner=s.nodes[a.ownerStableId];if(!owner||a.order>(s.annotationStep??0))continue;
+  const label=xml(a.text).replaceAll('\n','&#10;');
+  cells.push(`<object id="snippet-${a.id}" label="${label}" annotationOwnerStableId="${xml(a.ownerStableId)}" revealOrder="${a.order}" annotationSource="authored-scene-snippet"><mxCell vertex="1" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#f0f7f5;strokeColor=#7ea59d;"><mxGeometry x="${owner.x+owner.width+24}" y="${owner.y}" width="${a.width}" height="${a.height}" as="geometry"/></mxCell></object>`);
+ }
  return `<mxfile><diagram id="${s.sceneId}" name="Graph scene"><mxGraphModel page="1" pageWidth="1600" pageHeight="900" grid="0" graphSceneId="${s.sceneId}"><root><mxCell id="0"/><object id="1" graphSceneId="${s.sceneId}" label=""><mxCell parent="0"/></object>${cells.join('')}</root></mxGraphModel></diagram></mxfile>`;
 }
 async function save(s,action) {
@@ -88,8 +107,8 @@ export async function mutateScene(input) {
   if(rows.length>200||input.targets.some(id=>!rows.some(r=>r.m.properties.stableId===id)))throw Error('Expansion missing targets or too large');
   const parent=s.nodes[input.stableId];
   for(const v of rows){const n=node(v.m);if(!s.nodes[n.stableId]){
-   let x=parent.x,y=parent.y+180;
-   while(Object.values(s.nodes).some(o=>x<o.x+o.width+30&&x+n.width+30>o.x&&y<o.y+o.height+30&&y+n.height+30>o.y))x+=300;
+   let x=parent.x+parent.width+180,y=parent.y+180;
+   while(Object.values(s.nodes).some(o=>x<o.x+o.width+30&&x+n.width+30>o.x&&y<o.y+o.height+30&&y+n.height+30>o.y))y+=180;
    s.nodes[n.stableId]={...n,x,y};
   }
   const e=input.direction==='out'?edge(v.r,v.n,v.m):edge(v.r,v.m,v.n);s.edges[e.id]=e;}
@@ -99,6 +118,18 @@ export async function mutateScene(input) {
   if(input.targets.includes(s.rootStableId))throw Error('Cannot hide root');
   for(const id of input.targets)delete s.nodes[id];
   for(const [id,e] of Object.entries(s.edges))if(!s.nodes[e.from]||!s.nodes[e.to])delete s.edges[id];
+ }else if(input.action==='annotations'){
+  if(input.snippets){
+   const ids=new Set(),orders=new Set();
+   for(const a of input.snippets){
+    if(!/^[a-zA-Z0-9_-]{1,40}$/.test(a.id)||ids.has(a.id)||orders.has(a.order)||!s.nodes[a.ownerStableId]||!Number.isInteger(a.order)||a.order<1||!a.text?.trim())throw Error('Invalid annotation snippet');
+    if(!(a.width>=200&&a.width<=1000&&a.height>=60&&a.height<=1000))throw Error('Invalid snippet dimensions');
+    ids.add(a.id);orders.add(a.order);
+   }
+   s.snippets=input.snippets;
+  }
+  if(!Number.isInteger(input.visibleThrough)||input.visibleThrough<0)throw Error('Invalid annotation reveal step');
+  s.annotationStep=input.visibleThrough;
  }else if(input.action==='pointer'){
   if(!/^[a-zA-Z0-9_-]{1,40}$/.test(input.pointerId))throw Error('Invalid pointer id');
   if(input.visible===false)delete s.pointers[input.pointerId];else{

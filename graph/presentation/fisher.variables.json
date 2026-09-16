@@ -1,0 +1,17 @@
+{
+ "input":{"steps":[
+  {"atMs":0,"action":"OPEN","viewId":"fisher-functions"},
+  {"atMs":0,"action":"ANNOTATIONS","viewId":"fisher-functions","visibleThrough":0},
+  {"atMs":500,"action":"FOCUS","viewId":"fisher-functions","stableId":"examples/fisher-yates/src/shuffle.ts:6:7:33:1"},
+  {"atMs":1800,"action":"POINTER","viewId":"fisher-functions","stableId":"examples/fisher-yates/src/shuffle.ts:35:0:38:1","durationMs":600},
+  {"atMs":3500,"action":"FOCUS","viewId":"fisher-flow","stableId":"examples/fisher-yates/src/shuffle.ts:35:0:38:1","cellId":"f1-block"},
+  {"atMs":5000,"action":"POINTER","viewId":"fisher-flow","stableId":"examples/fisher-yates/src/shuffle.ts:35:0:38:1","cellId":"f1-block","durationMs":600},
+  {"atMs":6200,"action":"HIDE","viewId":"fisher-detail","targets":["examples/fisher-yates/src/shuffle.ts:36:16:36:50","examples/fisher-yates/src/shuffle.ts:36:27:36:40"]},
+  {"atMs":6500,"action":"EXPAND","viewId":"fisher-detail","stableId":"examples/fisher-yates/src/shuffle.ts:35:0:38:1","direction":"OUT","types":["AST_CHILD"],"targets":["examples/fisher-yates/src/shuffle.ts:36:16:36:50","examples/fisher-yates/src/shuffle.ts:36:27:36:40"]},
+  {"atMs":6600,"action":"MOVE","viewId":"fisher-detail","positions":[{"stableId":"examples/fisher-yates/src/shuffle.ts:36:16:36:50","x":520,"y":300},{"stableId":"examples/fisher-yates/src/shuffle.ts:36:27:36:40","x":520,"y":520}]},
+  {"atMs":8000,"action":"ANNOTATIONS","viewId":"fisher-functions","visibleThrough":1},
+  {"atMs":9500,"action":"FOCUS","viewId":"fisher-flow","stableId":"examples/fisher-yates/src/shuffle.ts:40:0:43:1","cellId":"f2-block"},
+  {"atMs":11500,"action":"ANNOTATIONS","viewId":"fisher-functions","visibleThrough":2},
+  {"atMs":13500,"action":"ANNOTATIONS","viewId":"fisher-functions","visibleThrough":3}
+ ]}
+}

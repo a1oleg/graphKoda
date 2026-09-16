@@ -120,6 +120,7 @@ class GraphExplorerProvider {
 async function activate(context) {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || context.extensionPath;
   demoControl = createDemoControl({ workspaceRoot,
+    openDiagram: file=>openDrawioFile(file),
     runtimeSend: message => runtimeAnalysisPanel?.webview.postMessage(message) || false,
     runtimeState: () => runtimeAnalysisState });
   context.subscriptions.push({ dispose: () => demoControl?.dispose() },

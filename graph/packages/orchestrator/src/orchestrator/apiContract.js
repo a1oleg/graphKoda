@@ -33,11 +33,11 @@ const GROUPS = [
     '/api/actions/run-extract', '/api/actions/import-functions', '/api/actions/stop-extract',
   ]],
   ['Annotations', 'GET', [
-    '/api/annotations/graphql/schema',
+    '/api/annotations/graphql/schema', '/api/graphql/schema',
     '/api/graph/annotation-profiles', '/api/graph/annotations', '/api/annotation-jobs/{jobId}',
   ]],
   ['Annotations', 'POST', [
-    '/api/annotations/graphql',
+    '/api/annotations/graphql', '/api/graphql',
     '/api/graph/annotations/upsert', '/api/graph/annotations/resolve',
     '/api/graph/annotations/complete', '/api/graph/annotations/workflow/start',
     '/api/graph/annotations/workflow/complete', '/api/annotation-jobs',
@@ -76,6 +76,8 @@ const GROUPS = [
 ];
 
 const DETAILS = {
+  'GET /api/graphql/schema': ['Read the shared GraphQL schema', 'Annotation plans, semantic entities and registered presentation views share stableId identities.'],
+  'POST /api/graphql': ['Query semantics or execute a presentation', 'GraphQL query, variables and operationName. Presentation mutations validate and execute ordered UI steps; annotation mutations retain their existing workflow semantics.'],
   'GET /': ['Discover the orchestrator', 'Returns stable entry points and the normal local runbook.'],
   'GET /health': ['Check Neo4j-backed health', 'Verifies both the HTTP process and its configured Neo4j connection.'],
   'GET /api/docs': ['Open Swagger UI', 'Interactive Swagger UI generated from the live orchestrator contract.'],

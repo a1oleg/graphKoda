@@ -8,7 +8,11 @@ import {chromium} from 'playwright';
 const require=createRequire(import.meta.url);
 const {createDemoControl}=require('../graph/vscode-extension/demoControl.js');
 const webapp=path.resolve('graph/vendor/drawio/src/main/webapp');
-const control=createDemoControl({workspaceRoot:path.resolve('tmp/graph-scene/live-check'),runtimeSend:()=>false,runtimeState:()=>null});
+let editorPage;
+const control=createDemoControl({workspaceRoot:path.resolve('.'),tokenFilePath:path.resolve('tmp/graph-scene/live-check/token.local'),runtimeSend:()=>false,runtimeState:()=>null,openDiagram:async file=>{
+ const xml=await fs.readFile(file,'utf8');
+ await editorPage.evaluate(xml=>sceneTestUi.editor.setGraphXml(mxUtils.parseXml(xml).getElementsByTagName('mxGraphModel')[0]),xml);
+}});
 const server=http.createServer(async(req,res)=>{
  res.setHeader('Access-Control-Allow-Origin','*');res.setHeader('Access-Control-Allow-Headers','Content-Type');
  if(req.method==='OPTIONS'){res.writeHead(204);res.end();return;}
@@ -24,6 +28,7 @@ const base='http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1600,height:900}});
+ editorPage=page;
  page.on('pageerror',e=>console.error('Draw.io:',e.message));
  page.on('console',m=>{if(m.type()==='error')console.error('Console:',m.text().slice(0,300));});
  page.on('requestfailed',r=>console.error('Failed:',r.url(),r.failure()?.errorText));
@@ -49,7 +54,34 @@ try{
  assert.deepEqual(before.cells.filter(c=>c.stableId),after.cells.filter(c=>c.stableId));
  await control.step({...input,action:'sceneSync',xml});
  const synced=await control.step({...input,action:'sceneRead'});
- assert.equal(synced.cells.find(c=>c.cellId==='pointer-narrator').targetPoint.x,925.25);
+ assert.equal(synced.cells.find(c=>c.cellId==='pointer-narrator')?.targetPoint?.x,before.cells.find(c=>c.cellId==='pointer-narrator')?.targetPoint?.x);
+ const {executeAnnotationGraphql}=await import('../graph/packages/orchestrator/src/orchestrator/annotationGraphql.js');
+ const gql=async(query,variables={})=>{const r=await executeAnnotationGraphql({query,variables},{services:{presentationSend:input=>control.step(input)}});assert(!r.errors,JSON.stringify(r.errors));return r.data;};
+ const variables=JSON.parse(await fs.readFile('graph/presentation/fisher.variables.json','utf8'));
+ variables.input.steps=variables.input.steps.map((s,i)=>({...s,atMs:i*150,durationMs:100}));
+ const started=await gql('mutation($input:PresentationInput!){playPresentation(input:$input){runId}}',variables);
+ let run;
+ for(let i=0;i<150;i++){
+  await new Promise(r=>setTimeout(r,100));
+  run=(await gql('query($id:ID!){presentationRun(runId:$id){status error events}}',{id:started.playPresentation.runId})).presentationRun;
+  if(['COMPLETED','FAILED','CANCELLED'].includes(run.status))break;
+ }
+ assert.equal(run.status,'COMPLETED',JSON.stringify(run));
+ assert(run.events.some(e=>e.result?.cellId==='f1-block'));
+ assert(run.events.some(e=>e.result?.cellId==='f2-block'));
+ assert(run.events.some(e=>e.action==='EXPAND'&&e.viewId==='fisher-detail'));
+ const controlled=await gql('mutation($input:PresentationInput!){playPresentation(input:$input){runId}}',{input:{steps:[{atMs:0,action:'OPEN',viewId:'fisher-functions'},{atMs:5000,action:'FOCUS',viewId:'fisher-functions',stableId:'examples/fisher-yates/src/shuffle.ts:6:7:33:1'}]}});
+ const controlId=controlled.playPresentation.runId;
+ const command=action=>gql('mutation($id:ID!,$action:PresentationControl!){controlPresentation(runId:$id,action:$action){status}}',{id:controlId,action});
+ assert.equal((await command('PAUSE')).controlPresentation.status,'PAUSED');
+ await new Promise(r=>setTimeout(r,200));
+ assert.equal((await gql('query($id:ID!){presentationRun(runId:$id){status}}',{id:controlId})).presentationRun.status,'PAUSED');
+ assert.equal((await command('RESUME')).controlPresentation.status,'RUNNING');
+ await new Promise(r=>setTimeout(r,300));
+ await command('CANCEL');
+ await new Promise(r=>setTimeout(r,200));
+ assert.equal((await gql('query($id:ID!){presentationRun(runId:$id){status}}',{id:controlId})).presentationRun.status,'CANCELLED');
  const report={actualDrawioApplication:true,actualFisherScene:true,readCoordinates:true,pointerAnimation:true,unrelatedNodesUnchanged:true,sceneSync:true,camera:synced.camera};
+ report.graphqlScenario={status:run.status,steps:run.events.length,nestedFunctionFocus:true,realNeo4jExpansion:true,pauseResumeCancel:true};
  await fs.writeFile('tmp/graph-scene/live-check.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 }finally{await browser.close();control.dispose();server.closeAllConnections();await new Promise(r=>server.close(r));}

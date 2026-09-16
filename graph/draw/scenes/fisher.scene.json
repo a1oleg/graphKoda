@@ -2,7 +2,7 @@
   "sceneId": "fisher",
   "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
   "profile": "aura",
-  "revision": 21,
+  "revision": 46,
   "nodes": {
     "examples/fisher-yates/src/shuffle.ts:6:7:33:1": {
       "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
@@ -16,7 +16,7 @@
         "CallableDeclaration"
       ],
       "title": "shuffle",
-      "x": 675.25,
+      "x": 120.25,
       "y": 80.5,
       "width": 250,
       "height": 76
@@ -34,7 +34,7 @@
         "Call"
       ],
       "title": "getRandom",
-      "x": 360,
+      "x": 520,
       "y": 300,
       "width": 250,
       "height": 76
@@ -51,8 +51,8 @@
         "Call"
       ],
       "title": "swap",
-      "x": 960,
-      "y": 300,
+      "x": 520,
+      "y": 520,
       "width": 250,
       "height": 76
     },
@@ -68,8 +68,8 @@
         "CallableDeclaration"
       ],
       "title": "getRandom",
-      "x": 360,
-      "y": 520,
+      "x": 950,
+      "y": 300,
       "width": 250,
       "height": 76
     },
@@ -86,7 +86,7 @@
         "GenericDeclaration"
       ],
       "title": "swap",
-      "x": 960,
+      "x": 950,
       "y": 520,
       "width": 250,
       "height": 76
@@ -122,12 +122,7 @@
       "to": "examples/fisher-yates/src/shuffle.ts:40:0:43:1"
     }
   },
-  "pointers": {
-    "narrator": {
-      "x": 925.25,
-      "y": 156.5
-    }
-  },
+  "pointers": {},
   "history": [
     {
       "revision": 1,
@@ -510,8 +505,474 @@
       "live": false,
       "durationMs": 600,
       "action": "pointer"
+    },
+    {
+      "revision": 22,
+      "at": "2026-09-16T05:27:23.652Z",
+      "sceneId": "fisher",
+      "expectedRevision": 21,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "direction": "out",
+      "types": [
+        "AST_CHILD"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+        "examples/fisher-yates/src/shuffle.ts:29:4:29:35"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 23,
+      "at": "2026-09-16T05:27:26.001Z",
+      "sceneId": "fisher",
+      "expectedRevision": 22,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+      "direction": "out",
+      "types": [
+        "CALLS"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:35:0:38:1"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 24,
+      "at": "2026-09-16T05:27:28.412Z",
+      "sceneId": "fisher",
+      "expectedRevision": 23,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+      "direction": "out",
+      "types": [
+        "CALLS"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:40:0:43:1"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 25,
+      "at": "2026-09-16T05:27:28.418Z",
+      "sceneId": "fisher",
+      "expectedRevision": 24,
+      "positions": [
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+          "x": 120.25,
+          "y": 80.5
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+          "x": 520,
+          "y": 300
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+          "x": 520,
+          "y": 520
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:35:0:38:1",
+          "x": 950,
+          "y": 300
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:40:0:43:1",
+          "x": 950,
+          "y": 520
+        }
+      ],
+      "action": "move"
+    },
+    {
+      "revision": 26,
+      "at": "2026-09-16T05:27:29.624Z",
+      "sceneId": "fisher",
+      "expectedRevision": 25,
+      "pointerId": "narrator",
+      "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "u": 1,
+      "v": 1,
+      "visible": true,
+      "live": false,
+      "durationMs": 600,
+      "action": "pointer"
+    },
+    {
+      "revision": 27,
+      "at": "2026-09-16T05:30:38.952Z",
+      "sceneId": "fisher",
+      "expectedRevision": 26,
+      "action": "move",
+      "positions": [
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+          "x": 120.25,
+          "y": 80.5
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+          "x": 520,
+          "y": 300
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+          "x": 520,
+          "y": 520
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:35:0:38:1",
+          "x": 950,
+          "y": 300
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:40:0:43:1",
+          "x": 950,
+          "y": 520
+        }
+      ]
+    },
+    {
+      "revision": 28,
+      "at": "2026-09-16T05:34:04.100Z",
+      "sceneId": "fisher",
+      "expectedRevision": 27,
+      "action": "pointer",
+      "pointerId": "narrator",
+      "visible": false
+    },
+    {
+      "revision": 29,
+      "at": "2026-09-16T05:34:04.107Z",
+      "sceneId": "fisher",
+      "expectedRevision": 28,
+      "action": "annotations",
+      "snippets": [
+        {
+          "id": "random",
+          "ownerStableId": "examples/fisher-yates/src/shuffle.ts:35:0:38:1",
+          "order": 1,
+          "width": 340,
+          "height": 156,
+          "text": "Выбирает случайный целый индекс от нуля до переданной границы, не включая её. Math.random задаёт случайное число, Math.floor округляет результат вниз."
+        },
+        {
+          "id": "swap",
+          "ownerStableId": "examples/fisher-yates/src/shuffle.ts:40:0:43:1",
+          "order": 2,
+          "width": 340,
+          "height": 156,
+          "text": "Меняет местами текущий и выбранный элементы массива. В текущую позицию записывает выбранный элемент, а на его место — заранее сохранённое текущее значение."
+        },
+        {
+          "id": "shuffle",
+          "ownerStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+          "order": 3,
+          "width": 540,
+          "height": 156,
+          "text": "Перемешивает алфавит, проходя его с конца. На каждом шаге getRandom выбирает индекс в оставшейся части, а swap меняет выбранный элемент с текущим. Обработанная часть растёт; функция возвращает перемешанный массив."
+        }
+      ],
+      "visibleThrough": 3
+    },
+    {
+      "revision": 30,
+      "at": "2026-09-16T05:34:25.678Z",
+      "sceneId": "fisher",
+      "expectedRevision": 29,
+      "visibleThrough": 0,
+      "action": "annotations"
+    },
+    {
+      "revision": 31,
+      "at": "2026-09-16T05:34:25.687Z",
+      "sceneId": "fisher",
+      "expectedRevision": 30,
+      "visibleThrough": 1,
+      "action": "annotations"
+    },
+    {
+      "revision": 32,
+      "at": "2026-09-16T05:34:25.694Z",
+      "sceneId": "fisher",
+      "expectedRevision": 31,
+      "visibleThrough": 2,
+      "action": "annotations"
+    },
+    {
+      "revision": 33,
+      "at": "2026-09-16T05:34:25.701Z",
+      "sceneId": "fisher",
+      "expectedRevision": 32,
+      "visibleThrough": 3,
+      "action": "annotations"
+    },
+    {
+      "revision": 34,
+      "at": "2026-09-16T05:35:27.966Z",
+      "sceneId": "fisher",
+      "expectedRevision": 33,
+      "action": "annotations",
+      "visibleThrough": 3
+    },
+    {
+      "revision": 35,
+      "at": "2026-09-16T05:56:49.269Z",
+      "atMs": 150,
+      "action": "annotations",
+      "viewId": "fisher-functions",
+      "durationMs": 100,
+      "visibleThrough": 0,
+      "view": {
+        "id": "fisher-functions",
+        "kind": "FUNCTIONS",
+        "sceneId": "fisher",
+        "file": "graph/draw/scenes/fisher.drawio",
+        "profile": "aura",
+        "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+      },
+      "sceneId": "fisher",
+      "expectedRevision": 34
+    },
+    {
+      "revision": 36,
+      "at": "2026-09-16T05:56:53.012Z",
+      "atMs": 1050,
+      "action": "annotations",
+      "viewId": "fisher-functions",
+      "durationMs": 100,
+      "visibleThrough": 1,
+      "view": {
+        "id": "fisher-functions",
+        "kind": "FUNCTIONS",
+        "sceneId": "fisher",
+        "file": "graph/draw/scenes/fisher.drawio",
+        "profile": "aura",
+        "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+      },
+      "sceneId": "fisher",
+      "expectedRevision": 35
+    },
+    {
+      "revision": 37,
+      "at": "2026-09-16T05:56:54.037Z",
+      "atMs": 1350,
+      "action": "annotations",
+      "viewId": "fisher-functions",
+      "durationMs": 100,
+      "visibleThrough": 2,
+      "view": {
+        "id": "fisher-functions",
+        "kind": "FUNCTIONS",
+        "sceneId": "fisher",
+        "file": "graph/draw/scenes/fisher.drawio",
+        "profile": "aura",
+        "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+      },
+      "sceneId": "fisher",
+      "expectedRevision": 36
+    },
+    {
+      "revision": 38,
+      "at": "2026-09-16T05:56:54.512Z",
+      "atMs": 1500,
+      "action": "annotations",
+      "viewId": "fisher-functions",
+      "durationMs": 100,
+      "visibleThrough": 3,
+      "view": {
+        "id": "fisher-functions",
+        "kind": "FUNCTIONS",
+        "sceneId": "fisher",
+        "file": "graph/draw/scenes/fisher.drawio",
+        "profile": "aura",
+        "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+      },
+      "sceneId": "fisher",
+      "expectedRevision": 37
+    },
+    {
+      "revision": 39,
+      "at": "2026-09-16T05:58:40.292Z",
+      "atMs": 150,
+      "action": "annotations",
+      "viewId": "fisher-functions",
+      "durationMs": 100,
+      "visibleThrough": 0,
+      "view": {
+        "id": "fisher-functions",
+        "kind": "FUNCTIONS",
+        "sceneId": "fisher",
+        "file": "graph/draw/scenes/fisher.drawio",
+        "profile": "aura",
+        "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+      },
+      "sceneId": "fisher",
+      "expectedRevision": 38
+    },
+    {
+      "revision": 40,
+      "at": "2026-09-16T05:58:45.157Z",
+      "atMs": 1350,
+      "action": "annotations",
+      "viewId": "fisher-functions",
+      "durationMs": 100,
+      "visibleThrough": 1,
+      "view": {
+        "id": "fisher-functions",
+        "kind": "FUNCTIONS",
+        "sceneId": "fisher",
+        "file": "graph/draw/scenes/fisher.drawio",
+        "profile": "aura",
+        "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+      },
+      "sceneId": "fisher",
+      "expectedRevision": 39
+    },
+    {
+      "revision": 41,
+      "at": "2026-09-16T05:58:46.190Z",
+      "atMs": 1650,
+      "action": "annotations",
+      "viewId": "fisher-functions",
+      "durationMs": 100,
+      "visibleThrough": 2,
+      "view": {
+        "id": "fisher-functions",
+        "kind": "FUNCTIONS",
+        "sceneId": "fisher",
+        "file": "graph/draw/scenes/fisher.drawio",
+        "profile": "aura",
+        "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+      },
+      "sceneId": "fisher",
+      "expectedRevision": 40
+    },
+    {
+      "revision": 42,
+      "at": "2026-09-16T05:58:46.661Z",
+      "atMs": 1800,
+      "action": "annotations",
+      "viewId": "fisher-functions",
+      "durationMs": 100,
+      "visibleThrough": 3,
+      "view": {
+        "id": "fisher-functions",
+        "kind": "FUNCTIONS",
+        "sceneId": "fisher",
+        "file": "graph/draw/scenes/fisher.drawio",
+        "profile": "aura",
+        "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+      },
+      "sceneId": "fisher",
+      "expectedRevision": 41
+    },
+    {
+      "revision": 43,
+      "at": "2026-09-16T06:01:17.306Z",
+      "atMs": 150,
+      "action": "annotations",
+      "viewId": "fisher-functions",
+      "durationMs": 100,
+      "visibleThrough": 0,
+      "view": {
+        "id": "fisher-functions",
+        "kind": "FUNCTIONS",
+        "sceneId": "fisher",
+        "file": "graph/draw/scenes/fisher.drawio",
+        "profile": "aura",
+        "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+      },
+      "sceneId": "fisher",
+      "expectedRevision": 42
+    },
+    {
+      "revision": 44,
+      "at": "2026-09-16T06:01:22.134Z",
+      "atMs": 1350,
+      "action": "annotations",
+      "viewId": "fisher-functions",
+      "durationMs": 100,
+      "visibleThrough": 1,
+      "view": {
+        "id": "fisher-functions",
+        "kind": "FUNCTIONS",
+        "sceneId": "fisher",
+        "file": "graph/draw/scenes/fisher.drawio",
+        "profile": "aura",
+        "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+      },
+      "sceneId": "fisher",
+      "expectedRevision": 43
+    },
+    {
+      "revision": 45,
+      "at": "2026-09-16T06:01:23.145Z",
+      "atMs": 1650,
+      "action": "annotations",
+      "viewId": "fisher-functions",
+      "durationMs": 100,
+      "visibleThrough": 2,
+      "view": {
+        "id": "fisher-functions",
+        "kind": "FUNCTIONS",
+        "sceneId": "fisher",
+        "file": "graph/draw/scenes/fisher.drawio",
+        "profile": "aura",
+        "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+      },
+      "sceneId": "fisher",
+      "expectedRevision": 44
+    },
+    {
+      "revision": 46,
+      "at": "2026-09-16T06:01:23.627Z",
+      "atMs": 1800,
+      "action": "annotations",
+      "viewId": "fisher-functions",
+      "durationMs": 100,
+      "visibleThrough": 3,
+      "view": {
+        "id": "fisher-functions",
+        "kind": "FUNCTIONS",
+        "sceneId": "fisher",
+        "file": "graph/draw/scenes/fisher.drawio",
+        "profile": "aura",
+        "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+      },
+      "sceneId": "fisher",
+      "expectedRevision": 45
     }
   ],
   "file": "C:\\GitHub\\coldKode\\graph\\draw\\scenes\\fisher.drawio",
-  "coordinateSpace": "draw.io model units; x/y are top-left; no screen pixels"
+  "coordinateSpace": "draw.io model units; x/y are top-left; no screen pixels",
+  "snippets": [
+    {
+      "id": "random",
+      "ownerStableId": "examples/fisher-yates/src/shuffle.ts:35:0:38:1",
+      "order": 1,
+      "width": 340,
+      "height": 156,
+      "text": "Выбирает случайный целый индекс от нуля до переданной границы, не включая её. Math.random задаёт случайное число, Math.floor округляет результат вниз."
+    },
+    {
+      "id": "swap",
+      "ownerStableId": "examples/fisher-yates/src/shuffle.ts:40:0:43:1",
+      "order": 2,
+      "width": 340,
+      "height": 156,
+      "text": "Меняет местами текущий и выбранный элементы массива. В текущую позицию записывает выбранный элемент, а на его место — заранее сохранённое текущее значение."
+    },
+    {
+      "id": "shuffle",
+      "ownerStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "order": 3,
+      "width": 540,
+      "height": 156,
+      "text": "Перемешивает алфавит, проходя его с конца. На каждом шаге getRandom выбирает индекс в оставшейся части, а swap меняет выбранный элемент с текущим. Обработанная часть растёт; функция возвращает перемешанный массив."
+    }
+  ],
+  "annotationStep": 3
 }

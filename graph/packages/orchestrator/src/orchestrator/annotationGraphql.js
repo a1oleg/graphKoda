@@ -1,4 +1,5 @@
 import { buildSchema, graphql } from 'graphql';
+import {presentationSDL,presentationRoot,attachEntity,attachPlanEntities} from '../../../../presentation/graphql.mjs';
 import { routeContract, startDeterministicRoute, readDeterministicRoute, nextDeterministicRoute } from './deterministicRoute.js';
 import { startValueOrigin, readValueOrigin, nextValueOrigin, valueOriginContract } from './valueOrigin.js';
 import { annotationProfileContract } from './annotationProfiles.js';
@@ -78,7 +79,8 @@ export const annotationSchemaSDL = `
     completeAnnotation(input: AnnotationResultInput!): AnnotationPlan!
   }
 `;
-export const annotationSchema = buildSchema(annotationSchemaSDL);
+export const sharedSchemaSDL = annotationSchemaSDL + presentationSDL;
+export const annotationSchema = buildSchema(sharedSchemaSDL);
 
 const parse = (value, fallback) => {
   if (typeof value !== 'string') return fallback;
@@ -175,19 +177,21 @@ export async function readAnnotationPlan(driver, database, jobId) {
 }
 
 export function createAnnotationGraphqlRoot({ driver, database, services = {} }) {
-  const read = services.readPlan || (jobId => readAnnotationPlan(driver, database, jobId));
+  const readRaw = services.readPlan || (jobId => readAnnotationPlan(driver, database, jobId));
+  const read = async jobId => attachPlanEntities(await readRaw(jobId));
   const prepare = services.prepare || (input => startAnnotationWorkflow(driver, database, input));
   const next = services.next || (input => leaseNextAnnotationTask(driver, database, input));
   const complete = services.complete || (input => completeAnnotationWorkflow(driver, database, input));
   return {
+    ...presentationRoot({send:services.presentationSend}),
     deterministicRouteContract: () => routeContract,
     deterministicRoute: ({ runId }) => readDeterministicRoute(driver, database, runId),
     startDeterministicRoute: ({ input }) => startDeterministicRoute(driver, database, input),
     nextDeterministicRoute: input => nextDeterministicRoute(driver, database, input),
     valueOriginContract: () => valueOriginContract,
-    valueOriginPlan: ({ runId }) => readValueOrigin(driver, database, runId),
-    startValueOrigin: ({ input }) => startValueOrigin(driver, database, input),
-    nextValueOrigin: input => nextValueOrigin(driver, database, input),
+    valueOriginPlan: async ({ runId }) => attachPlanEntities(await readValueOrigin(driver, database, runId)),
+    startValueOrigin: async ({ input }) => attachPlanEntities(await startValueOrigin(driver, database, input)),
+    nextValueOrigin: async input => attachPlanEntities(await nextValueOrigin(driver, database, input)),
     annotationProfiles: () => Object.entries(annotationProfileContract).map(([kind, profile]) => ({ kind, ...profile })),
     annotationPlan: ({ jobId }) => read(jobId),
     prepareAnnotationPlan: async ({ input }) => {
@@ -210,7 +214,7 @@ export function createAnnotationGraphqlRoot({ driver, database, services = {} })
         },
       } } : null;
       return { state: result.status === 'ready' ? 'COMPLETE' : result.task ? 'LEASED' : 'WAITING',
-        task, plan: await read(jobId) };
+        task:attachEntity(task), plan: await read(jobId) };
     },
     completeAnnotation: async ({ input }) => {
       const plan = await read(input.jobId);

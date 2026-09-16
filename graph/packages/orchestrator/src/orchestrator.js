@@ -1,7 +1,7 @@
 ﻿import http from 'node:http';
 
 import neo4j from 'neo4j-driver';
-import { executeAnnotationGraphql, annotationSchemaSDL } from './orchestrator/annotationGraphql.js';
+import { executeAnnotationGraphql, sharedSchemaSDL } from './orchestrator/annotationGraphql.js';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -1425,8 +1425,8 @@ function readRelativeGeometryWithinAncestor(xml, cellXml, ancestorId) {
 
 async function handleGet(requestUrl, response, context) {
   const { searchParams, pathname } = requestUrl;
-  if (pathname === '/api/annotations/graphql/schema') {
-    sendJson(response, 200, { sdl: annotationSchemaSDL });
+  if (pathname === '/api/annotations/graphql/schema' || pathname === '/api/graphql/schema') {
+    sendJson(response, 200, { sdl: sharedSchemaSDL });
     return;
   }
 
@@ -1677,7 +1677,7 @@ async function handleGet(requestUrl, response, context) {
 async function handlePost(requestUrl, request, response, context) {
   const { pathname } = requestUrl;
   const body = await readJsonBody(request);
-  if (pathname === '/api/annotations/graphql') {
+  if (pathname === '/api/annotations/graphql' || pathname === '/api/graphql') {
     sendJson(response, 200, await executeAnnotationGraphql(body, context));
     return;
   }

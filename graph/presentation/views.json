@@ -1,0 +1,5 @@
+[
+  {"id":"fisher-functions","kind":"FUNCTIONS","sceneId":"fisher","file":"graph/draw/scenes/fisher.drawio","profile":"aura","rootStableId":"examples/fisher-yates/src/shuffle.ts:6:7:33:1"},
+  {"id":"fisher-flow","kind":"FLOW","file":"graph/draw/generated/Fisher-Yates.drawio","profile":"aura","rootStableId":"examples/fisher-yates/src/shuffle.ts:6:7:33:1"},
+  {"id":"fisher-detail","kind":"GRAPH","sceneId":"fisher-detail","file":"graph/draw/scenes/fisher-detail.drawio","profile":"aura","rootStableId":"examples/fisher-yates/src/shuffle.ts:35:0:38:1"}
+]

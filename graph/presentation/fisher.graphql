@@ -1,0 +1,19 @@
+# Validate first. Both operations share the same PresentationInput variables.
+mutation Validate($input: PresentationInput!) {
+  validatePresentation(input: $input)
+}
+
+mutation Play($input: PresentationInput!) {
+  playPresentation(input: $input) { runId status stepIndex }
+}
+
+query InspectRun($runId: ID!) {
+  presentationRun(runId: $runId) { runId status stepIndex events error }
+}
+
+query MeaningAndViews($stableId: ID!) {
+  codeEntity(stableId: $stableId, profile: "aura") {
+    stableId labels properties annotations
+    representations { viewId kind file cellId }
+  }
+}

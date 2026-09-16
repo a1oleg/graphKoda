@@ -1272,6 +1272,44 @@ Draw.loadPlugin(function(ui) {
   var demoPolling = false;
   var demoMenuItems = [];
   function demoFrame() { return new Promise(function(resolve) { requestAnimationFrame(resolve); }); }
+  var presentationPointers = {};
+  function clearPresentationPointers() {
+    Object.keys(presentationPointers).forEach(function(id){presentationPointers[id].element.remove();});
+    presentationPointers={};
+  }
+  // Pointer positions come from view geometry, so discard them when that geometry changes.
+  graph.getModel().addListener(mxEvent.CHANGE,clearPresentationPointers);
+  [mxEvent.SCALE,mxEvent.TRANSLATE,mxEvent.SCALE_AND_TRANSLATE].forEach(function(event){graph.getView().addListener(event,clearPresentationPointers);});
+  function presentationOwner() {
+    var sceneId=getAttribute(graph.getModel().getCell('1'),'graphSceneId');
+    if(sceneId)return 'graph-scene:'+sceneId;
+    var roots=Object.keys(graph.getModel().cells).map(function(id){return graph.getModel().cells[id];}).filter(function(c){return c.vertex&&c.parent&&c.parent.id==='1'&&getAttribute(c,'graphKind')==='Fn';});
+    return roots.length===1?getAttribute(roots[0],'stableId'):diagramFunctionStableId(null);
+  }
+  async function performPresentationCommand(command) {
+    if(command.functionStableId!==presentationOwner())throw new Error('Wrong presentation document');
+    var matches=Object.keys(graph.getModel().cells).map(function(id){return graph.getModel().cells[id];}).filter(function(c){return c.vertex&&getAttribute(c,'stableId')===command.stableId&&(!command.cellId||c.id===command.cellId);});
+    if(matches.length!==1)throw new Error('Missing/ambiguous semantic target; specify cellId');
+    var cell=matches[0];
+    for(var p=cell.parent;p;p=p.parent)if(p.collapsed)graph.foldCells(false,false,[p]);
+    graph.getView().validate();
+    var state=graph.getView().getState(cell);if(!state)throw new Error('Target not visible');
+    if(command.action==='presentFocus'){
+      var view=graph.getView(), width=state.width/view.scale,height=state.height/view.scale;
+      var scale=Math.max(.1,Math.min(2,(graph.container.clientWidth-96)/width,(graph.container.clientHeight-96)/height));
+      graph.zoomTo(scale);graph.scrollCellToVisible(cell,true);await demoFrame();
+      return {stage:'focused',stableId:command.stableId,cellId:cell.id,scale:graph.getView().scale};
+    }
+    if(command.action==='presentPointer'){
+      var id=command.pointerId||'narrator';if(!/^[a-zA-Z0-9_-]{1,40}$/.test(id))throw new Error('Invalid pointer id');
+      var target={x:state.x+state.width,y:state.y+state.height/2},entry=presentationPointers[id];
+      if(!entry){var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('width','48');svg.setAttribute('height','64');svg.style.cssText='position:absolute;pointer-events:none;z-index:100;overflow:visible';var arrow=document.createElementNS(svg.namespaceURI,'path');arrow.setAttribute('d','M 0 0 L 5 38 L 14 28 L 29 51 L 38 45 L 23 23 L 37 20 Z');arrow.setAttribute('fill','#e53935');arrow.setAttribute('stroke','white');svg.appendChild(arrow);graph.container.appendChild(svg);entry=presentationPointers[id]={element:svg,x:target.x,y:target.y};}
+      var from={x:entry.x,y:entry.y},duration=Math.max(0,Math.min(5000,Number(command.durationMs)||0)),started=performance.now();
+      do{var t=duration?Math.min(1,(performance.now()-started)/duration):1,k=t*t*(3-2*t);entry.x=from.x+(target.x-from.x)*k;entry.y=from.y+(target.y-from.y)*k;entry.element.style.left=entry.x+'px';entry.element.style.top=entry.y+'px';if(t<1)await demoFrame();}while(t<1);
+      return {stage:'pointer-moved',stableId:command.stableId,cellId:cell.id,coordinateSource:'draw.io view geometry'};
+    }
+    throw new Error('Unsupported presentation command');
+  }
   // Scene control uses mxGeometry coordinates. It is isolated from flow diagrams.
   async function performSceneCommand(command) {
     var model = graph.getModel();
@@ -1314,6 +1352,7 @@ Draw.loadPlugin(function(ui) {
     throw new Error('Unsupported scene action');
   }
   async function performDemoCommand(command) {
+    if (command.action.indexOf('present') === 0) return performPresentationCommand(command);
     if (command.action.indexOf('scene') === 0) return performSceneCommand(command);
     var menu = graph.popupMenuHandler;
     if (command.action === 'dismissMenu') { menu.hideMenu(); demoMenuItems = []; return { stage: 'menu-closed' }; }
@@ -1366,8 +1405,7 @@ Draw.loadPlugin(function(ui) {
     if (demoPolling) return;
     demoPolling = true;
     try {
-      var sceneId = getAttribute(graph.getModel().getCell('1'), 'graphSceneId');
-      var owner = sceneId ? 'graph-scene:' + sceneId : diagramFunctionStableId(graph.getSelectionCell());
+      var owner = presentationOwner();
       if (!owner) return;
       var response = await fetch('http://127.0.0.1:17843/demo/next?functionStableId=' + encodeURIComponent(owner));
       if (!response.ok) return;
