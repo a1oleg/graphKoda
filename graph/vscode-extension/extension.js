@@ -21,7 +21,6 @@ let orchestratorEnsurePromise = null;
 let stubAppTerminal = null;
 let runtimeAnalysisPanel = null;
 let runtimeAnalysisState = null;
-let annotationVisualizerPanel = null;
 let runtimeHighlightBridgeRevision = 0;
 let runtimeHighlightBridgeMessage = null;
 let runtimeHighlightBridgeFunctionStableId = '';
@@ -175,14 +174,6 @@ async function activate(context) {
       } catch (error) { vscode.window.showErrorMessage(`Fisher-Yates: ${error?.message || error}`); }
     }),
     vscode.commands.registerCommand('coldKodeGraphExplorer.openRuntimeAnalysis', (item) => openRuntimeAnalysis(context, workspaceRoot, item || {})),
-    vscode.commands.registerCommand('coldKodeGraphExplorer.openAnnotationVisualizer', async (item) => {
-      try {
-        const stableId = typeof item === 'string' ? item : item?.payload?.stableId || item?.stableId || 'screens/REPL.tsx:3142:82:3146:3';
-        await openAnnotationVisualizer(context, workspaceRoot, stableId);
-      } catch (error) {
-        vscode.window.showErrorMessage(`Annotation visualizer failed: ${error?.message || error}`);
-      }
-    }),
     vscode.commands.registerCommand('coldKodeGraphExplorer.openHelpersFunctionalSegment', async () => {
       try {
         await openFunctionalSegmentDiagram(context, workspaceRoot, HELPERS_FUNCTIONAL_SEGMENT);
@@ -194,55 +185,6 @@ async function activate(context) {
   );
 }
 
-async function openAnnotationVisualizer(context, workspaceRoot, stableId) {
-  const query = new URLSearchParams({ stableId });
-  const launch = await callOrchestratorJson(workspaceRoot, `/api/annotations/visualizer?${query}`);
-  const baseUrl = new URL(resolveOrchestratorBaseUrl(workspaceRoot));
-  const url = new URL(launch.url);
-  if (url.origin !== baseUrl.origin || url.pathname !== '/annotation-plan/assets/replay.html') {
-    throw new Error('Unexpected annotation visualizer URL');
-  }
-  url.searchParams.set('host', 'vscode');
-  if (!annotationVisualizerPanel) {
-    annotationVisualizerPanel = vscode.window.createWebviewPanel(
-      'coldKodeAnnotationVisualizer', 'Annotation Visualizer', vscode.ViewColumn.Active,
-      { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [],
-        portMapping: [{ webviewPort: Number(url.port || 80), extensionHostPort: Number(url.port || 80) }] },
-    );
-    context.subscriptions.push(annotationVisualizerPanel);
-    annotationVisualizerPanel.webview.onDidReceiveMessage(async (message) => {
-      if (message?.type !== 'annotationVisualizer') return;
-      try {
-        if (message.action === 'addToChat' && typeof message.text === 'string') {
-          await addTextToCodexThread(message.text, typeof message.stableId === 'string' ? message.stableId : '', null, { includeStableIdHeader: false });
-        } else if (message.action === 'openSource' && typeof message.file === 'string') {
-          const sourceRoot = resolveSourceRoot(workspaceRoot);
-          const target = path.resolve(sourceRoot, message.file);
-          const relative = path.relative(sourceRoot, target);
-          if (relative.startsWith('..') || path.isAbsolute(relative) || !Number.isInteger(message.line) || message.line < 1) return;
-          const document = await vscode.workspace.openTextDocument(vscode.Uri.file(target));
-          const line = Math.min(message.line - 1, document.lineCount - 1);
-          await vscode.window.showTextDocument(document, { selection: new vscode.Range(line, 0, line, 0) });
-        }
-      } catch (error) { vscode.window.showErrorMessage(`Annotation action failed: ${error?.message || error}`); }
-    });
-    annotationVisualizerPanel.onDidDispose(() => { annotationVisualizerPanel = null; });
-  }
-  annotationVisualizerPanel.title = `Annotation: ${launch.title}`;
-  const nonce = crypto.randomBytes(16).toString('hex');
-  annotationVisualizerPanel.webview.html = `<!doctype html><html><head><meta charset="utf-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src ${escapeHtml(url.origin)}; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
-    <style>html,body{margin:0;width:100%;height:100%;overflow:hidden}iframe{display:block;border:0;width:100%;height:100%}</style>
-    </head><body><iframe title="Annotation Visualizer" src="${escapeHtml(url.href)}"></iframe>
-    <script nonce="${nonce}">
-      const vscode = acquireVsCodeApi(), frame = document.querySelector('iframe');
-      window.addEventListener('message', event => {
-        if (event.source !== frame.contentWindow || event.origin !== new URL(frame.src).origin) return;
-        if (event.data?.type === 'annotationVisualizer' && ['addToChat', 'openSource'].includes(event.data.action)) vscode.postMessage(event.data);
-      });
-    </script></body></html>`;
-  annotationVisualizerPanel.reveal(vscode.ViewColumn.Active);
-}
 
 function runStubApp(workspaceRoot) {
   if (stubAppTerminal) {

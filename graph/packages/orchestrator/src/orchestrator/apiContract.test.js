@@ -34,7 +34,6 @@ test('the descriptive API contract covers every concrete router branch', () => {
     ...literalRoutes(orchestratorSource, 'handleGet', 'handlePost').map((route) => `GET ${route}`),
     ...literalRoutes(orchestratorSource, 'handlePost', null).map((route) => `POST ${route}`),
     'GET /api/annotation-jobs/{jobId}',
-    'GET /annotation-plan/assets/{name}',
     'POST /api/annotation-jobs/{jobId}/lease-next',
     'POST /api/annotation-tasks/{taskId}/complete',
   ]);

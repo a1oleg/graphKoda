@@ -21,14 +21,4 @@ try {
   assert(await page.locator('svg').count());
   await page.screenshot({ path: 'tmp/fisher-yates/expanded.png' });
   console.log('Draw.io screenshot: tmp/fisher-yates/expanded.png');
-  const replay = browser.contexts()[0].pages().find(p => p.url().includes(':8793'));
-  if (replay && !process.argv[2]) {
-    await replay.reload();
-    await replay.waitForFunction(() => document.getElementById('counter')?.textContent.includes('/'));
-    let count = 0;
-    while (await replay.locator('#next').isEnabled() && count < 100) { await replay.locator('#next').click(); count++; }
-    assert(count > 0 && count < 100);
-    console.log('Visualizer:', await replay.locator('#counter').textContent());
-    await replay.locator('#reset').click();
-  }
 } finally { await browser.close(); }

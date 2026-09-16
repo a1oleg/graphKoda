@@ -33,9 +33,8 @@ block leaves room; otherwise the next block keeps a 60px clearance.
 `node dev/exportFisherYatesDrawio.mjs --show-secondary-parameters` restores their
 display; `--no-align-called-start` disables Start alignment. The selected options
 are stored on the draw.io diagram. Standalone function exports are unchanged.
-The standalone UI lives in `../fisher-yates`, kept at its existing local path;
-its GitHub repository is `a1oleg/annotation-visualizer`. It has its own ignored
-Aura configuration. Start it with `npm start` there (port 8793).
+The retired standalone annotation UI and Bloom demo are no longer part of the
+workspace. Fisher source, extraction, annotations and draw.io remain in coldKode.
 
 - Tool repository: `https://github.com/a1oleg/coldKode`.
 - Source repository: `https://github.com/a1oleg/claude-code`.

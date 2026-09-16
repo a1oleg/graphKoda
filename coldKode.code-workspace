@@ -9,10 +9,6 @@
       "path": "../claude-code"
     },
     {
-      "name": "Annotation Visualizer",
-      "path": "../fisher-yates"
-    },
-    {
       "name": "drawio-inspector",
       "path": "../drawio-inspector"
     },
