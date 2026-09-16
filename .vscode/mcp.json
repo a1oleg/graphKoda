@@ -1,5 +1,10 @@
 {
   "servers": {
+    "graphScene": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}\\graph\\scene\\mcp.mjs"]
+    },
     "neo4jGraph": {
       "type": "stdio",
       "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",

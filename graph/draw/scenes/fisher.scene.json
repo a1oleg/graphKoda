@@ -1,0 +1,517 @@
+{
+  "sceneId": "fisher",
+  "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+  "profile": "aura",
+  "revision": 21,
+  "nodes": {
+    "examples/fisher-yates/src/shuffle.ts:6:7:33:1": {
+      "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "cellId": "n-9f82312b8ad3d0e7d3d5e29d",
+      "labels": [
+        "FunctionImplementation",
+        "ValueDeclaration",
+        "Declaration",
+        "DeveloperDefined",
+        "Fn",
+        "CallableDeclaration"
+      ],
+      "title": "shuffle",
+      "x": 675.25,
+      "y": 80.5,
+      "width": 250,
+      "height": 76
+    },
+    "examples/fisher-yates/src/shuffle.ts:28:19:28:47": {
+      "stableId": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+      "cellId": "n-a4081a24b021d822799d8276",
+      "labels": [
+        "CodeEntity",
+        "CallSite",
+        "SyntaxComposition",
+        "Operation",
+        "CallResult",
+        "ExecutionOccurrence",
+        "Call"
+      ],
+      "title": "getRandom",
+      "x": 360,
+      "y": 300,
+      "width": 250,
+      "height": 76
+    },
+    "examples/fisher-yates/src/shuffle.ts:29:4:29:35": {
+      "stableId": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+      "cellId": "n-8e8589fc3e84f22862228de0",
+      "labels": [
+        "CallSite",
+        "Operation",
+        "Start",
+        "CallResult",
+        "ExecutionOccurrence",
+        "Call"
+      ],
+      "title": "swap",
+      "x": 960,
+      "y": 300,
+      "width": 250,
+      "height": 76
+    },
+    "examples/fisher-yates/src/shuffle.ts:35:0:38:1": {
+      "stableId": "examples/fisher-yates/src/shuffle.ts:35:0:38:1",
+      "cellId": "n-19b86d3cb977fe7ebba186fa",
+      "labels": [
+        "FunctionImplementation",
+        "ValueDeclaration",
+        "Declaration",
+        "DeveloperDefined",
+        "Fn",
+        "CallableDeclaration"
+      ],
+      "title": "getRandom",
+      "x": 360,
+      "y": 520,
+      "width": 250,
+      "height": 76
+    },
+    "examples/fisher-yates/src/shuffle.ts:40:0:43:1": {
+      "stableId": "examples/fisher-yates/src/shuffle.ts:40:0:43:1",
+      "cellId": "n-29d9c6caab83f4738fb898b0",
+      "labels": [
+        "FunctionImplementation",
+        "ValueDeclaration",
+        "Declaration",
+        "DeveloperDefined",
+        "Fn",
+        "CallableDeclaration",
+        "GenericDeclaration"
+      ],
+      "title": "swap",
+      "x": 960,
+      "y": 520,
+      "width": 250,
+      "height": 76
+    }
+  },
+  "edges": {
+    "5:53195ceb-011e-4e83-a520-fe67045788e3:1155208488792621952": {
+      "id": "5:53195ceb-011e-4e83-a520-fe67045788e3:1155208488792621952",
+      "cellId": "e-112b36ee2b390b464b50e079",
+      "type": "AST_CHILD",
+      "from": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "to": "examples/fisher-yates/src/shuffle.ts:28:19:28:47"
+    },
+    "5:53195ceb-011e-4e83-a520-fe67045788e3:1159712088419992448": {
+      "id": "5:53195ceb-011e-4e83-a520-fe67045788e3:1159712088419992448",
+      "cellId": "e-1091602a888aee95c33421dd",
+      "type": "AST_CHILD",
+      "from": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "to": "examples/fisher-yates/src/shuffle.ts:29:4:29:35"
+    },
+    "5:53195ceb-011e-4e83-a520-fe67045788e3:1152948992397542264": {
+      "id": "5:53195ceb-011e-4e83-a520-fe67045788e3:1152948992397542264",
+      "cellId": "e-2c862bcbd3b0686e6dfdade9",
+      "type": "CALLS",
+      "from": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+      "to": "examples/fisher-yates/src/shuffle.ts:35:0:38:1"
+    },
+    "5:53195ceb-011e-4e83-a520-fe67045788e3:1152948992397542270": {
+      "id": "5:53195ceb-011e-4e83-a520-fe67045788e3:1152948992397542270",
+      "cellId": "e-3e79253d71d695aaeb04e609",
+      "type": "CALLS",
+      "from": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+      "to": "examples/fisher-yates/src/shuffle.ts:40:0:43:1"
+    }
+  },
+  "pointers": {
+    "narrator": {
+      "x": 925.25,
+      "y": 156.5
+    }
+  },
+  "history": [
+    {
+      "revision": 1,
+      "at": "2026-09-16T05:13:51.003Z",
+      "action": "create",
+      "rootStableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1"
+    },
+    {
+      "revision": 2,
+      "at": "2026-09-16T05:14:38.058Z",
+      "sceneId": "fisher",
+      "expectedRevision": 1,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "direction": "out",
+      "types": [
+        "AST_CHILD"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+        "examples/fisher-yates/src/shuffle.ts:29:4:29:35"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 3,
+      "at": "2026-09-16T05:14:40.447Z",
+      "sceneId": "fisher",
+      "expectedRevision": 2,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+      "direction": "out",
+      "types": [
+        "CALLS"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:35:0:38:1"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 4,
+      "at": "2026-09-16T05:14:42.909Z",
+      "sceneId": "fisher",
+      "expectedRevision": 3,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+      "direction": "out",
+      "types": [
+        "CALLS"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:40:0:43:1"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 5,
+      "at": "2026-09-16T05:14:42.915Z",
+      "sceneId": "fisher",
+      "expectedRevision": 4,
+      "positions": [
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+          "x": 675.25,
+          "y": 80.5
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+          "x": 360,
+          "y": 300
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+          "x": 960,
+          "y": 300
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:35:0:38:1",
+          "x": 360,
+          "y": 520
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:40:0:43:1",
+          "x": 960,
+          "y": 520
+        }
+      ],
+      "action": "move"
+    },
+    {
+      "revision": 6,
+      "at": "2026-09-16T05:14:44.088Z",
+      "sceneId": "fisher",
+      "expectedRevision": 5,
+      "pointerId": "narrator",
+      "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "u": 0.8,
+      "v": 0.5,
+      "visible": true,
+      "live": false,
+      "durationMs": 600,
+      "action": "pointer"
+    },
+    {
+      "revision": 7,
+      "at": "2026-09-16T05:15:08.587Z",
+      "sceneId": "fisher",
+      "expectedRevision": 6,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "direction": "out",
+      "types": [
+        "AST_CHILD"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+        "examples/fisher-yates/src/shuffle.ts:29:4:29:35"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 8,
+      "at": "2026-09-16T05:15:10.918Z",
+      "sceneId": "fisher",
+      "expectedRevision": 7,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+      "direction": "out",
+      "types": [
+        "CALLS"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:35:0:38:1"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 9,
+      "at": "2026-09-16T05:15:13.283Z",
+      "sceneId": "fisher",
+      "expectedRevision": 8,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+      "direction": "out",
+      "types": [
+        "CALLS"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:40:0:43:1"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 10,
+      "at": "2026-09-16T05:15:13.289Z",
+      "sceneId": "fisher",
+      "expectedRevision": 9,
+      "positions": [
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+          "x": 675.25,
+          "y": 80.5
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+          "x": 360,
+          "y": 300
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+          "x": 960,
+          "y": 300
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:35:0:38:1",
+          "x": 360,
+          "y": 520
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:40:0:43:1",
+          "x": 960,
+          "y": 520
+        }
+      ],
+      "action": "move"
+    },
+    {
+      "revision": 11,
+      "at": "2026-09-16T05:15:14.439Z",
+      "sceneId": "fisher",
+      "expectedRevision": 10,
+      "pointerId": "narrator",
+      "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "u": 1,
+      "v": 1,
+      "visible": true,
+      "live": false,
+      "durationMs": 600,
+      "action": "pointer"
+    },
+    {
+      "revision": 12,
+      "at": "2026-09-16T05:20:53.307Z",
+      "sceneId": "fisher",
+      "expectedRevision": 11,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "direction": "out",
+      "types": [
+        "AST_CHILD"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+        "examples/fisher-yates/src/shuffle.ts:29:4:29:35"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 13,
+      "at": "2026-09-16T05:20:55.672Z",
+      "sceneId": "fisher",
+      "expectedRevision": 12,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+      "direction": "out",
+      "types": [
+        "CALLS"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:35:0:38:1"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 14,
+      "at": "2026-09-16T05:20:58.008Z",
+      "sceneId": "fisher",
+      "expectedRevision": 13,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+      "direction": "out",
+      "types": [
+        "CALLS"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:40:0:43:1"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 15,
+      "at": "2026-09-16T05:20:58.014Z",
+      "sceneId": "fisher",
+      "expectedRevision": 14,
+      "positions": [
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+          "x": 675.25,
+          "y": 80.5
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+          "x": 360,
+          "y": 300
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+          "x": 960,
+          "y": 300
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:35:0:38:1",
+          "x": 360,
+          "y": 520
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:40:0:43:1",
+          "x": 960,
+          "y": 520
+        }
+      ],
+      "action": "move"
+    },
+    {
+      "revision": 16,
+      "at": "2026-09-16T05:20:59.200Z",
+      "sceneId": "fisher",
+      "expectedRevision": 15,
+      "pointerId": "narrator",
+      "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "u": 1,
+      "v": 1,
+      "visible": true,
+      "live": false,
+      "durationMs": 600,
+      "action": "pointer"
+    },
+    {
+      "revision": 17,
+      "at": "2026-09-16T05:22:05.793Z",
+      "sceneId": "fisher",
+      "expectedRevision": 16,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "direction": "out",
+      "types": [
+        "AST_CHILD"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+        "examples/fisher-yates/src/shuffle.ts:29:4:29:35"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 18,
+      "at": "2026-09-16T05:22:08.169Z",
+      "sceneId": "fisher",
+      "expectedRevision": 17,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+      "direction": "out",
+      "types": [
+        "CALLS"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:35:0:38:1"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 19,
+      "at": "2026-09-16T05:22:10.696Z",
+      "sceneId": "fisher",
+      "expectedRevision": 18,
+      "stableId": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+      "direction": "out",
+      "types": [
+        "CALLS"
+      ],
+      "targets": [
+        "examples/fisher-yates/src/shuffle.ts:40:0:43:1"
+      ],
+      "action": "expand"
+    },
+    {
+      "revision": 20,
+      "at": "2026-09-16T05:22:10.702Z",
+      "sceneId": "fisher",
+      "expectedRevision": 19,
+      "positions": [
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+          "x": 675.25,
+          "y": 80.5
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:28:19:28:47",
+          "x": 360,
+          "y": 300
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:29:4:29:35",
+          "x": 960,
+          "y": 300
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:35:0:38:1",
+          "x": 360,
+          "y": 520
+        },
+        {
+          "stableId": "examples/fisher-yates/src/shuffle.ts:40:0:43:1",
+          "x": 960,
+          "y": 520
+        }
+      ],
+      "action": "move"
+    },
+    {
+      "revision": 21,
+      "at": "2026-09-16T05:22:11.889Z",
+      "sceneId": "fisher",
+      "expectedRevision": 20,
+      "pointerId": "narrator",
+      "stableId": "examples/fisher-yates/src/shuffle.ts:6:7:33:1",
+      "u": 1,
+      "v": 1,
+      "visible": true,
+      "live": false,
+      "durationMs": 600,
+      "action": "pointer"
+    }
+  ],
+  "file": "C:\\GitHub\\coldKode\\graph\\draw\\scenes\\fisher.drawio",
+  "coordinateSpace": "draw.io model units; x/y are top-left; no screen pixels"
+}

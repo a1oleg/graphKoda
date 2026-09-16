@@ -1237,6 +1237,7 @@ Draw.loadPlugin(function(ui) {
 
   function pollRuntimeHighlightBridge() {
     pollDemoBridge();
+    if (getAttribute(graph.getModel().getCell('1'), 'graphSceneId')) return;
     if (runtimeHighlightBridgePolling) return;
     runtimeHighlightBridgePolling = true;
     var functionStableId = diagramFunctionStableId(graph.getSelectionCell());
@@ -1271,7 +1272,49 @@ Draw.loadPlugin(function(ui) {
   var demoPolling = false;
   var demoMenuItems = [];
   function demoFrame() { return new Promise(function(resolve) { requestAnimationFrame(resolve); }); }
+  // Scene control uses mxGeometry coordinates. It is isolated from flow diagrams.
+  async function performSceneCommand(command) {
+    var model = graph.getModel();
+    var sceneId = getAttribute(model.getCell('1'), 'graphSceneId');
+    if (!sceneId || command.functionStableId !== 'graph-scene:' + sceneId) throw new Error('Wrong graph scene');
+    if (command.action === 'sceneSync') {
+      if (typeof command.xml !== 'string' || command.xml.length > 500000) throw new Error('Invalid scene XML');
+      var doc = mxUtils.parseXml(command.xml);
+      var incoming = doc.getElementsByTagName('mxGraphModel')[0];
+      if (!incoming || incoming.getAttribute('graphSceneId') !== sceneId) throw new Error('Scene identity mismatch');
+      ui.editor.setGraphXml(incoming);
+      await demoFrame();
+      return {stage:'scene-synced',sceneId:sceneId};
+    }
+    if (command.action === 'sceneRead') {
+      var view = graph.getView();
+      return {sceneId:sceneId,coordinateSpace:'draw.io model',camera:{scale:view.scale,translate:{x:view.translate.x,y:view.translate.y},scrollLeft:graph.container.scrollLeft,scrollTop:graph.container.scrollTop},
+        cells:Object.keys(model.cells).map(function(id) {
+          var c=model.cells[id], g=model.getGeometry(c);
+          return g ? {cellId:id,stableId:getAttribute(c,'stableId'),edge:!!c.edge,x:g.x,y:g.y,width:g.width,height:g.height,source:c.source&&c.source.id,target:c.target&&c.target.id,sourcePoint:g.sourcePoint,targetPoint:g.targetPoint} : null;
+        }).filter(Boolean)};
+    }
+    if (command.action === 'scenePointer') {
+      if (!/^[a-zA-Z0-9_-]{1,40}$/.test(command.pointerId)) throw new Error('Invalid pointer id');
+      var id='pointer-'+command.pointerId, cell=model.getCell(id), target=command.pointer;
+      if (!target) { if (cell) graph.removeCells([cell]); return {stage:'pointer-hidden'}; }
+      if (!Number.isFinite(target.x)||!Number.isFinite(target.y)||Math.abs(target.x)>100000||Math.abs(target.y)>100000) throw new Error('Invalid pointer coordinates');
+      var old=cell && model.getGeometry(cell), from=old && old.targetPoint || target;
+      if (!cell) cell=graph.insertEdge(graph.getDefaultParent(),id,'',null,null,'endArrow=classic;endFill=1;strokeColor=#e53935;strokeWidth=4;');
+      var duration=Math.max(0,Math.min(5000,Number(command.durationMs)||0)), started=performance.now();
+      do {
+        var t=duration?Math.min(1,(performance.now()-started)/duration):1,k=t*t*(3-2*t);
+        var x=from.x+(target.x-from.x)*k,y=from.y+(target.y-from.y)*k;
+        var geometry=model.getGeometry(cell).clone();geometry.setTerminalPoint(new mxPoint(x+42,y+55),true);geometry.setTerminalPoint(new mxPoint(x,y),false);
+        model.setGeometry(cell,geometry);
+        if(t<1)await demoFrame();
+      } while(t<1);
+      return {stage:'pointer-moved',sceneId:sceneId,cellId:id,x:target.x,y:target.y};
+    }
+    throw new Error('Unsupported scene action');
+  }
   async function performDemoCommand(command) {
+    if (command.action.indexOf('scene') === 0) return performSceneCommand(command);
     var menu = graph.popupMenuHandler;
     if (command.action === 'dismissMenu') { menu.hideMenu(); demoMenuItems = []; return { stage: 'menu-closed' }; }
     if (command.action === 'contextMenu') {
@@ -1323,7 +1366,8 @@ Draw.loadPlugin(function(ui) {
     if (demoPolling) return;
     demoPolling = true;
     try {
-      var owner = diagramFunctionStableId(graph.getSelectionCell());
+      var sceneId = getAttribute(graph.getModel().getCell('1'), 'graphSceneId');
+      var owner = sceneId ? 'graph-scene:' + sceneId : diagramFunctionStableId(graph.getSelectionCell());
       if (!owner) return;
       var response = await fetch('http://127.0.0.1:17843/demo/next?functionStableId=' + encodeURIComponent(owner));
       if (!response.ok) return;

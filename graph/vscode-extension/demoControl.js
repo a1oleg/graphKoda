@@ -9,7 +9,7 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState }) {
   const tokenFile = path.join(workspaceRoot, 'tmp', 'graph-demo-token.local');
   fs.mkdirSync(path.dirname(tokenFile), { recursive: true });
   fs.writeFileSync(tokenFile, token, { mode: 0o600 });
-  const allowed = { diagram: ['contextMenu', 'menuClick', 'dismissMenu'], runtime: ['waitForAnalysis', 'selectCase', 'selectSegment', 'selectAll'] };
+  const allowed = { diagram: ['contextMenu', 'menuClick', 'dismissMenu', 'sceneRead', 'sceneSync', 'scenePointer'], runtime: ['waitForAnalysis', 'selectCase', 'selectSegment', 'selectAll'] };
   function finish(id, reply) {
     const job = pending.get(id);
     if (!job) return false;
@@ -18,10 +18,11 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState }) {
     return true;
   }
   async function step(input) {
-    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id']
+    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs']
       .filter(key => input && Object.prototype.hasOwnProperty.call(input, key)).map(key => [key, input[key]]));
     if (!input || !allowed[input.surface]?.includes(input.action)) throw new Error('Unsupported demo surface/action');
     if (typeof input.functionStableId !== 'string' || !input.functionStableId) throw new Error('functionStableId is required');
+    if (input.action.startsWith('scene') && !/^graph-scene:[a-zA-Z0-9_-]{1,64}$/.test(input.functionStableId)) throw new Error('Scene identity required');
     if (pending.size) throw new Error('A demo action is already pending; await it before sending the next');
     if (input.surface === 'runtime' && input.action === 'waitForAnalysis') {
       const deadline = Date.now() + 15000;
@@ -71,7 +72,7 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState }) {
     if (url.pathname === '/demo/step' && request.headers.authorization !== `Bearer ${token}`) { json(401, { error: 'Demo token required' }); return true; }
     let body = '';
     try {
-      for await (const chunk of request) { body += chunk; if (body.length > 16384) throw new Error('Demo payload too large'); }
+      for await (const chunk of request) { body += chunk; if (body.length > 524288) throw new Error('Demo payload too large'); }
       const data = JSON.parse(body);
       if (url.pathname === '/demo/ack') json(200, { accepted: finish(data.requestId, data) });
       else json(200, await step(data));

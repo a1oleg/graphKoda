@@ -173,6 +173,13 @@ async function activate(context) {
         await openDrawioFile(outputPath);
       } catch (error) { vscode.window.showErrorMessage(`Fisher-Yates: ${error?.message || error}`); }
     }),
+    vscode.commands.registerCommand('coldKodeGraphExplorer.openFisherGraphScene', async () => {
+      try {
+        await new Promise((resolve, reject) => execFile(process.platform === 'win32' ? 'node.exe' : 'node', ['dev/openFisherGraphScene.mjs'],
+          {cwd:workspaceRoot,encoding:'utf8',windowsHide:true,timeout:30000}, (error,stdout,stderr) => error ? reject(new Error(stderr||error.message)) : resolve()));
+        await openDrawioFile(path.join(workspaceRoot,'graph/draw/scenes/fisher.drawio'));
+      } catch(error) { vscode.window.showErrorMessage(`Graph scene: ${error.message}`); }
+    }),
     vscode.commands.registerCommand('coldKodeGraphExplorer.openRuntimeAnalysis', (item) => openRuntimeAnalysis(context, workspaceRoot, item || {})),
     vscode.commands.registerCommand('coldKodeGraphExplorer.openHelpersFunctionalSegment', async () => {
       try {

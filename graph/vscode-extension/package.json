@@ -2,7 +2,7 @@
   "name": "coldkode-graph-explorer",
   "displayName": "coldKode Graph Explorer",
   "description": "VS Code graph explorer for function diagrams.",
-  "version": "0.0.424",
+  "version": "0.0.425",
   "publisher": "local",
   "private": true,
   "engines": {
@@ -25,6 +25,10 @@
   "main": "./extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "coldKodeGraphExplorer.openFisherGraphScene",
+        "title": "Фишер: управляемая сцена графа"
+      },
       {
         "command": "coldKodeGraphExplorer.demoStep",
         "title": "Demo: execute a structured step"
