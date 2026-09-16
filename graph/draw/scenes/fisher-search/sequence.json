@@ -1,0 +1,41 @@
+{
+  "source": "C:\\GitHub\\coldKode\\graph\\draw\\scenes\\fisher.drawio",
+  "sourceSha256": "39b8148f96766e2d861611f614a5d6dedbc3a8e6d9ae41d51337610d314ae4c6",
+  "kind": "illustrative-search-not-live-retrieval",
+  "canvas": [
+    1600,
+    900
+  ],
+  "frames": [
+    {
+      "stage": 1,
+      "file": "C:\\GitHub\\coldKode\\graph\\draw\\scenes\\fisher-search\\frame-01\\source.drawio",
+      "narration": ""
+    },
+    {
+      "stage": 2,
+      "file": "C:\\GitHub\\coldKode\\graph\\draw\\scenes\\fisher-search\\frame-02\\source.drawio",
+      "narration": "Сразу скажу, что нас будут интересовать слова «меняет» и «случайный»."
+    },
+    {
+      "stage": 3,
+      "file": "C:\\GitHub\\coldKode\\graph\\draw\\scenes\\fisher-search\\frame-03\\source.drawio",
+      "narration": "Проблема в том, что во всём остальном коде много чего обменивается, и случайность также используется в разных местах."
+    },
+    {
+      "stage": 4,
+      "file": "C:\\GitHub\\coldKode\\graph\\draw\\scenes\\fisher-search\\frame-04\\source.drawio",
+      "narration": "И когда придёт запрос: «Почему буквы меняются случайным образом?»…"
+    },
+    {
+      "stage": 5,
+      "file": "C:\\GitHub\\coldKode\\graph\\draw\\scenes\\fisher-search\\frame-05\\source.drawio",
+      "narration": "…даже если у нас есть индексы, мы найдём очень много вхождений, размазанных по всей кодовой базе."
+    },
+    {
+      "stage": 6,
+      "file": "C:\\GitHub\\coldKode\\graph\\draw\\scenes\\fisher-search\\frame-06\\source.drawio",
+      "narration": "Но для всех найденных кандидатов мы можем провести кластеризацию и обнаружить, что эти двое из ларца — getRandom и swap — вызываются общим родителем shuffle. А значит, именно они являются приоритетными для разбора в ответе на запрос."
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "file": "C:\\GitHub\\coldKode\\graph\\draw\\scenes\\fisher-search\\frame-03\\source.drawio",
+  "digest": "b018e301240eaad10e44f8e9cb1f2467c7b970604a4eaa395aa4e7afd205d895",
+  "mode": "rendered",
+  "page": 0,
+  "pageName": "Graph scene",
+  "engineVersion": null,
+  "warnings": [],
+  "checkedEdges": 5,
+  "checkedSegments": 7,
+  "checkedVertices": 22,
+  "totalFindings": 0,
+  "truncated": false,
+  "findings": [],
+  "limitations": [
+    "Sampled contours have finite precision. Terminal contact has 1px tolerance. SVG transforms/clipping/holes are not resolved.",
+    "Frames/groups are not solid obstacles. No application-specific port-sharing, family-axis or clearance rules are assumed.",
+    "XML-only mode does not prove route safety."
+  ]
+}

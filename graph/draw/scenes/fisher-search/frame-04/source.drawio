@@ -1,32 +1,32 @@
 <mxfile host="65bd71144e">
     <diagram id="fisher" name="Graph scene">
-        <mxGraphModel dx="1569" dy="1203" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+        <mxGraphModel dx="1600" dy="1203" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <object graphSceneId="fisher" label="" id="1">
                     <mxCell parent="0"/>
                 </object>
-                <object stableId="examples/fisher-yates/src/shuffle.ts:6:7:33:1" label="shuffle&#xa;реализация" labels="FunctionImplementation ValueDeclaration Declaration DeveloperDefined Fn CallableDeclaration" id="n-9f82312b8ad3d0e7d3d5e29d">
+                <object stableId="examples/fisher-yates/src/shuffle.ts:6:7:33:1" label="shuffle&#10;реализация" labels="FunctionImplementation ValueDeclaration Declaration DeveloperDefined Fn CallableDeclaration" id="n-9f82312b8ad3d0e7d3d5e29d">
                     <mxCell style="rounded=1;arcSize=20;whiteSpace=wrap;html=0;fontSize=18;fillColor=#004C54;fontColor=#ffffff;strokeColor=#004C54;" parent="1" vertex="1">
                         <mxGeometry x="63.25" y="162.5" width="250" height="76" as="geometry"/>
                     </mxCell>
                 </object>
                 <object stableId="examples/fisher-yates/src/shuffle.ts:28:19:28:47" label="getRandom()" labels="CodeEntity CallSite SyntaxComposition Operation CallResult ExecutionOccurrence Call" id="n-a4081a24b021d822799d8276">
-                    <mxCell style="shape=image;imageAspect=0;image=data:image/svg+xml,%3Csvg%20xmlns%3D&#39;http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg&#39;%20viewBox%3D&#39;0%200%20250%2050&#39;%20preserveAspectRatio%3D&#39;none&#39;%3E%3Cpath%20d%3D&#39;M%2010%201%20H%20240%20C%20243.26%205.179%20245.671%209.375%20247.232%2013.586%20C%20248.567%2017.216%20249.235%2021.012%20249.235%2024.975%20C%20249.235%2029.471%20248.338%2033.817%20246.543%2038.013%20C%20244.748%2042.208%20242.567%2045.87%20240%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z&#39;%20fill%3D&#39;%23DAE8FC&#39;%2F%3E%3Cpath%20d%3D&#39;M%2010%201%20H%20240%20C%20243.26%205.179%20245.671%209.375%20247.232%2013.586%20C%20248.567%2017.216%20249.235%2021.012%20249.235%2024.975%20C%20249.235%2029.471%20248.338%2033.817%20246.543%2038.013%20C%20244.748%2042.208%20242.567%2045.87%20240%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z&#39;%20fill%3D&#39;none&#39;%20stroke%3D&#39;%23007FFF&#39;%20stroke-width%3D&#39;1.5&#39;%20stroke-linejoin%3D&#39;miter&#39;%20vector-effect%3D&#39;non-scaling-stroke&#39;%2F%3E%3C%2Fsvg%3E;whiteSpace=wrap;html=0;labelPosition=center;align=center;verticalLabelPosition=middle;verticalAlign=middle;spacing=4;fontSize=18;fontColor=#000000;" parent="1" vertex="1">
+                    <mxCell style="shape=image;imageAspect=0;image=data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20250%2050'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M%2010%201%20H%20240%20C%20243.26%205.179%20245.671%209.375%20247.232%2013.586%20C%20248.567%2017.216%20249.235%2021.012%20249.235%2024.975%20C%20249.235%2029.471%20248.338%2033.817%20246.543%2038.013%20C%20244.748%2042.208%20242.567%2045.87%20240%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z'%20fill%3D'%23DAE8FC'%2F%3E%3Cpath%20d%3D'M%2010%201%20H%20240%20C%20243.26%205.179%20245.671%209.375%20247.232%2013.586%20C%20248.567%2017.216%20249.235%2021.012%20249.235%2024.975%20C%20249.235%2029.471%20248.338%2033.817%20246.543%2038.013%20C%20244.748%2042.208%20242.567%2045.87%20240%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z'%20fill%3D'none'%20stroke%3D'%23007FFF'%20stroke-width%3D'1.5'%20stroke-linejoin%3D'miter'%20vector-effect%3D'non-scaling-stroke'%2F%3E%3C%2Fsvg%3E;whiteSpace=wrap;html=0;labelPosition=center;align=center;verticalLabelPosition=middle;verticalAlign=middle;spacing=4;fontSize=18;fontColor=#000000;" parent="1" vertex="1">
                         <mxGeometry x="283" y="382" width="250" height="76" as="geometry"/>
                     </mxCell>
                 </object>
                 <object stableId="examples/fisher-yates/src/shuffle.ts:29:4:29:35" label="swap()" labels="CallSite Operation Start CallResult ExecutionOccurrence Call" id="n-8e8589fc3e84f22862228de0">
-                    <mxCell style="shape=image;imageAspect=0;image=data:image/svg+xml,%3Csvg%20xmlns%3D&#39;http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg&#39;%20viewBox%3D&#39;0%200%20250%2050&#39;%20preserveAspectRatio%3D&#39;none&#39;%3E%3Cpath%20d%3D&#39;M%2010%201%20H%20240%20C%20243.26%205.179%20245.671%209.375%20247.232%2013.586%20C%20248.567%2017.216%20249.235%2021.012%20249.235%2024.975%20C%20249.235%2029.471%20248.338%2033.817%20246.543%2038.013%20C%20244.748%2042.208%20242.567%2045.87%20240%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z&#39;%20fill%3D&#39;%23DAE8FC&#39;%2F%3E%3Cpath%20d%3D&#39;M%2010%201%20H%20240%20C%20243.26%205.179%20245.671%209.375%20247.232%2013.586%20C%20248.567%2017.216%20249.235%2021.012%20249.235%2024.975%20C%20249.235%2029.471%20248.338%2033.817%20246.543%2038.013%20C%20244.748%2042.208%20242.567%2045.87%20240%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z&#39;%20fill%3D&#39;none&#39;%20stroke%3D&#39;%23007FFF&#39;%20stroke-width%3D&#39;1.5&#39;%20stroke-linejoin%3D&#39;miter&#39;%20vector-effect%3D&#39;non-scaling-stroke&#39;%2F%3E%3C%2Fsvg%3E;whiteSpace=wrap;html=0;labelPosition=center;align=center;verticalLabelPosition=middle;verticalAlign=middle;spacing=4;fontSize=18;fontColor=#000000;" parent="1" vertex="1">
+                    <mxCell style="shape=image;imageAspect=0;image=data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20250%2050'%20preserveAspectRatio%3D'none'%3E%3Cpath%20d%3D'M%2010%201%20H%20240%20C%20243.26%205.179%20245.671%209.375%20247.232%2013.586%20C%20248.567%2017.216%20249.235%2021.012%20249.235%2024.975%20C%20249.235%2029.471%20248.338%2033.817%20246.543%2038.013%20C%20244.748%2042.208%20242.567%2045.87%20240%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z'%20fill%3D'%23DAE8FC'%2F%3E%3Cpath%20d%3D'M%2010%201%20H%20240%20C%20243.26%205.179%20245.671%209.375%20247.232%2013.586%20C%20248.567%2017.216%20249.235%2021.012%20249.235%2024.975%20C%20249.235%2029.471%20248.338%2033.817%20246.543%2038.013%20C%20244.748%2042.208%20242.567%2045.87%20240%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z'%20fill%3D'none'%20stroke%3D'%23007FFF'%20stroke-width%3D'1.5'%20stroke-linejoin%3D'miter'%20vector-effect%3D'non-scaling-stroke'%2F%3E%3C%2Fsvg%3E;whiteSpace=wrap;html=0;labelPosition=center;align=center;verticalLabelPosition=middle;verticalAlign=middle;spacing=4;fontSize=18;fontColor=#000000;" parent="1" vertex="1">
                         <mxGeometry x="283" y="602" width="250" height="76" as="geometry"/>
                     </mxCell>
                 </object>
-                <object stableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" label="getRandom&#xa;реализация" labels="FunctionImplementation ValueDeclaration Declaration DeveloperDefined Fn CallableDeclaration" id="n-19b86d3cb977fe7ebba186fa">
+                <object stableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" label="getRandom&#10;реализация" labels="FunctionImplementation ValueDeclaration Declaration DeveloperDefined Fn CallableDeclaration" id="n-19b86d3cb977fe7ebba186fa">
                     <mxCell style="rounded=1;arcSize=20;whiteSpace=wrap;html=0;fontSize=18;fillColor=#004C54;fontColor=#ffffff;strokeColor=#004C54;" parent="1" vertex="1">
                         <mxGeometry x="893" y="382" width="250" height="76" as="geometry"/>
                     </mxCell>
                 </object>
-                <object stableId="examples/fisher-yates/src/shuffle.ts:40:0:43:1" label="swap&#xa;реализация" labels="FunctionImplementation ValueDeclaration Declaration DeveloperDefined Fn CallableDeclaration GenericDeclaration" id="n-29d9c6caab83f4738fb898b0">
+                <object stableId="examples/fisher-yates/src/shuffle.ts:40:0:43:1" label="swap&#10;реализация" labels="FunctionImplementation ValueDeclaration Declaration DeveloperDefined Fn CallableDeclaration GenericDeclaration" id="n-29d9c6caab83f4738fb898b0">
                     <mxCell style="rounded=1;arcSize=20;whiteSpace=wrap;html=0;fontSize=18;fillColor=#004C54;fontColor=#ffffff;strokeColor=#004C54;" parent="1" vertex="1">
                         <mxGeometry x="893" y="602" width="250" height="76" as="geometry"/>
                     </mxCell>
@@ -73,81 +73,81 @@
                     </mxCell>
                 </object>
                 <object label="Перемешивает алфавит, проходя его с конца. На каждом шаге getRandom выбирает индекс в оставшейся части, а swap меняет выбранный элемент с текущим. Обработанная часть растёт; функция возвращает перемешанный массив." annotationOwnerStableId="examples/fisher-yates/src/shuffle.ts:6:7:33:1" revealOrder="3" annotationSource="authored-scene-snippet" id="snippet-shuffle">
-                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#f0f7f5;strokeColor=#7ea59d;" vertex="1" parent="1">
+                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#f0f7f5;strokeColor=#7ea59d;opacity=0;textOpacity=0;" vertex="1" parent="1">
                         <mxGeometry x="337.25" y="162.5" width="540" height="156" as="geometry"/>
                     </mxCell>
                 </object>
                 <object label="&quot;Выбирает&quot;, &quot;случайный&quot;, &quot;целый&quot;, ..." annotationOwnerStableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" revealOrder="1" annotationSource="authored-scene-snippet" id="3">
-                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;fontStyle=1" vertex="1" parent="1">
+                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;fontStyle=1;fontSize=14;spacing=6;verticalAlign=middle;" vertex="1" parent="1">
                         <mxGeometry x="1168" y="333" width="340" height="43" as="geometry"/>
                     </mxCell>
                 </object>
                 <object label="&quot;Меняет&quot;, &quot;местами&quot;, &quot;текущий&quot;, ..." annotationOwnerStableId="examples/fisher-yates/src/shuffle.ts:40:0:43:1" revealOrder="2" annotationSource="authored-scene-snippet" id="4">
-                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;fontStyle=1" vertex="1" parent="1">
+                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;fontStyle=1;fontSize=14;spacing=6;verticalAlign=middle;" vertex="1" parent="1">
                         <mxGeometry x="1167" y="553" width="340" height="40" as="geometry"/>
                     </mxCell>
                 </object>
-                <object stableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" label="Fn" labels="FunctionImplementation ValueDeclaration Declaration DeveloperDefined Fn CallableDeclaration" id="5">
+                <object label="Fn" id="5" presentationOnly="1" annotationSource="illustrative-search">
                     <mxCell style="rounded=1;arcSize=20;whiteSpace=wrap;html=0;fontSize=18;fillColor=#004C54;fontColor=#ffffff;strokeColor=#004C54;" vertex="1" parent="1">
                         <mxGeometry x="608" y="77" width="69" height="59" as="geometry"/>
                     </mxCell>
                 </object>
-                <object label="&quot;кочевряжиться&quot;, &quot;случайный&quot;, &quot;отож&quot;, ..." annotationOwnerStableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" revealOrder="1" annotationSource="authored-scene-snippet" id="6">
-                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;" vertex="1" parent="1">
+                <object label="&quot;кочевряжиться&quot;, &quot;случайный&quot;, &quot;отож&quot;, ..." annotationSource="illustrative-search" id="6" presentationOnly="1">
+                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;fontSize=14;spacing=6;verticalAlign=middle;" vertex="1" parent="1">
                         <mxGeometry x="687" y="79" width="340" height="57" as="geometry"/>
                     </mxCell>
                 </object>
-                <object stableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" label="Fn" labels="FunctionImplementation ValueDeclaration Declaration DeveloperDefined Fn CallableDeclaration" id="7">
+                <object label="Fn" id="7" presentationOnly="1" annotationSource="illustrative-search">
                     <mxCell style="rounded=1;arcSize=20;whiteSpace=wrap;html=0;fontSize=18;fillColor=#004C54;fontColor=#ffffff;strokeColor=#004C54;" vertex="1" parent="1">
                         <mxGeometry x="1111" y="29" width="69" height="59" as="geometry"/>
                     </mxCell>
                 </object>
-                <object label="&quot;Подспорье&quot;, &quot;случайный&quot;, &quot;давеча&quot;, ..." annotationOwnerStableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" revealOrder="1" annotationSource="authored-scene-snippet" id="8">
-                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;" vertex="1" parent="1">
+                <object label="&quot;Подспорье&quot;, &quot;случайный&quot;, &quot;давеча&quot;, ..." annotationSource="illustrative-search" id="8" presentationOnly="1">
+                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;fontSize=14;spacing=6;verticalAlign=middle;" vertex="1" parent="1">
                         <mxGeometry x="1190" y="32" width="340" height="57" as="geometry"/>
                     </mxCell>
                 </object>
-                <object stableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" label="Fn" labels="FunctionImplementation ValueDeclaration Declaration DeveloperDefined Fn CallableDeclaration" id="9">
+                <object label="Fn" id="9" presentationOnly="1" annotationSource="illustrative-search">
                     <mxCell style="rounded=1;arcSize=20;whiteSpace=wrap;html=0;fontSize=18;fillColor=#004C54;fontColor=#ffffff;strokeColor=#004C54;" vertex="1" parent="1">
                         <mxGeometry x="531" y="749" width="69" height="59" as="geometry"/>
                     </mxCell>
                 </object>
-                <object label="&quot;Зарок&quot;, &quot;случайный&quot;, &quot;нечистивый&quot;, ..." annotationOwnerStableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" revealOrder="1" annotationSource="authored-scene-snippet" id="10">
-                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;" vertex="1" parent="1">
+                <object label="&quot;Выбирает&quot;, &quot;случайный&quot;, &quot;целый&quot;, ..." annotationSource="illustrative-search" id="10" presentationOnly="1">
+                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;fontSize=14;spacing=6;verticalAlign=middle;" vertex="1" parent="1">
                         <mxGeometry x="610" y="751" width="340" height="57" as="geometry"/>
                     </mxCell>
                 </object>
-                <object stableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" label="Fn" labels="FunctionImplementation ValueDeclaration Declaration DeveloperDefined Fn CallableDeclaration" id="11">
+                <object label="Fn" id="11" presentationOnly="1" annotationSource="illustrative-search">
                     <mxCell style="rounded=1;arcSize=20;whiteSpace=wrap;html=0;fontSize=18;fillColor=#004C54;fontColor=#ffffff;strokeColor=#004C54;" vertex="1" parent="1">
                         <mxGeometry x="34" y="793" width="69" height="59" as="geometry"/>
                     </mxCell>
                 </object>
-                <object label="&quot;Меняет&quot;, &quot;оторопь&quot;, &quot;сызнова&quot;, ..." annotationOwnerStableId="examples/fisher-yates/src/shuffle.ts:40:0:43:1" revealOrder="2" annotationSource="authored-scene-snippet" id="12">
-                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;" vertex="1" parent="1">
+                <object label="&quot;Меняет&quot;, &quot;оторопь&quot;, &quot;сызнова&quot;, ..." annotationSource="illustrative-search" id="12" presentationOnly="1">
+                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;fontSize=14;spacing=6;verticalAlign=middle;" vertex="1" parent="1">
                         <mxGeometry x="119" y="793" width="340" height="56" as="geometry"/>
                     </mxCell>
                 </object>
-                <object stableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" label="Fn" labels="FunctionImplementation ValueDeclaration Declaration DeveloperDefined Fn CallableDeclaration" id="13">
+                <object label="Fn" id="13" presentationOnly="1" annotationSource="illustrative-search">
                     <mxCell style="rounded=1;arcSize=20;whiteSpace=wrap;html=0;fontSize=18;fillColor=#004C54;fontColor=#ffffff;strokeColor=#004C54;" vertex="1" parent="1">
                         <mxGeometry x="81" y="36" width="69" height="59" as="geometry"/>
                     </mxCell>
                 </object>
-                <object label="&quot;Меняет&quot;, &quot;надысь&quot;, &quot;отнюдь&quot;, ..." annotationOwnerStableId="examples/fisher-yates/src/shuffle.ts:40:0:43:1" revealOrder="2" annotationSource="authored-scene-snippet" id="14">
-                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;" vertex="1" parent="1">
+                <object label="&quot;Меняет&quot;, &quot;надысь&quot;, &quot;отнюдь&quot;, ..." annotationSource="illustrative-search" id="14" presentationOnly="1">
+                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;fontSize=14;spacing=6;verticalAlign=middle;" vertex="1" parent="1">
                         <mxGeometry x="166" y="36" width="277" height="56" as="geometry"/>
                     </mxCell>
                 </object>
-                <object stableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" label="Fn" labels="FunctionImplementation ValueDeclaration Declaration DeveloperDefined Fn CallableDeclaration" id="15">
+                <object label="Fn" id="15" presentationOnly="1" annotationSource="illustrative-search">
                     <mxCell style="rounded=1;arcSize=20;whiteSpace=wrap;html=0;fontSize=18;fillColor=#004C54;fontColor=#ffffff;strokeColor=#004C54;" vertex="1" parent="1">
-                        <mxGeometry x="1114" y="793" width="69" height="59" as="geometry"/>
+                        <mxGeometry x="1114" y="783" width="69" height="59" as="geometry"/>
                     </mxCell>
                 </object>
-                <object label="&quot;Меняет&quot;, &quot;шанежки&quot;, &quot;мячик&quot;, ..." annotationOwnerStableId="examples/fisher-yates/src/shuffle.ts:40:0:43:1" revealOrder="2" annotationSource="authored-scene-snippet" id="16">
-                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;" vertex="1" parent="1">
-                        <mxGeometry x="1199" y="793" width="340" height="56" as="geometry"/>
+                <object label="&quot;Меняет&quot;, &quot;местами&quot;, &quot;текущий&quot;, ..." annotationSource="illustrative-search" id="16" presentationOnly="1">
+                    <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;fontColor=#173b3e;fillColor=#FFFFCC;strokeColor=#7ea59d;fontSize=14;spacing=6;verticalAlign=middle;" vertex="1" parent="1">
+                        <mxGeometry x="1199" y="783" width="340" height="56" as="geometry"/>
                     </mxCell>
                 </object>
-            </root>
+            <mxCell id="search-camera" value="" vertex="1" parent="1" style="fillColor=none;strokeColor=none;opacity=0;"><mxGeometry x="0" y="0" width="1600" height="900" as="geometry"/></mxCell><object id="search-query" label="Почему буквы меняются случайным образом?" presentationOnly="1"><mxCell vertex="1" parent="1" style="rounded=1;whiteSpace=wrap;html=0;fontSize=24;fontStyle=1;spacing=16;fillColor=#e8efff;strokeColor=#4267b2;strokeWidth=2;"><mxGeometry x="337.25" y="162.5" width="540" height="156" as="geometry"/></mxCell></object></root>
         </mxGraphModel>
     </diagram>
 </mxfile>
