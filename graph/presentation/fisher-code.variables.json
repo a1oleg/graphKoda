@@ -1,0 +1,6 @@
+{
+  "input": {"steps": [
+    {"atMs":0,"action":"FOCUS","viewId":"fisher-flow","stableId":"examples/fisher-yates/src/shuffle.ts:40:0:43:1","cellId":"f2-block"},
+    {"atMs":800,"action":"OPEN_CODE","viewId":"fisher-flow","stableId":"examples/fisher-yates/src/shuffle.ts:40:0:43:1","placement":"RIGHT"}
+  ]}
+}

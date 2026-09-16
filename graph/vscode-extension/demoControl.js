@@ -3,13 +3,13 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagram, tokenFilePath }) {
+function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagram, openSource, tokenFilePath }) {
   const token = crypto.randomBytes(32).toString('hex');
   const pending = new Map();
   const tokenFile = tokenFilePath || path.join(workspaceRoot, 'tmp', 'graph-demo-token.local');
   fs.mkdirSync(path.dirname(tokenFile), { recursive: true });
   fs.writeFileSync(tokenFile, token, { mode: 0o600 });
-  const allowed = { editor:['openDiagram'], diagram: ['contextMenu', 'menuClick', 'dismissMenu', 'sceneRead', 'sceneSync', 'scenePointer','presentFocus','presentPointer'], runtime: ['waitForAnalysis', 'selectCase', 'selectSegment', 'selectAll'] };
+  const allowed = { editor:['openDiagram','openSource'], diagram: ['contextMenu', 'menuClick', 'dismissMenu', 'sceneRead', 'sceneSync', 'scenePointer','presentFocus','presentPointer'], runtime: ['waitForAnalysis', 'selectCase', 'selectSegment', 'selectAll'] };
   function finish(id, reply) {
     const job = pending.get(id);
     if (!job) return false;
@@ -18,7 +18,7 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
     return true;
   }
   async function step(input) {
-    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath']
+    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath','placement']
       .filter(key => input && Object.prototype.hasOwnProperty.call(input, key)).map(key => [key, input[key]]));
     if (!input || !allowed[input.surface]?.includes(input.action)) throw new Error('Unsupported demo surface/action');
     if (typeof input.functionStableId !== 'string' || !input.functionStableId) throw new Error('functionStableId is required');
@@ -29,6 +29,10 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
       const file=fs.realpathSync(path.resolve(workspaceRoot,input.filePath));
       const dir=fs.realpathSync(path.join(workspaceRoot,'graph/draw'))+path.sep;
       if(!file.toLowerCase().startsWith(dir.toLowerCase())||path.extname(file)!=='.drawio')throw new Error('Only workspace draw.io documents can be opened');
+      if(input.action==='openSource'){
+        if(typeof openSource!=='function')throw new Error('Source opener unavailable');
+        return openSource({stableId:input.stableId,placement:input.placement,diagramFile:file});
+      }
       await openDiagram(file);return {stage:'diagram-opened',file};
     }
     if (input.surface === 'runtime' && input.action === 'waitForAnalysis') {

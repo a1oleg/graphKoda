@@ -49,6 +49,10 @@ export async function validatePresentation(input){
   if(v.sceneId&&!simulated.has(v.id)){const s=await readScene(v.sceneId);simulated.set(v.id,new Set(Object.keys(s.nodes)));}
   const targetSet=simulated.get(v.id);
   let cellId=step.cellId;
+  if(step.action==='OPEN_CODE'){
+   if(!['RIGHT','BELOW'].includes(step.placement)||!/^.+:\d+:\d+:\d+:\d+$/.test(step.stableId||''))throw Error('OPEN_CODE requires source stableId and RIGHT/BELOW placement');
+   await entity(step.stableId,v.profile);
+  }
   if(['FOCUS','POINTER'].includes(step.action)){
    if(!step.stableId)throw Error('stableId is required');
    if(targetSet){if(!targetSet.has(step.stableId))throw Error('Target not visible at this step');}
@@ -65,7 +69,7 @@ export async function validatePresentation(input){
   if(step.action==='HIDE'){if(!step.targets?.length||step.targets.includes(v.rootStableId))throw Error('Invalid hide targets');step.targets.forEach(id=>targetSet.delete(id));}
   if(step.action==='ANNOTATIONS'&&(!Number.isInteger(step.visibleThrough)||step.visibleThrough<0))throw Error('visibleThrough required');
   if(step.action==='MOVE'&&(!step.positions?.length||step.positions.some(p=>!targetSet.has(p.stableId)||!Number.isFinite(p.x)||!Number.isFinite(p.y)||Math.abs(p.x)>100000||Math.abs(p.y)>100000)))throw Error('Invalid move');
-  if(!['OPEN','FOCUS','POINTER','EXPAND','HIDE','ANNOTATIONS','MOVE'].includes(step.action))throw Error('Unsupported step');
+  if(!['OPEN','OPEN_CODE','FOCUS','POINTER','EXPAND','HIDE','ANNOTATIONS','MOVE'].includes(step.action))throw Error('Unsupported step');
   compiled.push({...step,cellId,view:v});
  }
  return {valid:true,steps:compiled,hashes};
@@ -99,6 +103,7 @@ async function execute(r,send){
    const payload={surface:'diagram',functionStableId:owner,stableId:step.stableId,cellId:step.cellId,durationMs:step.durationMs??600};
    let result;
    if(step.action==='OPEN')result={opened:v.id};
+   else if(step.action==='OPEN_CODE')result=await send({...payload,surface:'editor',action:'openSource',filePath:v.file,placement:step.placement});
    else if(['FOCUS','POINTER'].includes(step.action))result=await send({...payload,action:step.action==='FOCUS'?'presentFocus':'presentPointer',pointerId:step.pointerId||'narrator'});
    else {
     let s=await readScene(v.sceneId);s=await mutateScene({...step,sceneId:v.sceneId,expectedRevision:s.revision,action:step.action.toLowerCase(),direction:step.direction?.toLowerCase()});

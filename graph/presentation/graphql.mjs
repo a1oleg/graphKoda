@@ -3,7 +3,8 @@ import {readScene} from '../scene/scene.mjs';
 export const presentationSDL=`
  enum PresentationViewKind { FUNCTIONS FLOW GRAPH }
  enum GraphDirection { IN OUT }
- enum PresentationAction { OPEN FOCUS POINTER EXPAND HIDE MOVE ANNOTATIONS }
+ enum PresentationAction { OPEN OPEN_CODE FOCUS POINTER EXPAND HIDE MOVE ANNOTATIONS }
+ enum SourcePlacement { RIGHT BELOW }
  enum PresentationControl { PAUSE RESUME CANCEL }
  type PresentationView { id: ID!, kind: PresentationViewKind!, file: String!, sceneId: ID, rootStableId: ID!, profile: String! }
  type EntityRepresentation { viewId: ID!, file: String!, cellId: ID!, stableId: ID!, kind: PresentationViewKind! }
@@ -12,7 +13,7 @@ export const presentationSDL=`
  input PresentationStepInput {
   atMs: Int!, action: PresentationAction!, viewId: ID!, stableId: ID, cellId: ID,
   durationMs: Int, pointerId: ID, direction: GraphDirection, types: [String!], targets: [ID!],
-  positions: [PresentationPosition!], visibleThrough: Int
+  positions: [PresentationPosition!], visibleThrough: Int, placement: SourcePlacement
  }
  input PresentationInput { steps: [PresentationStepInput!]! }
  type PresentationRun { runId: ID!, status: String!, stepIndex: Int!, events: JSON!, error: String }

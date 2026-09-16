@@ -121,6 +121,7 @@ async function activate(context) {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || context.extensionPath;
   demoControl = createDemoControl({ workspaceRoot,
     openDiagram: file=>openDrawioFile(file),
+    openSource: require('./presentationSource').createPresentationSourceOpener({vscode,roots:[workspaceRoot,resolveSourceRoot(workspaceRoot)],openDiagram:openDrawioFile}),
     runtimeSend: message => runtimeAnalysisPanel?.webview.postMessage(message) || false,
     runtimeState: () => runtimeAnalysisState });
   context.subscriptions.push({ dispose: () => demoControl?.dispose() },
