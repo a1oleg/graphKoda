@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram id="fisher" name="Graph scene">
-        <mxGraphModel dx="1569" dy="1203" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+        <mxGraphModel dx="723" dy="1053" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <object graphSceneId="fisher" label="" id="1">
@@ -59,9 +59,6 @@
                         <mxGeometry relative="1" as="geometry"/>
                     </mxCell>
                 </object>
-                <mxCell id="17" value="" style="edgeStyle=none;html=1;" edge="1" parent="1" source="snippet-random" target="3">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
                 <object label="Выбирает случайный целый индекс от нуля до переданной границы, не включая её. Math.random задаёт случайное число, Math.floor округляет результат вниз." annotationOwnerStableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" revealOrder="1" annotationSource="authored-scene-snippet" id="snippet-random">
                     <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#f0f7f5;strokeColor=#7ea59d;" vertex="1" parent="1">
                         <mxGeometry x="1167" y="382" width="340" height="104" as="geometry"/>
@@ -74,7 +71,7 @@
                 </object>
                 <object label="Перемешивает алфавит, проходя его с конца. На каждом шаге getRandom выбирает индекс в оставшейся части, а swap меняет выбранный элемент с текущим. Обработанная часть растёт; функция возвращает перемешанный массив." annotationOwnerStableId="examples/fisher-yates/src/shuffle.ts:6:7:33:1" revealOrder="3" annotationSource="authored-scene-snippet" id="snippet-shuffle">
                     <mxCell style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=12;fontSize=16;fontColor=#173b3e;fillColor=#f0f7f5;strokeColor=#7ea59d;" vertex="1" parent="1">
-                        <mxGeometry x="337.25" y="162.5" width="540" height="156" as="geometry"/>
+                        <mxGeometry x="337.25" y="162.5" width="540" height="103.5" as="geometry"/>
                     </mxCell>
                 </object>
                 <object label="&quot;Выбирает&quot;, &quot;случайный&quot;, &quot;целый&quot;, ..." annotationOwnerStableId="examples/fisher-yates/src/shuffle.ts:35:0:38:1" revealOrder="1" annotationSource="authored-scene-snippet" id="3">
