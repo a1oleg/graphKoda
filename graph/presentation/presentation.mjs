@@ -35,8 +35,10 @@ export async function graphNeighbors({viewId,stableId,direction,types,limit=30})
  return neighbors({sceneId:v.sceneId,stableId,direction:direction.toLowerCase(),types,limit});
 }
 export async function bridge(input){
- const token=(await fs.readFile(path.join(root,'tmp/graph-demo-token.local'),'utf8')).trim();
- const r=await fetch('http://127.0.0.1:17843/demo/step',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(input),signal:AbortSignal.timeout(20000)});
+ const health=await fetch('http://127.0.0.1:17844/health',{signal:AbortSignal.timeout(3000)}).then(r=>r.json());
+ if(health.presentationWindow!==true)throw Error('Dedicated presentation window is not ready');
+ const token=(await fs.readFile(path.join(root,'tmp/graph-presenter-token.local'),'utf8')).trim();
+ const r=await fetch('http://127.0.0.1:17844/demo/step',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(input),signal:AbortSignal.timeout(20000)});
  const data=await r.json();if(!r.ok)throw Error(data.error||'Bridge failure');return data;
 }
 export async function validatePresentation(input){

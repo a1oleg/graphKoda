@@ -1271,7 +1271,16 @@ Draw.loadPlugin(function(ui) {
   // Never change graph geometry or resolve a semantic id to an arbitrary first tile.
   var demoPolling = false;
   var demoMenuItems = [];
-  function demoFrame() { return new Promise(function(resolve) { requestAnimationFrame(resolve); }); }
+  function demoFrame() {
+    // OBS can capture this window while the narrator works in another window.
+    // Chromium may suspend animation frames in an unfocused/occluded webview.
+    return new Promise(function(resolve) {
+      var frame, timer;
+      function done() { clearTimeout(timer); cancelAnimationFrame(frame); resolve(); }
+      timer = setTimeout(done, 100);
+      frame = requestAnimationFrame(done);
+    });
+  }
   var presentationPointers = {};
   function clearPresentationPointers() {
     Object.keys(presentationPointers).forEach(function(id){presentationPointers[id].element.remove();});

@@ -6,6 +6,7 @@ const { execFile, spawn } = require('node:child_process');
 const vscode = require('vscode');
 const { createDemoControl } = require('./demoControl');
 let demoControl = null;
+let presentationContext = null;
 const { diagramFilePath, ensureDiagramFile } = require('./diagramFiles');
 const { resolveActiveDiagramPath } = require('./diagramContext');
 const {
@@ -26,7 +27,8 @@ let runtimeHighlightBridgeMessage = null;
 let runtimeHighlightBridgeFunctionStableId = '';
 const diagramPanelsByPath = new Map();
 
-const GRAPH_COMMAND_PORT = 17843;
+const PRESENTATION_WINDOW = vscode.workspace.getConfiguration('coldKode').get('presentationWindow', false) === true;
+const GRAPH_COMMAND_PORT = PRESENTATION_WINDOW ? 17844 : 17843;
 
 const EXTENSION_VERSION = require('./package.json').version;
 const FUNCTION_DIAGRAMS = [
@@ -118,8 +120,10 @@ class GraphExplorerProvider {
 }
 
 async function activate(context) {
+  presentationContext = context;
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || context.extensionPath;
   demoControl = createDemoControl({ workspaceRoot,
+    tokenFilePath: path.join(workspaceRoot, 'tmp', PRESENTATION_WINDOW ? 'graph-presenter-token.local' : 'graph-demo-token.local'),
     openDiagram: file=>openDrawioFile(file),
     openSource: require('./presentationSource').createPresentationSourceOpener({vscode,roots:[workspaceRoot,resolveSourceRoot(workspaceRoot)],openDiagram:openDrawioFile}),
     runtimeSend: message => runtimeAnalysisPanel?.webview.postMessage(message) || false,
@@ -379,7 +383,7 @@ async function startGraphCommandServer(context, workspaceRoot) {
     if (request.method === 'GET' && requestUrl.pathname === '/health') {
       response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       response.end(JSON.stringify({ version: EXTENSION_VERSION, extensionPath: __dirname,
-        runtimePanelOpen: Boolean(runtimeAnalysisPanel) }));
+        runtimePanelOpen: Boolean(runtimeAnalysisPanel), presentationWindow: PRESENTATION_WINDOW, workspaceRoot, pid: process.pid }));
       return;
     }
     if (request.method === 'GET' && requestUrl.pathname === '/runtime-highlight') {
@@ -455,6 +459,10 @@ async function openNodeDiagram(context, workspaceRoot, node) {
 }
 
 async function openDrawioFile(filePath) {
+  if (PRESENTATION_WINDOW) {
+    const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    return openDrawioDiagramPanel(presentationContext, workspaceRoot, { title: path.basename(filePath), filePath: path.resolve(filePath) });
+  }
   await vscode.commands.executeCommand(
     'vscode.open',
     vscode.Uri.file(path.resolve(filePath)),
@@ -1444,7 +1452,10 @@ async function getDrawioStaticBaseUrl(workspaceRoot) {
         'cache-control': 'no-store',
         'access-control-allow-origin': '*',
       });
-      fs.createReadStream(filePath).pipe(response);
+      // The fork must call the bridge belonging to this window, including its CSP.
+      if (PRESENTATION_WINDOW && ['.js', '.html'].includes(path.extname(filePath))) {
+        response.end(fs.readFileSync(filePath, 'utf8').replaceAll('http://127.0.0.1:17843', `http://127.0.0.1:${GRAPH_COMMAND_PORT}`));
+      } else fs.createReadStream(filePath).pipe(response);
     } catch (error) {
       response.writeHead(500);
       response.end(String(error?.message || error));

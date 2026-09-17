@@ -1,0 +1,13 @@
+{
+  "folders": [{"path": "../.."}],
+  "settings": {
+    "coldKode.presentationWindow": true,
+    "window.title": "coldKode PRESENTATION",
+    "window.titleBarStyle": "custom",
+    "workbench.startupEditor": "none",
+    "workbench.activityBar.location": "hidden",
+    "workbench.statusBar.visible": false,
+    "editor.minimap.enabled": false,
+    "chat.disableAIFeatures": true
+  }
+}
