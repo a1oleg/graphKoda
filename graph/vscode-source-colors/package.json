@@ -1,0 +1,12 @@
+{
+  "name": "coldkode-source-colors",
+  "displayName": "coldKode Source Colors",
+  "publisher": "local",
+  "version": "0.0.1",
+  "engines": {"vscode": "^1.90.0"},
+  "main": "./extension.js",
+  "activationEvents": ["onLanguage:typescript", "onLanguage:typescriptreact", "onLanguage:javascript", "onLanguage:javascriptreact"],
+  "contributes": {"configuration": {"title": "coldKode source colors", "properties": {
+    "coldKode.sourceColors.enabled": {"type": "boolean", "default": false, "description": "Semantic call brackets and member-chain colors."}
+  }}}
+}

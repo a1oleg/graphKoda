@@ -20,6 +20,75 @@
     }
   ],
   "settings": {
+    "workbench.colorTheme": "Default Dark Modern",
+    "editor.semanticHighlighting.enabled": true,
+    "coldKode.sourceColors.enabled": true,
+    "editor.bracketPairColorization.enabled": false,
+    "editor.semanticTokenColorCustomizations": {
+      "rules": {
+        "variable": "#CE9178",
+        "parameter": "#CE9178",
+        "property": "#CE9178",
+        "enumMember": "#CE9178",
+        "function": "#569CD6",
+        "method": "#569CD6",
+        "variable.defaultLibrary": "#C586C0",
+        "property.defaultLibrary": "#C586C0",
+        "namespace.defaultLibrary": "#C586C0",
+        "string": "#D4D4D4",
+        "keyword": "#C586C0",
+        "operator": "#C586C0",
+        "type": "#4EC9B0",
+        "class": "#4EC9B0",
+        "interface": "#4EC9B0",
+        "enum": "#4EC9B0",
+        "typeParameter": "#4EC9B0",
+        "type.defaultLibrary": "#C586C0",
+        "class.defaultLibrary": "#C586C0",
+        "interface.defaultLibrary": "#C586C0",
+        "function.defaultLibrary": "#C586C0",
+        "method.defaultLibrary": "#C586C0"
+      }
+    },
+    "editor.tokenColorCustomizations": {
+      "textMateRules": [
+        {
+          "name": "coldKode: variables and parameters",
+          "scope": ["variable.other.readwrite", "variable.other.constant", "variable.parameter", "variable.other.property", "variable.other.object", "meta.object-literal.key"],
+          "settings": {"foreground": "#CE9178"}
+        },
+        {
+          "name": "coldKode: calls",
+          "scope": ["entity.name.function", "support.function"],
+          "settings": {"foreground": "#569CD6"}
+        },
+        {
+          "name": "coldKode: language types and operators",
+          "scope": ["support.type.primitive", "keyword.operator", "storage.type", "storage.modifier", "keyword.control", "support.variable", "support.class.builtin"],
+          "settings": {"foreground": "#C586C0"}
+        },
+        {
+          "name": "coldKode: literal strings",
+          "scope": ["string.quoted", "string.template", "punctuation.definition.string"],
+          "settings": {"foreground": "#D4D4D4"}
+        },
+        {
+          "name": "coldKode: call parentheses",
+          "scope": ["meta.function-call meta.brace.round"],
+          "settings": {"foreground": "#569CD6"}
+        },
+        {
+          "name": "coldKode: block braces",
+          "scope": ["punctuation.definition.block"],
+          "settings": {"foreground": "#C586C0"}
+        },
+        {
+          "name": "coldKode: object braces",
+          "scope": ["meta.objectliteral punctuation.definition.block", "meta.object.type punctuation.definition.block"],
+          "settings": {"foreground": "#CE9178"}
+        }
+      ]
+    },
     "workbench.editorAssociations": {
       "*.drawio": "hediet.vscode-drawio-text"
     },
