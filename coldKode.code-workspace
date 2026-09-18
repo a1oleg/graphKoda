@@ -20,7 +20,7 @@
     }
   ],
   "settings": {
-    "workbench.colorTheme": "Default Dark Modern",
+    "workbench.colorTheme": "Dark Modern",
     "editor.semanticHighlighting.enabled": true,
     "coldKode.sourceColors.enabled": true,
     "editor.bracketPairColorization.enabled": false,
