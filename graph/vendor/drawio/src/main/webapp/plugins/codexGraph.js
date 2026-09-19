@@ -1316,13 +1316,14 @@ Draw.loadPlugin(function(ui) {
     var state=graph.getView().getState(cell);if(!state)throw new Error('Target not visible');
     if(command.action==='presentRead'){
       var v=graph.getView();
-      return {stableId:command.stableId,cellId:cell.id,camera:{scale:v.scale,translate:{x:v.translate.x,y:v.translate.y},scrollLeft:graph.container.scrollLeft,scrollTop:graph.container.scrollTop},annotations:allCells.filter(function(c){return c.vertex&&getAttribute(c,'annotationTargetId')===cell.id;}).map(function(c){return {cellId:c.id,text:graph.convertValueToString(c)};})};
+      return {stableId:command.stableId,cellId:cell.id,camera:{scale:v.scale,translate:{x:v.translate.x,y:v.translate.y},scrollLeft:graph.container.scrollLeft,scrollTop:graph.container.scrollTop},annotations:allCells.filter(function(c){var owner=model.getCell(getAttribute(c,'annotationTargetId'));return c.vertex&&owner&&getAttribute(owner,'stableId')===command.stableId;}).map(function(c){return {cellId:c.id,text:graph.convertValueToString(c)};})};
     }
     if(command.action==='presentFocus'){
       // Reapply before framing: a restored floating Format window can cover targets.
       hidePresenterFormatPanel();
       var view=graph.getView(), bounds=new mxRectangle(state.x,state.y,state.width,state.height), included=[cell.id];
-      if(command.includeAnnotations)allCells.forEach(function(c){if(c.vertex&&getAttribute(c,'annotationTargetId')===cell.id){var s=view.getState(c);if(s){bounds.add(new mxRectangle(s.x,s.y,s.width,s.height));included.push(c.id);}}});
+      if(command.includeStep&&cell.parent&&/^fold-row-/.test(cell.parent.id))allCells.forEach(function(c){if(c.vertex&&c!==cell&&c.parent===cell.parent){var s=view.getState(c);if(s){bounds.add(new mxRectangle(s.x,s.y,s.width,s.height));included.push(c.id);}}});
+      if(command.includeAnnotations)allCells.forEach(function(c){var owner=model.getCell(getAttribute(c,'annotationTargetId'));if(c.vertex&&owner&&getAttribute(owner,'stableId')===command.stableId){var s=view.getState(c);if(s){bounds.add(new mxRectangle(s.x,s.y,s.width,s.height));included.push(c.id);}}});
       var logical=new mxRectangle(bounds.x/view.scale-view.translate.x,bounds.y/view.scale-view.translate.y,bounds.width/view.scale,bounds.height/view.scale);
       var width=logical.width,height=logical.height;
       var scale=Math.max(.1,Math.min(2,(graph.container.clientWidth-96)/width,(graph.container.clientHeight-96)/height));
