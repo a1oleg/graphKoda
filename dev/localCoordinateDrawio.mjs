@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {updateFunctionBoundaryCaptions} from './functionBoundaryCaption.mjs';
 
 const PORT_STUB_GAP_RATIO = 0.18;
 const PORT_STUB_GAP_MIN = 14;
@@ -8077,7 +8078,7 @@ export function makeDrawio(nodes, edges, options = {}) {
     : Math.ceil(Math.max(maxCellX, foldingLayout.x + foldingLayout.width) - Math.min(minCellX, foldingLayout.x, 0) + 240);
   const pageHeight = Math.ceil(maxCellY + 240);
 
-  return `<mxfile host="app.diagrams.net" modified="2026-07-18T00:00:00.000Z" agent="Codex" version="24.7.17"><diagram id="${diagramId}" name="${diagramName}"><mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="${suppressFoldingContainers || disableFoldingMechanics ? 0 : 1}" page="1" pageScale="1" pageWidth="${pageWidth}" pageHeight="${pageHeight}" math="0" shadow="0"><root><mxCell id="0" /><mxCell id="1" parent="0" />${foldingCells.join('')}${nodeCells.join('')}${edgeCells.join('')}</root></mxGraphModel></diagram></mxfile>`;
+  return updateFunctionBoundaryCaptions(`<mxfile host="app.diagrams.net" modified="2026-07-18T00:00:00.000Z" agent="Codex" version="24.7.17"><diagram id="${diagramId}" name="${diagramName}"><mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="${suppressFoldingContainers || disableFoldingMechanics ? 0 : 1}" page="1" pageScale="1" pageWidth="${pageWidth}" pageHeight="${pageHeight}" math="0" shadow="0"><root><mxCell id="0" /><mxCell id="1" parent="0" />${foldingCells.join('')}${nodeCells.join('')}${edgeCells.join('')}</root></mxGraphModel></diagram></mxfile>`, methodMosaicImage).xml;
 }
 
 function collectEffectiveBridgeIds(nodes, edges) {
