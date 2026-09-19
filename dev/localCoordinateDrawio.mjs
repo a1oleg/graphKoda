@@ -1055,6 +1055,11 @@ function structuredContainerOverlaySize(node) {
 }
 
 function structuredContainerPartStyle(node, part, height = 40) {
+  if ((part?.labels || []).includes('BooleanFlag')) {
+    const image = horizontalMosaicImage('single', '#ffffff', DRAWIO_PALETTE.valueStroke,
+      true, variableBoxWidth(part.text), (part.labels || []).includes('Virtual'));
+    return `shape=image;imageAspect=0;image=${image};whiteSpace=wrap;html=1;align=center;verticalAlign=middle;spacing=5;fontColor=#000000;`;
+  }
   if (part?.kind === 'function-container') {
     return methodNodeStyle(node, 'single', Math.max(
       variableNodeWidth(part?.text),
@@ -5301,6 +5306,27 @@ function alignMethodChainMosaics(nodes, nodeBoxes) {
 function alignContainerProducerMosaics(nodes, edges, nodeBoxes) {
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   let moved = 0;
+  for (const evaluation of edges.filter(edge => edge.type === 'EVAL')) {
+    const source = nodeById.get(evaluation.start);
+    const entry = nodeBoxes.get(evaluation.end);
+    if (!hasLabel(source, 'Branch') || !hasLabel(source, 'BooleanFlag') || !entry) continue;
+    const container = structuredContainerOverlayPartBox(source, nodeBoxes.get(source.id), 'container');
+    if (!container) continue;
+    const family = new Set([evaluation.end]);
+    const familyTypes = new Set(['ARG', 'FIELD', 'ArgJoin', 'FieldJoin', 'REQUEST', 'INVOKES']);
+    for (const id of family) for (const edge of edges) {
+      if (edge.start === id && familyTypes.has(edge.type) && edge.end !== source.id) family.add(edge.end);
+    }
+    const dx = container.x + container.width + 36 - entry.x;
+    const dy = container.y + container.height / 2 - (entry.y + entry.height / 2);
+    for (const id of family) {
+      const box = nodeBoxes.get(id);
+      if (!box) continue;
+      box.x += dx;
+      box.y += dy;
+      moved += 1;
+    }
+  }
   for (const assignment of nodes.filter((node) => node.props?.hybridVisualRole === 'assignment')) {
     const targetId = assignment.props?.hybridOverlayOwnerStableId
       || assignment.props?.hybrid_overlay_owner_stable_id;
@@ -5379,7 +5405,7 @@ function alignCallClosuresToOpenings(
       closure.props?.sourceCallStableId || closure.props?.source_call_stable_id || '',
     ).trim();
     const label = String(closure.props?.diaName || closure.props?.dia_name || closure.props?.label || '').trim();
-    return Boolean(sourceCallStableId && label === ')');
+    return Boolean(sourceCallStableId && (label === ')' || splitCallBoundarySide(closure) === 'end'));
   });
   // Nested call closures can themselves be the final member of an outer call.
   // Iterate to propagate the right edge from the innermost family outwards.
@@ -5387,7 +5413,8 @@ function alignCallClosuresToOpenings(
     let passMoved = 0;
     for (const closure of closures) {
       const sourceCallStableId = String(
-        closure.props?.sourceCallStableId || closure.props?.source_call_stable_id || '',
+        closure.props?.callBoundaryPeerStableId || closure.props?.call_boundary_peer_stable_id
+        || closure.props?.sourceCallStableId || closure.props?.source_call_stable_id || '',
       ).trim();
       const openingBox = nodeBoxes.get(sourceCallStableId);
       const closureBox = nodeBoxes.get(closure.id);

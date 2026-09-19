@@ -8493,6 +8493,15 @@ class FunctionFlowGraphBuilder {
 
   private materializeBooleanOperandSemantics(expression: ts.Expression, branchStableId: string) {
     const branch = this.nodeByStableId(branchStableId);
+    const current = unwrapExpression(expression);
+    if (branch && ts.isPropertyAccessExpression(current)) {
+      const receiver = unwrapExpression(current.expression);
+      const call = unwrapAwaitedExpression(receiver);
+      if (ts.isCallExpression(call) && this.callBoundaryDesign(call) === 'split') {
+        this.materializeComputedPredicateField(current, receiver, branchStableId);
+        return;
+      }
+    }
     const parts = this.buildRenderParts(unwrapExpression(expression), branchStableId, true);
     if (!branch || !parts) return;
     const renderParts = JSON.parse(parts.json) as RenderPartDescriptor[];
@@ -8522,6 +8531,79 @@ class FunctionFlowGraphBuilder {
     branch.renderPartsJson = JSON.stringify(renderParts);
     branch.renderPartsLayout = parts.layout;
     branch.renderPrimaryPartIndex = parts.primaryIndex;
+  }
+
+  private materializeComputedPredicateField(
+    expression: ts.PropertyAccessExpression,
+    receiver: ts.Expression,
+    branchStableId: string,
+  ) {
+    const branch = this.nodeByStableId(branchStableId)!;
+    branch.labels = uniqueStrings([
+      ...branch.labels.filter(label => !['Request', 'Call', 'PredicateCall'].includes(label)),
+      'Virtual', 'Result', 'ComputedValue', 'BooleanFlag', 'ContainerMethod', 'Method', 'Set',
+    ]);
+    branch.diaName = expression.name.text;
+    branch.containerStableId = branchStableId;
+    branch.containerMethodKind = 'set';
+    branch.containerState = 'awaiting-assignment';
+    branch.renderPartsLayout = 'container-overlay';
+    branch.renderPrimaryPartIndex = 0;
+    branch.renderPartsJson = JSON.stringify([
+      { stableId: branchStableId, text: expression.name.text, kind: 'value-container',
+        labels: ['Value', 'BooleanFlag', 'Virtual', 'Result'], order: 0, fillState: 'empty',
+        sourceStableId: getExtendedStableId(this.sourceFile, expression) },
+      { stableId: `${branchStableId}:set`, text: 'set', kind: 'method',
+        labels: ['Assignment', 'ContainerMethod', 'Method', 'Set', 'Virtual'], order: 1,
+        sourceStableId: getExtendedStableId(this.sourceFile, expression) },
+    ] satisfies RenderPartDescriptor[]);
+    const result = this.runSuppressingHorizontalJoins(() => this.runInHorizontalFlow('Operand', () => {
+      const call = unwrapAwaitedExpression(receiver) as ts.CallExpression;
+      const target = this.resolveRenderableCallTarget(call);
+      const role = this.getCallRole(call, target);
+      const created = this.createActionNodeFromExpression(call,
+        [this.createPendingExit(undefined, branchStableId, 'EVAL', 'eval')], undefined, {
+          labels: this.callSiteLabels(call, role),
+          ...this.callBoundaryExtra(call, 'open'),
+        });
+      this.addCallEdges(created.stableId, call, target);
+      const family = this.materializeCallArgumentsToProxy(call, created.stableId, target, role,
+        { suppressResultNode: true, suppressReceiver: true });
+      return { firstNodeId: created.stableId,
+        pending: [this.createPendingExit(undefined, family.proxyStableId, 'NEXT')] };
+    }));
+    const opening = result.firstNodeId && this.nodeByStableId(result.firstNodeId);
+    const complete = this.buildRenderParts(receiver, result.firstNodeId!, true);
+    if (opening && complete) {
+      const parts = JSON.parse(complete.json) as RenderPartDescriptor[];
+      const boundary = parts.findIndex(part => part.text === '(');
+      if (boundary >= 0) {
+        opening.renderPartsJson = JSON.stringify(parts.slice(0, boundary + 1));
+        opening.renderPartsLayout = 'horizontal';
+        opening.renderPrimaryPartIndex = Math.max(0, parts.findIndex(part => part.kind === 'method'));
+      }
+    }
+    const completionIds = uniqueStrings(result.pending.map(exit => {
+      const node = this.nodeByStableId(exit.fromId);
+      return node?.callBoundaryRole === 'open' && node.callBoundaryPeerStableId
+        ? node.callBoundaryPeerStableId : exit.fromId;
+    }));
+    for (const completionId of completionIds) {
+      const terminal = this.nodeByStableId(completionId)!;
+      const parts: RenderPartDescriptor[] = [{ stableId: completionId, text: ')',
+        kind: 'punctuation', labels: ['CallBoundary', 'Op'], order: 0,
+        sourceStableId: getExtendedStableId(this.sourceFile, unwrapAwaitedExpression(receiver)) }];
+      const fieldPartId = `${completionId}:result-field`;
+      parts.push({ stableId: fieldPartId, text: `.${expression.name.text}`, kind: 'value',
+        labels: ['Value', 'ValueAccess', 'FieldAccess'], order: parts.length,
+        sourceStableId: getExtendedStableId(this.sourceFile, expression.name) });
+      terminal.renderPartsJson = JSON.stringify(parts);
+      terminal.renderPartsLayout = 'horizontal';
+      this.connectAssignmentResult(completionId, branchStableId);
+      const edge = this.edges.at(-1)!;
+      edge.sourceRenderPartStableId = fieldPartId;
+    }
+    this.describeAssignmentProducer(branchStableId, result.firstNodeId!, completionIds);
   }
 
   private normalizePredicateCallOpeningParts(

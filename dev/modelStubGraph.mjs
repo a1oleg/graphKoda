@@ -74,7 +74,8 @@ try {
     let selected = graph.nodes;
     if (id === root) {
       selected = selected.filter(n => {
-        const line = Number(n.props.startLine || n.props.start_line || n.key.match(/claude\.ts:(\d+):/)?.[1]);
+        const callSiteLine = n.props.sourceCallStableId?.match(/claude\.ts:(\d+):/)?.[1];
+        const line = Number(callSiteLine || n.props.startLine || n.props.start_line || n.key.match(/claude\.ts:(\d+):/)?.[1]);
         return n.key === root || n.key === `${root}:flow-start`
           || (n.labels.includes('FunctionEnd') && n.key.endsWith(':end'))
           || (line >= 1023 && line <= (throughNextIf ? 1068 : 1045));
@@ -147,6 +148,16 @@ if (process.argv.includes('--inspect')) process.exit(0);
 const aura = auraConnection();
 try {
   await aura.session.executeWrite(async tx => {
+    const existing = await tx.run('MATCH (n {extractionScope:$scope}) RETURN n.stableId AS id, labels(n) AS labels', { scope });
+    for (const record of existing.records) {
+      const replacement = nodes.get(record.get('id'));
+      if (!replacement) continue;
+      const stale = record.get('labels').filter(label => !replacement.labels.includes(label));
+      if (!stale.length) continue;
+      assert(stale.every(label => /^[A-Za-z_][A-Za-z0-9_]*$/.test(label)));
+      await tx.run(`MATCH (n {stableId:$id, extractionScope:$scope}) REMOVE n:${stale.join(':')}`,
+        { id: replacement.key, scope });
+    }
     await tx.run('MATCH ()-[r {extractionScope:$scope}]->() DELETE r', { scope });
     await tx.run('MATCH (n {extractionScope:$scope}) WHERE NOT n.stableId IN $ids AND NOT (n)--() DELETE n',
       { scope, ids: [...nodes.keys()] });

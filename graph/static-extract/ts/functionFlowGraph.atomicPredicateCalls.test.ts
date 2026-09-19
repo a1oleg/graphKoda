@@ -4,9 +4,8 @@ import path from 'node:path';
 import test from 'node:test';
 import ts from 'typescript';
 import { extractFunctionFlowGraphs } from './fromASTtoPreGraphFlow.ts';
-import { hydrateSyntaxCompositions } from '../../packages/orchestrator/src/orchestrator/localCoordinateSync.js';
 
-test('atomic predicates preserve nested call arguments, type arguments and result access', () => {
+test('computed field predicates evaluate a call family and return its field into a virtual boolean set', () => {
   const file = path.resolve('tmp/atomic-predicate-calls.fixture.ts');
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `
@@ -28,22 +27,26 @@ export async function subject(): Promise<boolean> {
     for (const branch of branches) {
       const parts = JSON.parse(branch.renderPartsJson || '[]');
       const texts = parts.map((p: { text: string }) => p.text);
-      assert.ok(texts.includes('(') && texts.includes(')'), texts.join('|'));
-      assert.ok(texts.includes('{') && texts.includes('}'), texts.join('|'));
-      assert.ok(texts.includes('enabled:'), texts.join('|'));
-      assert.equal(texts.at(-1), '.enabled');
-      assert.ok(parts.every((p: { sourceStableId?: string }) => p.sourceStableId));
+      assert.deepEqual(texts, ['enabled', 'set']);
+      assert.ok(branch.labels.includes('Virtual') && branch.labels.includes('BooleanFlag'));
       const id = typeof branch.stableId === 'string' ? branch.stableId : branch.stableId.value;
-      const entities = (graph.semanticEntities || []).map(n => ({ key: n.stableId, labels: n.labels, props: n.props }));
-      const owner = entities.find(n => n.key === id)!;
-      const relations = (graph.semanticRelationships || []).filter(e => e.type === 'COMPOSES_SYNTAX')
-        .map(e => ({ start: e.fromId, end: e.toId, props: e.props }));
-      const [hydrated] = hydrateSyntaxCompositions([owner], entities, relations);
-      assert.deepEqual(JSON.parse(hydrated.props.renderPartsJson).map((p: { text: string }) => p.text), texts);
+      const evaluation = graph.edges.find(e => e.fromId === id && e.type === 'EVAL');
+      assert.ok(evaluation);
+      const opening = graph.nodes.find(n => n.stableId.value === evaluation.toId)!;
+      assert.ok(!opening.labels.includes('Branch'));
+      const openingTexts = JSON.parse(opening.renderPartsJson!).map((p: {text: string}) => p.text);
+      assert.equal(openingTexts.at(-1), '(');
       if (branch.conditionRaw?.includes('await')) {
-        assert.ok(texts.includes('await') && texts.includes("'flag'") && texts.includes('false'));
-        assert.ok(texts.includes('<') && texts.includes('{ enabled: boolean }') && texts.includes('>'));
-      } else assert.ok(texts.includes("'other'") && texts.includes('true'));
+        assert.equal(openingTexts[0], 'await');
+        assert.ok(openingTexts.includes('{ enabled: boolean }'));
+      }
+      assert.equal(graph.edges.filter(e => e.fromId === evaluation.toId && e.type === 'ARG').length, 2);
+      const value = graph.edges.find(e => e.toId === id && e.type === 'ASSIGNS_VALUE');
+      assert.ok(value);
+      const closing = graph.nodes.find(n => n.stableId.value === value.fromId)!;
+      const closingTexts = JSON.parse(closing.renderPartsJson!).map((p: {text: string}) => p.text);
+      assert.deepEqual(closingTexts, [')', '.enabled'], JSON.stringify(graph.nodes.filter(n => n.callBoundaryRole || n.callMosaicRole).map(n => ({ id: n.stableId.value, role: n.callBoundaryRole, peer: n.callBoundaryPeerStableId, mosaic: n.callMosaicRole }))));
+      assert.ok(value.sourceRenderPartStableId);
     }
   } finally { fs.rmSync(file, { force: true }); }
 });

@@ -3742,7 +3742,9 @@ function newStraightDrawio(nodes, edges, fnStableId, options = {}) {
     if (!isCallTargetProxySource(sourceNode)) return null;
     const copyMeta = copyMetaForCallTargetEdge(edge);
     const proxyKey = visualCallTargetKey(edge);
-    const materializedProxy = materializedFnProxyByCallTarget.get(`${callSiteStableIdForEdge(edge)}->${edge.end}`);
+    const materializedProxy = hasLabel(target, 'FnVisualProxy')
+      ? target
+      : materializedFnProxyByCallTarget.get(`${callSiteStableIdForEdge(edge)}->${edge.end}`);
     if (materializedProxy) {
       visualCallTargetByEdgeKey.set(proxyKey, materializedProxy);
       materializedProxy.props = {
@@ -4747,6 +4749,7 @@ function newStraightDrawio(nodes, edges, fnStableId, options = {}) {
 
     if (
       (isLocalValueDeclarationNode(current) || isComputedBooleanValueNode(current) || isFlowEvalNode(current))
+      && !(isFlowBranchNode(current) && outgoing.some(edge => edge.type === 'EVAL'))
       && !opensObjectFamilyFromMosaic(current)
       && !outgoing.some((edge) => edge.type === 'FIELD' && isObjectBraceNode(nodeByKey.get(edge.end)))
     ) {
@@ -6368,6 +6371,16 @@ function newStraightDrawio(nodes, edges, fnStableId, options = {}) {
       const distributedFlowOutgoing = predicateMosaicClose
         ? [...outgoing, ...originalOutgoing(edges, predicateMosaicClose.key)]
         : outgoing;
+      for (const evalEdge of outgoing.filter(edge => edge.type === 'EVAL')) {
+        const child = nodeByKey.get(evalEdge.end);
+        if (!child) throw new Error(`Missing computed predicate evaluation: ${evalEdge.end}`);
+        renderEdges.push(placeEdgeTarget(evalEdge, child, currentPos.x + 1, currentPos.y,
+          `newStraightDrawio: computed predicate evaluates its producer on the horizontal axis`,
+          { keepRequestedRow: true, avoidRightFootprintWidth: ownRightFootprintWidth(child, currentPos.x + 1) }));
+        pushContinuation({ node: child, x: currentPos.x + 1, yStart: currentPos.y,
+          reason: 'newStraightDrawio: process the computed predicate producer family',
+          keepRequestedRow: true, canPlaceRejoinTarget: false });
+      }
       const valueOutcomeEdges = distributedFlowOutgoing
         .filter((edge) => (edge.type === 'TRUE' || edge.type === 'FALSE') && isValueOutcomeNode(nodeByKey.get(edge.end)));
       valueOutcomeEdges.forEach((edge) => {
@@ -6434,6 +6447,7 @@ function newStraightDrawio(nodes, edges, fnStableId, options = {}) {
         &&
         edge.type !== 'TRUE'
         && edge.type !== 'FALSE'
+        && edge.type !== 'EVAL'
         && edge.type !== 'VALUE'
         && !CALL_TARGET_EDGE_TYPES.has(edge.type)
         && !CONDITION_SEMANTIC_EDGE_TYPES.has(edge.type)
