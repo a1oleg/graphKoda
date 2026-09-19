@@ -1,0 +1,178 @@
+<mxfile host="Electron">
+  <diagram id="model-stub" name="Model call — STUB">
+    <mxGraphModel dx="1619" dy="1179" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1430" pageHeight="1160" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="c2" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;strokeColor=none;fillColor=none;align=left;fontSize=24;fontStyle=1;" value="Вызов модели: исходный путь и заглушка" vertex="1">
+          <mxGeometry height="42" width="1260" x="30" y="15" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;strokeColor=none;fillColor=none;align=left;fontSize=13;fontColor=#555555;" value="Коммит af272b9e · STUB · время идёт сверху вниз внутри каждого сценария" vertex="1">
+          <mxGeometry height="28" width="1260" x="30" y="58" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#f0f8f3;strokeColor=#b5d9c2;" value="" vertex="1">
+          <mxGeometry height="330" width="1370" x="30" y="165" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#f0f6fc;strokeColor=#b6cee5;" value="" vertex="1">
+          <mxGeometry height="320" width="1370" x="30" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#fff5f4;strokeColor=#e4c0bd;" value="" vertex="1">
+          <mxGeometry height="205" width="1370" x="30" y="865" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="150" y="155" as="sourcePoint" />
+            <mxPoint x="150" y="1055" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c8" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#ffffff;strokeColor=#737b84;fontColor=light-dark(#000000,#000000);" value="Вызывающий код REPL / агент" vertex="1">
+          <mxGeometry height="55" width="210" x="45" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="c9" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="155" as="sourcePoint" />
+            <mxPoint x="440" y="1055" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c10" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#ffffff;strokeColor=#737b84;fontColor=light-dark(#000000,#000000);" value="queryModel() claude.ts" vertex="1">
+          <mxGeometry height="55" width="210" x="335" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="c11" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="735" y="155" as="sourcePoint" />
+            <mxPoint x="735" y="1055" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c12" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#ffffff;strokeColor=#737b84;fontColor=light-dark(#000000,#000000);" value="modelCallGuard учёт и блокировка" vertex="1">
+          <mxGeometry height="55" width="210" x="630" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1015" y="155" as="sourcePoint" />
+            <mxPoint x="1015" y="1055" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c14" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#ffffff;strokeColor=#737b84;fontColor=light-dark(#000000,#000000);" value="API-клиент / SDK fetch" vertex="1">
+          <mxGeometry height="55" width="210" x="910" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="c15" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1290" y="155" as="sourcePoint" />
+            <mxPoint x="1290" y="1055" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c16" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#ffffff;strokeColor=#737b84;fontColor=light-dark(#000000,#000000);" value="API модели внешний сервис" vertex="1">
+          <mxGeometry height="55" width="210" x="1185" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="c17" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;strokeColor=none;fillColor=none;align=left;fontColor=#187344;fontStyle=1;" value="С ЗАГЛУШКОЙ · CLAUDE_CODE_MODEL_STUB=1" vertex="1">
+          <mxGeometry height="30" width="900" x="45" y="172" as="geometry" />
+        </mxCell>
+        <mxCell id="c18" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#187344;strokeColor=#187344;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" value="Запрос к модели">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="150" y="230" as="sourcePoint" />
+            <mxPoint x="440" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c19" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#187344;strokeColor=#187344;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" value="isModelStubEnabled()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="267" as="sourcePoint" />
+            <mxPoint x="735" y="267" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c20" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#187344;strokeColor=#187344;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="true">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="735" y="300" as="sourcePoint" />
+            <mxPoint x="440" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c21" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#187344;strokeColor=#187344;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" value="recordStubbedModelCall(source, model)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="341" as="sourcePoint" />
+            <mxPoint x="735" y="341" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c22" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;strokeColor=none;fillColor=none;align=left;fontColor=#187344;fontSize=13;" value="Счётчик +1; источник, модель, время" vertex="1">
+          <mxGeometry height="34" width="375" x="754" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="c23" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#ffffff;strokeColor=#187344;fontSize=13;fontColor=light-dark(#000000,#000000);" value="Создать AssistantMessage isVirtual=true; stop_reason=end_turn Текст: MODEL_STUB_RESPONSE или стандартный" vertex="1">
+          <mxGeometry height="70" width="340" x="305" y="384" as="geometry" />
+        </mxCell>
+        <mxCell id="c24" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#187344;strokeColor=#187344;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="yield сообщение; return">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="474" as="sourcePoint" />
+            <mxPoint x="150" y="474" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c25" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;strokeColor=none;fillColor=none;align=left;fontColor=#187344;fontStyle=1;" value="SDK и API модели не вызываются" vertex="1">
+          <mxGeometry height="40" width="440" x="915" y="405" as="geometry" />
+        </mxCell>
+        <mxCell id="c26" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;strokeColor=none;fillColor=none;align=left;fontColor=#1963a6;fontStyle=1;" value="БЕЗ ЗАГЛУШКИ · исходный путь до коммита" vertex="1">
+          <mxGeometry height="30" width="900" x="45" y="527" as="geometry" />
+        </mxCell>
+        <mxCell id="c27" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" value="Запрос к модели">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="150" y="587" as="sourcePoint" />
+            <mxPoint x="440" y="587" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c28" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#ffffff;strokeColor=#1963a6;fontSize=13;fontColor=light-dark(#000000,#000000);" value="Подготовка запроса и обычные проверки" vertex="1">
+          <mxGeometry height="40" width="290" x="295" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="c29" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" value="Запрос через клиент">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="685" as="sourcePoint" />
+            <mxPoint x="1015" y="685" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c30" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" value="HTTP-запрос">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1015" y="730" as="sourcePoint" />
+            <mxPoint x="1290" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c31" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="Ответ / поток событий">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1290" y="775" as="sourcePoint" />
+            <mxPoint x="1015" y="775" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c32" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="Данные ответа">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1015" y="799" as="sourcePoint" />
+            <mxPoint x="440" y="799" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c33" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="yield события и сообщения">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="824" as="sourcePoint" />
+            <mxPoint x="150" y="824" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c34" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;strokeColor=none;fillColor=none;align=left;fontColor=#b33232;fontStyle=1;" value="СТРАХОВКА В РЕЖИМЕ ЗАГЛУШКИ · если другой путь дошёл до транспорта" vertex="1">
+          <mxGeometry height="30" width="1220" x="45" y="872" as="geometry" />
+        </mxCell>
+        <mxCell id="c35" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b33232;strokeColor=#b33232;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" value="guardModelApiFetch: проверка перед inner fetch">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1015" y="938" as="sourcePoint" />
+            <mxPoint x="735" y="938" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c36" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#ffffff;strokeColor=#b33232;fontSize=13;fontColor=light-dark(#000000,#000000);" value="Записать blocked-transport source, URL, время; увеличить счётчики" vertex="1">
+          <mxGeometry height="45" width="320" x="575" y="954" as="geometry" />
+        </mxCell>
+        <mxCell id="c37" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b33232;strokeColor=#b33232;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="Promise.reject(ModelApiTripwireError)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="735" y="1032" as="sourcePoint" />
+            <mxPoint x="1015" y="1032" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c38" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;strokeColor=none;fillColor=none;align=left;fontColor=#b33232;fontStyle=1;" value="inner fetch НЕ вызывается HTTP-запрос не отправлен" vertex="1">
+          <mxGeometry height="65" width="230" x="1135" y="958" as="geometry" />
+        </mxCell>
+        <mxCell id="c39" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;strokeColor=none;fillColor=none;align=left;fontSize=14;" value="При выключенной заглушке guard пропускает вызов в исходный fetch. Переменные режима и ответа наследуются дочерними агентами." vertex="1">
+          <mxGeometry height="48" width="1370" x="30" y="1085" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
