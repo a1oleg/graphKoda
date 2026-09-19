@@ -1,7 +1,7 @@
 const vscode = require('vscode');
 const path = require('node:path');
 const {classify} = require('./classify');
-const palette = {call:'#569CD6',system:'#C586C0',systemRoot:'#C586C0',systemMember:'#D7B5D8',valueRoot:'#CE9178',valueMember:'#E5BFAE'};
+const palette = {call:'#569CD6',system:'#C586C0',systemRoot:'#C586C0',systemMember:'#D7B5D8',valueRoot:'#CE9178',valueMember:'#E5BFAE',provider:'#258BEB',callableBinding:'#4EC9B0',true:'#008000',false:'#FF0000'};
 function activate(context) {
   const types = Object.fromEntries(Object.entries(palette).map(([role,color])=>[role,vscode.window.createTextEditorDecorationType({color})]));
   const output = vscode.window.createOutputChannel('coldKode Source Colors');

@@ -28,7 +28,7 @@
       "rules": {
         "variable": "#CE9178",
         "parameter": "#CE9178",
-        "property": "#CE9178",
+        "property": "#E5BFAE",
         "enumMember": "#CE9178",
         "function": "#569CD6",
         "method": "#569CD6",
@@ -52,6 +52,11 @@
     },
     "editor.tokenColorCustomizations": {
       "textMateRules": [
+        {
+          "name": "coldKode: system syntax",
+          "scope": ["constant.language.null", "constant.language.undefined", "storage.type", "keyword.operator", "keyword.control", "punctuation.definition.template-expression"],
+          "settings": {"foreground": "#C586C0"}
+        },
         {
           "name": "coldKode: variables and parameters",
           "scope": ["variable.other.readwrite", "variable.other.constant", "variable.parameter", "variable.other.property", "variable.other.object", "meta.object-literal.key"],
