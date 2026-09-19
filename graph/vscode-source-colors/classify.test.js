@@ -5,6 +5,20 @@ const fs=require('node:fs');
 const path=require('node:path');
 const ts=require('typescript');
 const {classify}=require('./classify');
+test('color ranges use the editor buffer despite normalized paths and different line endings',()=>{
+  const os=require('node:os');
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'source-colors-'));
+  try {
+    const file=path.join(directory,'sample.ts');
+    fs.writeFileSync(file,'// disk\r\nfunction run() { return false; }\r\n');
+    const buffer='// unsaved editor text\n\nfunction run() { return true; }\n';
+    const marks=classify(ts,file,buffer);
+    assert(marks.length>0);
+    for(const mark of marks)assert.equal(buffer.slice(mark.start,mark.end),mark.text);
+    assert(marks.some(mark=>mark.role==='true'&&mark.text==='true'));
+    assert(!marks.some(mark=>mark.role==='false'));
+  } finally { fs.rmSync(directory,{recursive:true,force:true}); }
+});
 test('Fisher function/loop delimiters; nested object remains independent',()=>{
   const file=path.resolve(__dirname,'../../examples/fisher-yates/src/shuffle.ts');
   const text=fs.readFileSync(file,'utf8');

@@ -3,7 +3,12 @@ function classify(ts, file, text) {
   const options = {target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, jsx: ts.JsxEmit.Preserve, allowJs: true, skipLibCheck: true};
   const host = ts.createCompilerHost(options);
   const original = host.getSourceFile;
-  host.getSourceFile = (name, ...args) => name === file ? ts.createSourceFile(name, text, options.target, true) : original(name, ...args);
+  const canonical = name => {
+    const normalized = ts.sys.resolvePath(name).replace(/\\/g, '/');
+    return ts.sys.useCaseSensitiveFileNames ? normalized : normalized.toLowerCase();
+  };
+  const targetPath = canonical(file);
+  host.getSourceFile = (name, ...args) => canonical(name) === targetPath ? ts.createSourceFile(name, text, options.target, true) : original(name, ...args);
   const program = ts.createProgram([file], options, host);
   const source = program.getSourceFile(file), checker = program.getTypeChecker(), marks = [];
   function system(node) {

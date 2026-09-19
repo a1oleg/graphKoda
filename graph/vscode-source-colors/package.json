@@ -2,7 +2,7 @@
   "name": "coldkode-source-colors",
   "displayName": "coldKode Source Colors",
   "publisher": "local",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "engines": {"vscode": "^1.90.0"},
   "main": "./extension.js",
   "activationEvents": ["onLanguage:typescript", "onLanguage:typescriptreact", "onLanguage:javascript", "onLanguage:javascriptreact"],
