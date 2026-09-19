@@ -985,7 +985,7 @@ async function buildDrawioFileHtml(workspaceRoot, filePath, diagramTitle) {
   const draw = { filePath };
   const drawioXml = fs.readFileSync(draw.filePath, 'utf8');
   const drawioBaseUrl = await getDrawioStaticBaseUrl(workspaceRoot);
-  const drawioSrc = `${drawioBaseUrl}index.html?dev=1&embed=1&proto=json&configure=1&ui=min&plugins=1&p=codexGraph&spin=1&modified=0&saveAndExit=0&noSaveBtn=1&noExitBtn=1&codexGraphVersion=${encodeURIComponent(EXTENSION_VERSION)}`;
+  const drawioSrc = `${drawioBaseUrl}index.html?dev=1&embed=1&proto=json&configure=1&ui=min&plugins=1&p=codexGraph&spin=1&modified=0&saveAndExit=0&noSaveBtn=1&noExitBtn=1&codexPresenter=${PRESENTATION_WINDOW ? '1' : '0'}&codexGraphVersion=${encodeURIComponent(EXTENSION_VERSION)}`;
   const preloadedAnnotations = await loadGraphAnnotationsFromOrchestrator(workspaceRoot);
 
   const html = `<!doctype html>

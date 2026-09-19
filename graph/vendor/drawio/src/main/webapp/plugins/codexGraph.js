@@ -14,6 +14,14 @@ Draw.loadPlugin(function(ui) {
 
   hidePageTabsPermanently();
 
+  function hidePresenterFormatPanel() {
+    if (typeof urlParams !== 'undefined' && urlParams.codexPresenter === '1') {
+      ui.toggleFormatPanel(false);
+    }
+  }
+  hidePresenterFormatPanel();
+  ui.addListener('fileLoaded', hidePresenterFormatPanel);
+
   function completePostRequest(requestId, result) {
     var callback = pendingPostCallbacks[requestId];
     if (typeof callback !== 'function') return;
@@ -1307,6 +1315,8 @@ Draw.loadPlugin(function(ui) {
     graph.getView().validate();
     var state=graph.getView().getState(cell);if(!state)throw new Error('Target not visible');
     if(command.action==='presentFocus'){
+      // Reapply before framing: a restored floating Format window can cover targets.
+      hidePresenterFormatPanel();
       var view=graph.getView(), bounds=new mxRectangle(state.x,state.y,state.width,state.height), included=[cell.id];
       if(command.includeAnnotations)allCells.forEach(function(c){if(c.vertex&&getAttribute(c,'annotationTargetId')===cell.id){var s=view.getState(c);if(s){bounds.add(new mxRectangle(s.x,s.y,s.width,s.height));included.push(c.id);}}});
       var logical=new mxRectangle(bounds.x/view.scale-view.translate.x,bounds.y/view.scale-view.translate.y,bounds.width/view.scale,bounds.height/view.scale);
@@ -1315,7 +1325,7 @@ Draw.loadPlugin(function(ui) {
       graph.zoomTo(scale);view=graph.getView();
       var cx=(logical.x+logical.width/2+view.translate.x)*scale,cy=(logical.y+logical.height/2+view.translate.y)*scale;
       graph.container.scrollLeft=Math.max(0,cx-graph.container.clientWidth/2);graph.container.scrollTop=Math.max(0,cy-graph.container.clientHeight/2);await demoFrame();
-      return {stage:'focused',stableId:command.stableId,cellId:cell.id,scale:graph.getView().scale,includedCellIds:included,viewport:{width:graph.container.clientWidth,height:graph.container.clientHeight}};
+      return {stage:'focused',stableId:command.stableId,cellId:cell.id,scale:graph.getView().scale,includedCellIds:included,formatPanelVisible:ui.isFormatPanelVisible(),viewport:{width:graph.container.clientWidth,height:graph.container.clientHeight}};
     }
     if(command.action==='presentPointer'){
       var id=command.pointerId||'narrator';if(!/^[a-zA-Z0-9_-]{1,40}$/.test(id))throw new Error('Invalid pointer id');

@@ -25,7 +25,7 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
   const panels = new Map();
   let currentEditor;
   const pointer = vscode.window.createTextEditorDecorationType({
-    after: { contentText: '◀', color: '#e53935', fontWeight: 'bold', margin: '0 0 0 2px', width: '0px' },
+    after: { contentIconPath: vscode.Uri.file(path.join(__dirname, 'media', 'presentation-code-pointer.svg')), width: '44px', height: '30px', margin: '0 4px' },
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
   });
   const open = async ({ stableId, placement, diagramFile }) => {
