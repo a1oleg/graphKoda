@@ -1314,6 +1314,10 @@ Draw.loadPlugin(function(ui) {
     for(var p=cell.parent;p;p=p.parent)if(p.collapsed)graph.foldCells(false,false,[p]);
     graph.getView().validate();
     var state=graph.getView().getState(cell);if(!state)throw new Error('Target not visible');
+    if(command.action==='presentRead'){
+      var v=graph.getView();
+      return {stableId:command.stableId,cellId:cell.id,camera:{scale:v.scale,translate:{x:v.translate.x,y:v.translate.y},scrollLeft:graph.container.scrollLeft,scrollTop:graph.container.scrollTop},annotations:allCells.filter(function(c){return c.vertex&&getAttribute(c,'annotationTargetId')===cell.id;}).map(function(c){return {cellId:c.id,text:graph.convertValueToString(c)};})};
+    }
     if(command.action==='presentFocus'){
       // Reapply before framing: a restored floating Format window can cover targets.
       hidePresenterFormatPanel();
@@ -1342,10 +1346,27 @@ Draw.loadPlugin(function(ui) {
     if(command.action==='presentPointer'){
       var id=command.pointerId||'narrator';if(!/^[a-zA-Z0-9_-]{1,40}$/.test(id))throw new Error('Invalid pointer id');
       var target={x:state.x+state.width,y:state.y+state.height/2},entry=presentationPointers[id];
+      var textBounds=null;
+      if(command.text!=null){
+        if(typeof command.text!=='string'||!command.text.length||command.text.length>500)throw new Error('Specify a nonempty text target');
+        var root=state.text&&state.text.node;if(!root)throw new Error('Target has no rendered text');
+        var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[],full='',node;
+        while((node=walker.nextNode())){nodes.push({node:node,start:full.length});full+=node.nodeValue;}
+        var offset=full.indexOf(command.text);
+        if(offset<0||full.indexOf(command.text,offset+1)>=0)throw new Error('Text target missing or ambiguous in rendered label');
+        var end=offset+command.text.length,first=nodes.find(function(n){return n.start+n.node.nodeValue.length>offset;}),last=nodes.find(function(n){return n.start+n.node.nodeValue.length>=end;});
+        var range=document.createRange();range.setStart(first.node,offset-first.start);range.setEnd(last.node,end-last.start);
+        var rects=Array.from(range.getClientRects()).filter(function(r){return r.width>0&&r.height>0;});
+        if(!rects.length)throw new Error('Text target is not laid out');
+        var rect=rects[0],containerRect=graph.container.getBoundingClientRect();
+        if(rect.left<containerRect.left||rect.right>containerRect.right||rect.top<containerRect.top||rect.bottom>containerRect.bottom)throw new Error('Text target is outside the visible diagram');
+        target={x:rect.left+rect.width/2-containerRect.left+graph.container.scrollLeft,y:rect.bottom-containerRect.top+graph.container.scrollTop};
+        textBounds={x:rect.left-containerRect.left,y:rect.top-containerRect.top,width:rect.width,height:rect.height};
+      }
       if(!entry){var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('width','48');svg.setAttribute('height','64');svg.style.cssText='position:absolute;pointer-events:none;z-index:100;overflow:visible';var arrow=document.createElementNS(svg.namespaceURI,'path');arrow.setAttribute('d','M 0 0 L 5 38 L 14 28 L 29 51 L 38 45 L 23 23 L 37 20 Z');arrow.setAttribute('fill','#e53935');arrow.setAttribute('stroke','white');svg.appendChild(arrow);graph.container.appendChild(svg);entry=presentationPointers[id]={element:svg,x:target.x,y:target.y};}
       var from={x:entry.x,y:entry.y},duration=Math.max(0,Math.min(5000,Number(command.durationMs)||0)),started=performance.now();
       do{var t=duration?Math.min(1,(performance.now()-started)/duration):1,k=t*t*(3-2*t);entry.x=from.x+(target.x-from.x)*k;entry.y=from.y+(target.y-from.y)*k;entry.element.style.left=entry.x+'px';entry.element.style.top=entry.y+'px';if(t<1)await demoFrame();}while(t<1);
-      return {stage:'pointer-moved',stableId:command.stableId,cellId:cell.id,coordinateSource:'draw.io view geometry'};
+      return {stage:'pointer-moved',stableId:command.stableId,cellId:cell.id,text:command.text||null,textBounds:textBounds,coordinateSource:textBounds?'Rendered text Range geometry':'draw.io view geometry'};
     }
     throw new Error('Unsupported presentation command');
   }
