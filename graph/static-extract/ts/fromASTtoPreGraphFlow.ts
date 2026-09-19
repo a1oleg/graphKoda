@@ -636,6 +636,7 @@ function attachSyntaxCompositionGraph(payload: GraphExtractedPayload) {
           : 'none',
       },
     });
+    const occurrencesByRelationship = new Map<string, RenderPartDescriptor[]>();
     parts.forEach((part, order) => {
       const partCoordinates = part.sourceStableId
         ? sourceCoordinatesFromStableId(part.sourceStableId)
@@ -662,6 +663,9 @@ function attachSyntaxCompositionGraph(payload: GraphExtractedPayload) {
         },
       });
       const key = `${ownerStableId}\u0000COMPOSES_SYNTAX\u0000${partStableId}`;
+      const occurrences = occurrencesByRelationship.get(key) || [];
+      occurrences.push({ ...part, order: part.order ?? order });
+      occurrencesByRelationship.set(key, occurrences);
       if (!relationshipByKey.has(key)) relationshipByKey.set(key, {
         fromId: ownerStableId,
         toId: partStableId,
@@ -686,6 +690,10 @@ function attachSyntaxCompositionGraph(payload: GraphExtractedPayload) {
         },
       });
     });
+    for (const [key, occurrences] of occurrencesByRelationship) {
+      const relationship = relationshipByKey.get(key)!;
+      relationship.props.renderOccurrencesJson = JSON.stringify(occurrences);
+    }
   }
 
   payload.semanticEntities = [...entityById.values()];
@@ -4550,6 +4558,7 @@ class FunctionFlowGraphBuilder {
     this.functionStartStableId = this.createNode('FunctionStart', 'function start', this.fnNode, {
       labels: ['FunctionStart', 'ExecutionBoundary', 'Start'],
       diaName: 'Start',
+      declaredReturnType: this.fnNode.type?.getText(this.sourceFile).replace(/\s+/gu, ' ').trim(),
       actionTextRaw: '',
       synthetic: true,
     }, stableId, false);
@@ -4994,7 +5003,7 @@ class FunctionFlowGraphBuilder {
     }, kind, node);
   }
 
-  private buildRenderParts(node: ts.Node, ownerStableId: string): {
+  private buildRenderParts(node: ts.Node, ownerStableId: string, completeCalls = false): {
     json: string;
     layout: FlowNodeRow['renderPartsLayout'];
     primaryIndex: number;
@@ -5097,6 +5106,18 @@ class FunctionFlowGraphBuilder {
           labels: ['Op', 'System', 'Keyword', 'Await'],
           sourceStableId: getExtendedStableId(this.sourceFile, current),
         }, ...visit(current.expression)];
+      }
+      if (completeCalls && ts.isObjectLiteralExpression(current)) {
+        const punctuation = (text: string): SourcePart => ({ text, kind: 'punctuation',
+          labels: ['System', 'ObjectBoundary'], sourceStableId: getExtendedStableId(this.sourceFile, current) });
+        return [punctuation('{'), ...current.properties.flatMap((property, index) => [
+          ...(index ? [punctuation(',')] : []),
+          ...(ts.isPropertyAssignment(property)
+            ? [{ text: `${property.name.getText(this.sourceFile)}:`, kind: 'value' as const,
+                labels: ['Field'], sourceStableId: getExtendedStableId(this.sourceFile, property.name) }, ...visit(property.initializer)]
+            : [{ text: property.getText(this.sourceFile), kind: 'value' as const,
+                labels: ['ValueAccess'], sourceStableId: getExtendedStableId(this.sourceFile, property) }]),
+        ]), punctuation('}')];
       }
       if (ts.isTemplateExpression(current)) {
         const parts: SourcePart[] = [];
@@ -5246,6 +5267,26 @@ class FunctionFlowGraphBuilder {
         ) ? ['System'] : [];
         const boundaryDesign = this.callBoundaryDesign(current);
         const argumentsForMosaic = this.callMosaicArguments(current);
+        // Atomic expressions have no separate argument family to complete an opener.
+        // Preserve the entire nested call here, including its type arguments.
+        if (completeCalls && boundaryDesign === 'split') {
+          const sourceStableId = getExtendedStableId(this.sourceFile, current);
+          const punctuation = (text: string): SourcePart => ({ text, kind: 'punctuation',
+            labels: ['Op', 'System', 'CallBoundary'], sourceStableId });
+          return [
+            ...(isPropertyAccessLikeExpression(callee) ? visit(callee.expression) : []),
+            { text: isPropertyAccessLikeExpression(callee) ? `.${callee.name.getText(this.sourceFile)}` : current.expression.getText(this.sourceFile),
+              kind: 'method', labels: ['Op', 'Call', ...callOriginLabels], primary: true, sourceStableId },
+            ...(current.typeArguments?.length ? [punctuation('<'), ...current.typeArguments.flatMap((type, index) => [
+              ...(index ? [punctuation(',')] : []),
+              { text: type.getText(this.sourceFile), kind: 'value' as const, labels: ['TypeArgument'],
+                sourceStableId: getExtendedStableId(this.sourceFile, type) },
+            ]), punctuation('>')] : []),
+            punctuation('('),
+            ...current.arguments.flatMap((argument, index) => [...(index ? [punctuation(',')] : []), ...visit(argument)]),
+            punctuation(')'),
+          ];
+        }
         const chainedReceiver = isPropertyAccessLikeExpression(callee)
           && ts.isCallExpression(unwrapExpression(callee.expression))
           && this.expressionRequiresVerticalExpansion(callee.expression);
@@ -8452,7 +8493,7 @@ class FunctionFlowGraphBuilder {
 
   private materializeBooleanOperandSemantics(expression: ts.Expression, branchStableId: string) {
     const branch = this.nodeByStableId(branchStableId);
-    const parts = this.buildRenderParts(unwrapExpression(expression), branchStableId);
+    const parts = this.buildRenderParts(unwrapExpression(expression), branchStableId, true);
     if (!branch || !parts) return;
     const renderParts = JSON.parse(parts.json) as RenderPartDescriptor[];
     this.normalizePredicateCallOpeningParts(branch, expression, renderParts);
@@ -19131,11 +19172,10 @@ class FunctionFlowGraphBuilder {
 
   private buildSwitchStatement(statement: ts.SwitchStatement, incomingExits: PendingExit[], environment: BuildEnvironment): BuildResult {
     const switchConditionSteps = this.materializeConditionExpression(statement.expression, incomingExits);
-    const switchStableId = getExtendedStableId(this.sourceFile, statement);
     const switchExpression = statement.expression.getText(this.sourceFile);
-    this.createNode('Switch', 'switch', statement, {
+    const switchStableId = this.createNode('Switch', 'switch', statement, {
       conditionRaw: switchExpression,
-    }, switchStableId);
+    }, getExtendedStableId(this.sourceFile, statement));
     if (!switchConditionSteps.firstNodeId) {
       this.registerFirstNode(switchStableId, incomingExits);
     }
@@ -19155,11 +19195,10 @@ class FunctionFlowGraphBuilder {
         hasDefaultClause = true;
       }
 
-      const branchStableId = getExtendedStableId(this.sourceFile, clause);
       const conditionRaw = this.getCaseConditionText(statement, clause);
-      this.createNode('Case', kind, clause, {
+      const branchStableId = this.createNode('Case', kind, clause, {
         conditionRaw,
-      }, branchStableId);
+      }, getExtendedStableId(this.sourceFile, clause));
       this.addEdge(
         undefined,
         switchStableId,
@@ -20566,7 +20605,7 @@ const NODE_PROPERTY_MAP: Record<string, string> = {
   flowLaneDepth: 'flowLaneDepth', flowLaneRole: 'flowLaneRole',
   flowJoinEntryIndex: 'flowJoinEntryIndex', flowJoinEntryCount: 'flowJoinEntryCount',
   inlineStepTerminalJoin: 'inlineStepTerminalJoin',
-  synthetic: 'synthetic', callbackKind: 'callback_kind', callbackDeferred: 'callback_deferred',
+  synthetic: 'synthetic', declaredReturnType: 'declaredReturnType', callbackKind: 'callback_kind', callbackDeferred: 'callback_deferred',
   callbackParameterNames: 'callback_parameter_names', asyncSchedulerKind: 'async_scheduler_kind',
   asyncContract: 'async_contract', invocationMode: 'invocation_mode', responseMode: 'response_mode',
   stateResourceStableId: 'state_resource_stableId',

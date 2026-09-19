@@ -3,6 +3,31 @@ import test from 'node:test';
 import { DOMParser } from '@xmldom/xmldom';
 import { makeDrawio } from './localCoordinateDrawio.mjs';
 
+test('Start shows the declared return type only when present', () => {
+  for (const declaredReturnType of [undefined, 'AsyncGenerator<Event | Message, void>']) {
+    const output = makeDrawio([{ id: 'start', labels: ['FunctionStart'], props: {
+      displayX: 0, displayY: 0, declaredReturnType,
+    } }], [], { suppressFoldingContainers: true });
+    const doc = new DOMParser().parseFromString(output, 'text/xml');
+    const caption = [...doc.getElementsByTagName('mxCell')].find(c => c.getAttribute('id').endsWith('-return-type'));
+    assert.equal(Boolean(caption), Boolean(declaredReturnType));
+    if (caption) assert.equal(caption.getAttribute('value'), `: ${declaredReturnType}`);
+  }
+});
+
+for (const outcome of ['TRUE', 'FALSE']) test(`${outcome} serializes the computed route instead of delegating it to draw.io`, () => {
+  const xml = makeDrawio([
+    { id: 'predicate', labels: ['Flow', 'Branch'], props: { displayX: 0, displayY: 0, diaName: 'ready' } },
+    { id: 'obstacle', labels: ['Call'], props: { displayX: 0, displayY: 1, diaName: 'other()' } },
+    { id: 'target', labels: ['Call'], props: { displayX: 1, displayY: 2, diaName: 'work()' } },
+  ], [{ start: 'predicate', end: 'target', type: outcome, props: {} }],
+  { suppressFoldingContainers: true, serializeUnifiedEdges: true });
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  const edge = [...doc.getElementsByTagName('mxCell')].find(c => c.getAttribute('edgeType') === outcome);
+  assert.ok(edge);
+  assert.ok([...edge.getElementsByTagName('Array')].some(a => a.getAttribute('as') === 'points'));
+});
+
 test('End matches Start and follows Steps with sparse semantic orders', () => {
   const nodes = [
     { id: 'start', labels: ['FunctionStart', 'Start'], props: { displayX: 0, displayY: 0 } },

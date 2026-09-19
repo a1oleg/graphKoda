@@ -5392,6 +5392,7 @@ function alignCallClosuresToOpenings(
       const openingBox = nodeBoxes.get(sourceCallStableId);
       const closureBox = nodeBoxes.get(closure.id);
       const opening = nodeById.get(sourceCallStableId);
+      if (!opening || !openingBox || !closureBox) continue;
       const openingBoundaryBox = structuredContainerOverlayPartBox(opening, openingBox, 'method') || openingBox;
       if (!openingBoundaryBox || !closureBox) continue;
       const alignedY = Math.round(
@@ -7701,6 +7702,11 @@ export function makeDrawio(nodes, edges, options = {}) {
         || ''
       : '';
     const cellId = cellIds.get(node.id);
+    if (hasLabel(node, 'FunctionStart') && node.props?.declaredReturnType) {
+      const caption = `: ${node.props.declaredReturnType}`;
+      const width = Math.max(160, caption.length * 8 + 20);
+      nodeCells.push(`<mxCell id="${xml(cellId)}-return-type" value="${xml(caption)}" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;overflow=hidden;fontSize=14;fontColor=#7141A0;" vertex="1" connectable="0" parent="${nodeParentId}"><mxGeometry x="${localBox.x + localBox.width + 20}" y="${localBox.y}" width="${width}" height="${localBox.height}" as="geometry" /></mxCell>`);
+    }
     const flowLayer = flowLayerForGraphItem(node, 'control');
     const ownerStepStableId = ownerStepStableIdForGraphItem(node);
     const stepVisibility = stepVisibilityForGraphItem(node);
@@ -9707,7 +9713,9 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
         || returningFalse
         || edge.props?.lockResolvedRoutePoints
         || edge.type === 'ARG'
-        || edge.type === 'FIELD')
+        || edge.type === 'FIELD'
+        || edge.type === 'TRUE'
+        || edge.type === 'FALSE')
         ? { lockRoutePoints: true }
         : {}),
       explicitPoints: points,

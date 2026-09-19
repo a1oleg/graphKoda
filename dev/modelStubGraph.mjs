@@ -9,6 +9,7 @@ import { expandedFunctionView } from './expandedFunctionView.mjs';
 
 const root = 'services/api/claude.ts:1022:0:2911:1';
 const branch = 'services/api/claude.ts:1033:6:1033:26';
+const throughNextIf = process.argv.includes('--through-next-if');
 const functions = new Map([[root, { name: 'queryModel' }],
   ['services/api/modelCallGuard.ts:31:7:33:1', { name: 'isModelStubEnabled' }],
   ['services/api/modelCallGuard.ts:35:7:45:1', { name: 'recordStubbedModelCall' }]]);
@@ -25,6 +26,34 @@ const props = input => Object.fromEntries(Object.entries(input).filter(([,v]) =>
 const plain = value => neo4j.isInt(value) ? value.toNumber() : Array.isArray(value) ? value.map(plain)
   : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([k,v]) => [k,plain(v)])) : value;
 async function loadOwned(id) {
+  const payloadIndex = process.argv.indexOf('--payload');
+  if (id === root && payloadIndex >= 0) {
+    const payload = JSON.parse(fs.readFileSync(process.argv[payloadIndex + 1], 'utf8'));
+    const rows = new Map();
+    for (const n of [...payload.functions, ...payload.nodes, ...payload.semanticEntities]) {
+      const key = typeof n.stableId === 'string' ? n.stableId : n.stableId.value;
+      const previous = rows.get(key);
+      rows.set(key, { key, labels: [...new Set([...(previous?.labels || []), ...(n.labels || [])])],
+        props: { ...previous?.props, ...n.props, stableId: key } });
+    }
+    const owned = [...rows.values()].filter(n => n.key === id || n.props.parentFnStableId === id);
+    const ids = new Set(owned.flatMap(n => [n.key, n.props.parentStepStableId, n.props.parentFlowBlockStableId]).filter(Boolean));
+    let expanded = true;
+    while (expanded) {
+      expanded = false;
+      for (const e of payload.semanticRelationships) {
+        if (e.type === 'COMPOSES_SYNTAX' && ids.has(e.fromId) && !ids.has(e.toId) && rows.has(e.toId)) {
+          ids.add(e.toId); expanded = true;
+        }
+      }
+    }
+    const rels = new Map();
+    for (const e of [...payload.edges, ...payload.semanticRelationships]) {
+      if (!ids.has(e.fromId) || !ids.has(e.toId)) continue;
+      rels.set(`${e.fromId}|${e.type}|${e.toId}`, { start: e.fromId, end: e.toId, type: e.type, props: e.props });
+    }
+    return { nodes: [...rows.values()].filter(n => ids.has(n.key)), semanticEdges: [...rels.values()] };
+  }
   const session = local.session({ database: env.NEO4J_DATABASE || 'neo4j' });
   try {
     const result = await session.run(`MATCH (n) WHERE n.stableId=$id OR n.parentFnStableId=$id
@@ -48,7 +77,7 @@ try {
         const line = Number(n.props.startLine || n.props.start_line || n.key.match(/claude\.ts:(\d+):/)?.[1]);
         return n.key === root || n.key === `${root}:flow-start`
           || (n.labels.includes('FunctionEnd') && n.key.endsWith(':end'))
-          || (line >= 1033 && line <= 1045);
+          || (line >= 1023 && line <= (throughNextIf ? 1068 : 1045));
       });
     }
     const ids = new Set(selected.map(n => n.key));
@@ -57,26 +86,40 @@ try {
       const start = selected.find(n => n.labels.includes('FunctionStart')) || selected.find(n => n.key === root);
       const end = selected.find(n => n.labels.includes('FunctionEnd'));
       assert(start && end, `Expected function boundary nodes: ${selected.filter(n => n.labels.some(l => /Fn|End|Start/.test(l))).map(n => `${n.key} ${n.labels}`).join(';')}`);
-      selectedEdges.push({ start: start.key, end: branch, type: 'NEXT', props: { source, projectionReason: 'diff-entry' } });
+      if (!selectedEdges.some(e => e.start === start.key && e.type === 'NEXT')) {
+        selectedEdges.push({ start: start.key, end: branch, type: 'NEXT', props: { source, projectionReason: 'diff-entry' } });
+      }
       const boundary = `${scope}:outside-diff`;
       selected.push({ key: boundary, labels: ['Return', 'ValueAccess'], props: {
         stableId: boundary, parentFnStableId: root, name: 'Outside diff', diaName: 'Outside diff',
         source, sourceBacked: false, projectionBoundary: true,
       } });
-      selectedEdges.push({ start: branch, end: boundary, type: 'FALSE', props: { source, projectionReason: 'excluded-original-body' } });
+      const continuation = throughNextIf
+        ? selected.find(n => n.key.endsWith('services/api/claude.ts:1060:15:1060:15') && n.labels.includes('Join'))?.key
+        : branch;
+      assert(continuation, 'Expected the slice continuation join');
+      selectedEdges.push({ start: continuation,
+        end: boundary, type: throughNextIf ? 'NEXT' : 'FALSE', props: { source, projectionReason: 'excluded-original-body' } });
       selectedEdges.push({ start: boundary, end: end.key, type: 'NEXT', props: { source } });
     }
     for (const n of selected) {
       n.props = props(n.props);
       if (n.key === root) {
         for (const key of ['code','text','syntax','body','bodyText','sourceText','functionText']) delete n.props[key];
-        n.props.diffRange = 'services/api/claude.ts:1033-1045';
+        n.props.diffRange = throughNextIf ? 'services/api/claude.ts:1033-1068' : 'services/api/claude.ts:1033-1045';
       }
       if (n.key === 'services/api/claude.ts:1043:4:1043:17') {
         n.props.render_parts_json = JSON.stringify([
           { stableId: `${n.key}:yield`, text: 'yield', kind: 'keyword', labels: ['System','Keyword'], order: 0 },
           { stableId: `${n.key}:value`, text: 'message', kind: 'value', labels: ['Value','ValueAccess'], order: 1 },
         ]);
+        n.props.render_parts_layout = 'horizontal';
+      }
+      if (throughNextIf && n.key === 'services/api/claude.ts:1063:10:1066:5') {
+        const parts = JSON.parse(n.props.render_parts_json);
+        parts.unshift({ text: 'yield', kind: 'keyword', labels: ['System', 'Keyword'], stableId: `${n.key}:yield` });
+        n.props.render_parts_json = JSON.stringify(parts.map((part, order) => ({ ...part, order })));
+        n.props.render_primary_part_index = 1;
         n.props.render_parts_layout = 'horizontal';
       }
       n.props.extractionScope = scope;
@@ -124,12 +167,12 @@ const documents = new Map();
 for (const [id, fn] of functions) {
   const file = `${dir}/${fn.name}.drawio`;
   try {
-    execFileSync(process.execPath, ['dev/exportLocalIterativeCoordinateDrawio.mjs','--aura','--fn-stable-id',id,'--output',file,'--hide-entry-parameters'],
+    execFileSync(process.execPath, ['dev/exportLocalIterativeCoordinateDrawio.mjs','--aura','--fn-stable-id',id,'--output',file,...(id === root ? [] : ['--hide-entry-parameters'])],
       { windowsHide: true, timeout: 120000, stdio: 'pipe' });
   } catch (error) { console.error(error.stderr?.toString()); throw error; }
   documents.set(id, fs.readFileSync(file,'utf8'));
 }
 const result = composeExpandedFunctions(root, functions, calls, documents, { ...expandedFunctionView, name:'Model stub' });
-const output = 'graph/draw/generated/Model-Stub.drawio';
+const output = throughNextIf ? `${dir}/queryModel-next-if.drawio` : 'graph/draw/generated/Model-Stub.drawio';
 fs.writeFileSync(output,result.xml);
 console.log(JSON.stringify({ output, blocks: result.boxes }));

@@ -98,7 +98,7 @@ export function composeExpandedFunctions(rootId, functions, calls, documents, op
       element('mxPoint', { x: ownWidth + 50, y: y + child.startY }, points);
     }
     groupGeometry.setAttribute('width', width); groupGeometry.setAttribute('height', height);
-    const start = vertices.find(c => !c.getAttribute('id').startsWith('fold-') && c.getAttribute('graphLabels').includes('FunctionStart'));
+    const start = vertices.find(c => !c.getAttribute('id').startsWith('fold-') && (c.getAttribute('graphLabels') || '').includes('FunctionStart'));
     assert(start, `No start for ${fnId}`);
     boxes.push({ id: fnId, width, height });
     return { id: prefix, group, g: groupGeometry, width, height, start: prefix + start.getAttribute('id'), startY: bounds(start).y - minY + 50 + bounds(start).height / 2 };

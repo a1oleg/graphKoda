@@ -11,6 +11,18 @@ function record(values) {
   return { get: (key) => values[key] };
 }
 
+test('composition retains multiple syntax occurrences referencing the same call', () => {
+  const occurrences = ['load', '<', '>', '(', ',', ')'].map((text, order) => ({
+    text, order, kind: order ? 'punctuation' : 'method', stableId: `part:${order}`, labels: ['Op'],
+  }));
+  const [node] = hydrateSyntaxCompositions([
+    { key: 'owner', labels: ['Branch'], props: { compositionPrimaryOrder: 0 } },
+  ], [{ key: 'call', props: { syntax: 'load<T>(key, fallback)' }, labels: ['Call'] }], [
+    { start: 'owner', end: 'call', props: { renderOccurrencesJson: JSON.stringify(occurrences) } },
+  ]);
+  assert.deepEqual(JSON.parse(node.props.renderPartsJson).map(p => p.text), occurrences.map(p => p.text));
+});
+
 test('renderer compatibility mosaic is hydrated from extracted composition relationships', () => {
   const nodes = [{
     key: 'fixture.ts:1:0:1:14:call-role',

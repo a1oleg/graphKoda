@@ -2030,16 +2030,23 @@ export function hydrateSyntaxCompositions(nodes, compositionNodes, compositionEd
       ?? node.props?.composition_primary_order
       ?? 0,
     );
-    const parts = edges.map((edge) => {
+    const parts = edges.flatMap((edge) => {
       const part = partByKey.get(edge.end);
-      return {
+      const occurrencesJson = edge.props?.renderOccurrencesJson || edge.props?.render_occurrences_json;
+      if (occurrencesJson) {
+        return JSON.parse(occurrencesJson).map((occurrence) => ({
+          ...occurrence,
+          sourceStableId: part?.key || occurrence.sourceStableId,
+        }));
+      }
+      return [{
         stableId: part?.key,
         text: part?.props?.syntax || part?.props?.name || '',
         kind: edge.props?.partKind || edge.props?.part_kind || 'value',
         labels: part?.labels || [],
         order: Number(edge.props?.order ?? 0),
         sourceStableId: part?.key,
-      };
+      }];
     });
     if (!parts.some((part) => part.order === primaryOrder)) {
       parts.push({

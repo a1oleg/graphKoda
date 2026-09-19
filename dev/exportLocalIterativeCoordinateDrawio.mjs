@@ -6851,6 +6851,18 @@ function newStraightDrawio(nodes, edges, fnStableId, options = {}) {
             placement.x = Math.max(placement.x, currentPos.x + substepColumnOffset);
             placement.y = currentPos.y + extractedSubstepRowOffset(continuationChild);
           }
+          const parallelJoinX = positions.get(parallelChildForPlacement?.key)?.x
+            ?? pendingByKey.get(parallelChildForPlacement?.key)?.x
+            ?? placement.parallelX;
+          if (isFlowJoinNode(parallelChildForPlacement) && placement.x !== parallelJoinX) {
+            // A predicate mosaic is centered on its lane. Reserve its measured
+            // half-width before the parallel join is placed on that same row.
+            const predicateWidth = compactCallMosaicWidth(continuationChild);
+            const joinWidth = 42;
+            const minimumDistance = (predicateWidth / 2 + joinWidth / 2 + CALL_CLOSING_JOIN_GAP) / DRAWIO_GRID_X;
+            const direction = Math.sign(placement.x - parallelJoinX);
+            placement.x = parallelJoinX + direction * Math.max(Math.abs(placement.x - parallelJoinX), minimumDistance);
+          }
           const routedContinuation = {
             ...branchContinuation,
             props: {
