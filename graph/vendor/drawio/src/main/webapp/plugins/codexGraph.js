@@ -1322,10 +1322,22 @@ Draw.loadPlugin(function(ui) {
       var logical=new mxRectangle(bounds.x/view.scale-view.translate.x,bounds.y/view.scale-view.translate.y,bounds.width/view.scale,bounds.height/view.scale);
       var width=logical.width,height=logical.height;
       var scale=Math.max(.1,Math.min(2,(graph.container.clientWidth-96)/width,(graph.container.clientHeight-96)/height));
-      graph.zoomTo(scale);view=graph.getView();
-      var cx=(logical.x+logical.width/2+view.translate.x)*scale,cy=(logical.y+logical.height/2+view.translate.y)*scale;
-      graph.container.scrollLeft=Math.max(0,cx-graph.container.clientWidth/2);graph.container.scrollTop=Math.max(0,cy-graph.container.clientHeight/2);await demoFrame();
-      return {stage:'focused',stableId:command.stableId,cellId:cell.id,scale:graph.getView().scale,includedCellIds:included,formatPanelVisible:ui.isFormatPanelVisible(),viewport:{width:graph.container.clientWidth,height:graph.container.clientHeight}};
+      if(command.previousStableId)scale=Math.min(view.scale,scale);
+      var initialScale=view.scale,initialX=(graph.container.scrollLeft+graph.container.clientWidth/2)/view.scale-view.translate.x,initialY=(graph.container.scrollTop+graph.container.clientHeight/2)/view.scale-view.translate.y;
+      var finalX=logical.x+logical.width/2,finalY=logical.y+logical.height/2;
+      if(command.previousStableId){var half=(graph.container.clientWidth/2-48)/scale;finalX=Math.max(logical.x+logical.width-half,Math.min(initialX,logical.x+half));}
+      var duration=Math.max(0,Math.min(5000,Number(command.durationMs)||0)),started=performance.now(),samples=[];
+      clearPresentationPointers();
+      do {
+        var t=duration?Math.min(1,(performance.now()-started)/duration):1,k=t*t*(3-2*t),s=initialScale+(scale-initialScale)*k;
+        graph.zoomTo(s);view=graph.getView();
+        var cx=(initialX+(finalX-initialX)*k+view.translate.x)*view.scale,cy=(initialY+(finalY-initialY)*k+view.translate.y)*view.scale;
+        graph.container.scrollLeft=Math.max(0,cx-graph.container.clientWidth/2);graph.container.scrollTop=Math.max(0,cy-graph.container.clientHeight/2);
+        samples.push({t:t,scale:view.scale,left:graph.container.scrollLeft,top:graph.container.scrollTop});
+        if(t<1)await demoFrame();
+      }while(t<1);
+      await demoFrame();
+      return {stage:'focused',stableId:command.stableId,cellId:cell.id,scale:graph.getView().scale,includedCellIds:included,formatPanelVisible:ui.isFormatPanelVisible(),transition:{durationMs:duration,samples:samples},viewport:{width:graph.container.clientWidth,height:graph.container.clientHeight}};
     }
     if(command.action==='presentPointer'){
       var id=command.pointerId||'narrator';if(!/^[a-zA-Z0-9_-]{1,40}$/.test(id))throw new Error('Invalid pointer id');

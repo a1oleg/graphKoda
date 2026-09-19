@@ -8,6 +8,7 @@
     "editor.fontSize": 20,
     "editor.lineHeight": 28,
     "editor.stickyScroll.enabled": false,
+    "editor.smoothScrolling": true,
     "editor.bracketPairColorization.enabled": false,
     "editor.semanticTokenColorCustomizations": {
       "rules": {

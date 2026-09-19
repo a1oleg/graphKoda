@@ -18,7 +18,7 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
     return true;
   }
   async function step(input) {
-    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath','placement','visible','includeAnnotations']
+    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath','placement','visible','includeAnnotations','previousStableId']
       .filter(key => input && Object.prototype.hasOwnProperty.call(input, key)).map(key => [key, input[key]]));
     if (!input || !allowed[input.surface]?.includes(input.action)) throw new Error('Unsupported demo surface/action');
     if (typeof input.functionStableId !== 'string' || !input.functionStableId) throw new Error('functionStableId is required');
@@ -35,7 +35,7 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
       if(!file.toLowerCase().startsWith(dir.toLowerCase())||path.extname(file)!=='.drawio')throw new Error('Only workspace draw.io documents can be opened');
       if(input.action==='openSource'){
         if(typeof openSource!=='function')throw new Error('Source opener unavailable');
-        return openSource({stableId:input.stableId,placement:input.placement,diagramFile:file});
+        return openSource({stableId:input.stableId,placement:input.placement,diagramFile:file,previousStableId:input.previousStableId});
       }
       await openDiagram(file);return {stage:'diagram-opened',file};
     }

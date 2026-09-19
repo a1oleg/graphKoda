@@ -23,16 +23,25 @@ function resolvePresentationSource(stableId, roots) {
 
 function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
   const panels = new Map();
-  let currentEditor;
+  let currentEditor, currentStableId, currentPlacement;
   const pointer = vscode.window.createTextEditorDecorationType({
     after: { contentIconPath: vscode.Uri.file(path.join(__dirname, 'media', 'presentation-code-pointer.svg')), width: '44px', height: '30px', margin: '0 4px' },
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
   });
-  const open = async ({ stableId, placement, diagramFile }) => {
+  const open = async ({ stableId, placement, diagramFile, previousStableId }) => {
     if (!['RIGHT', 'BELOW'].includes(placement)) throw Error('Choose RIGHT or BELOW');
     const target = resolvePresentationSource(stableId, roots);
     const document = await vscode.workspace.openTextDocument(vscode.Uri.file(target.file));
     if (target.endLine > document.lineCount || target.startColumn > document.lineAt(target.startLine - 1).text.length || target.endColumn > document.lineAt(target.endLine - 1).text.length) throw Error('Source range is stale');
+    if (previousStableId) {
+      if (currentStableId !== previousStableId || currentPlacement !== placement || !currentEditor || !vscode.window.visibleTextEditors.includes(currentEditor) || currentEditor.document.uri.toString() !== document.uri.toString()) throw Error('Previous source scene must be restored before continuing');
+      const range = new vscode.Range(target.startLine-1,target.startColumn,target.endLine-1,target.endColumn);
+      const alreadyVisible=currentEditor.visibleRanges.some(r=>r.contains(range));
+      currentEditor.setDecorations(pointer, []);
+      if (!alreadyVisible) currentEditor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+      currentStableId=stableId;
+      return {stage:'source-continued',stableId,previousStableId,placement,file:target.file,viewColumn:currentEditor.viewColumn,range:target,scrolled:!alreadyVisible};
+    }
     const command = placement === 'RIGHT' ? 'workbench.action.newGroupRight' : 'workbench.action.newGroupBelow';
     if (!(await vscode.commands.getCommands(true)).includes(command)) throw Error('Editor split command unavailable: ' + command);
     await openDiagram(diagramFile);
@@ -61,6 +70,7 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
     const range = new vscode.Range(start, end);
     const editor = await vscode.window.showTextDocument(document, { viewColumn: group.viewColumn, preview: false, preserveFocus: false });
     currentEditor = editor;
+    currentStableId = stableId; currentPlacement = placement;
     editor.selection = new vscode.Selection(start, start);
     editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
     return { stage: 'source-opened', stableId, placement, file: target.file, viewColumn: editor.viewColumn, range: target };
