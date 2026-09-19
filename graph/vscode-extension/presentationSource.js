@@ -23,7 +23,12 @@ function resolvePresentationSource(stableId, roots) {
 
 function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
   const panels = new Map();
-  return async ({ stableId, placement, diagramFile }) => {
+  let currentEditor;
+  const pointer = vscode.window.createTextEditorDecorationType({
+    after: { contentText: '◀', color: '#e53935', fontWeight: 'bold', margin: '0 0 0 2px', width: '0px' },
+    rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
+  });
+  const open = async ({ stableId, placement, diagramFile }) => {
     if (!['RIGHT', 'BELOW'].includes(placement)) throw Error('Choose RIGHT or BELOW');
     const target = resolvePresentationSource(stableId, roots);
     const document = await vscode.workspace.openTextDocument(vscode.Uri.file(target.file));
@@ -31,10 +36,21 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
     const command = placement === 'RIGHT' ? 'workbench.action.newGroupRight' : 'workbench.action.newGroupBelow';
     if (!(await vscode.commands.getCommands(true)).includes(command)) throw Error('Editor split command unavailable: ' + command);
     await openDiagram(diagramFile);
+    const dedicated = vscode.workspace.getConfiguration('coldKode').get('presentationWindow', false);
+    if (dedicated) {
+      await vscode.commands.executeCommand('workbench.action.closeSidebar');
+      await vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar');
+      await vscode.commands.executeCommand('workbench.action.closePanel');
+      // Re-running a scene must reuse the two zones, not accumulate new splits.
+      await vscode.commands.executeCommand('vscode.setEditorLayout', {
+        orientation: placement === 'BELOW' ? 1 : 0,
+        groups: [{ size: placement === 'BELOW' ? 0.66 : 0.55 }, { size: placement === 'BELOW' ? 0.34 : 0.45 }],
+      });
+    }
     const anchor = vscode.window.tabGroups.activeTabGroup;
     const key = diagramFile + ':' + placement;
-    let group = panels.get(key);
-    if (!group || !vscode.window.tabGroups.all.includes(group) || group === anchor) {
+    let group = dedicated ? vscode.window.tabGroups.all.find(g => g.viewColumn === vscode.ViewColumn.Two) : panels.get(key);
+    if (!group || (!dedicated && (!vscode.window.tabGroups.all.includes(group) || group === anchor))) {
       await vscode.commands.executeCommand(command);
       group = vscode.window.tabGroups.activeTabGroup;
       if (group === anchor) throw Error('Editor split did not create a group');
@@ -44,9 +60,24 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
     const end = new vscode.Position(target.endLine - 1, target.endColumn);
     const range = new vscode.Range(start, end);
     const editor = await vscode.window.showTextDocument(document, { viewColumn: group.viewColumn, preview: false, preserveFocus: false });
-    editor.selection = new vscode.Selection(start, end);
+    currentEditor = editor;
+    editor.selection = new vscode.Selection(start, start);
     editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
     return { stage: 'source-opened', stableId, placement, file: target.file, viewColumn: editor.viewColumn, range: target };
   };
+  // The code pointer uses the editor's own range layout, never screenshot coordinates.
+  open.pointer = ({ stableId, visible = true }) => {
+    if (!currentEditor || !vscode.window.visibleTextEditors.includes(currentEditor)) throw Error('Open the source pane first');
+    if (!visible) { currentEditor.setDecorations(pointer, []); return { stage: 'source-pointer-hidden' }; }
+    const target = resolvePresentationSource(stableId, roots);
+    if (target.file.toLowerCase() !== currentEditor.document.uri.fsPath.toLowerCase()) throw Error('Pointer target is not in the open source pane');
+    const document = currentEditor.document;
+    if (target.endLine > document.lineCount || target.startColumn > document.lineAt(target.startLine - 1).text.length || target.endColumn > document.lineAt(target.endLine - 1).text.length) throw Error('Source pointer range is stale');
+    const range = new vscode.Range(target.startLine - 1, target.startColumn, target.endLine - 1, target.endColumn);
+    currentEditor.setDecorations(pointer, [range]);
+    return { stage: 'source-pointer-moved', stableId, text: document.getText(range), viewColumn: currentEditor.viewColumn, coordinateSource: 'VS Code source range' };
+  };
+  open.dispose = () => pointer.dispose();
+  return open;
 }
 module.exports = { resolvePresentationSource, createPresentationSourceOpener };

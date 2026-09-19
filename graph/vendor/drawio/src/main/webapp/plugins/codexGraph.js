@@ -1297,17 +1297,25 @@ Draw.loadPlugin(function(ui) {
   }
   async function performPresentationCommand(command) {
     if(command.functionStableId!==presentationOwner())throw new Error('Wrong presentation document');
-    var matches=Object.keys(graph.getModel().cells).map(function(id){return graph.getModel().cells[id];}).filter(function(c){return c.vertex&&getAttribute(c,'stableId')===command.stableId&&(!command.cellId||c.id===command.cellId);});
+    var model=graph.getModel(), allCells=Object.keys(model.cells).map(function(id){return model.cells[id];});
+    var matches=allCells.filter(function(c){return c.vertex&&getAttribute(c,'stableId')===command.stableId&&(!command.cellId||c.id===command.cellId);});
+    // An annotation belongs to the supplied semantic head via its explicit target id.
+    if (!matches.length && command.cellId) matches=allCells.filter(function(c){var owner=model.getCell(getAttribute(c,'annotationTargetId'));return c.id===command.cellId&&c.vertex&&owner&&getAttribute(owner,'stableId')===command.stableId;});
     if(matches.length!==1)throw new Error('Missing/ambiguous semantic target; specify cellId');
     var cell=matches[0];
     for(var p=cell.parent;p;p=p.parent)if(p.collapsed)graph.foldCells(false,false,[p]);
     graph.getView().validate();
     var state=graph.getView().getState(cell);if(!state)throw new Error('Target not visible');
     if(command.action==='presentFocus'){
-      var view=graph.getView(), width=state.width/view.scale,height=state.height/view.scale;
+      var view=graph.getView(), bounds=new mxRectangle(state.x,state.y,state.width,state.height), included=[cell.id];
+      if(command.includeAnnotations)allCells.forEach(function(c){if(c.vertex&&getAttribute(c,'annotationTargetId')===cell.id){var s=view.getState(c);if(s){bounds.add(new mxRectangle(s.x,s.y,s.width,s.height));included.push(c.id);}}});
+      var logical=new mxRectangle(bounds.x/view.scale-view.translate.x,bounds.y/view.scale-view.translate.y,bounds.width/view.scale,bounds.height/view.scale);
+      var width=logical.width,height=logical.height;
       var scale=Math.max(.1,Math.min(2,(graph.container.clientWidth-96)/width,(graph.container.clientHeight-96)/height));
-      graph.zoomTo(scale);graph.scrollCellToVisible(cell,true);await demoFrame();
-      return {stage:'focused',stableId:command.stableId,cellId:cell.id,scale:graph.getView().scale};
+      graph.zoomTo(scale);view=graph.getView();
+      var cx=(logical.x+logical.width/2+view.translate.x)*scale,cy=(logical.y+logical.height/2+view.translate.y)*scale;
+      graph.container.scrollLeft=Math.max(0,cx-graph.container.clientWidth/2);graph.container.scrollTop=Math.max(0,cy-graph.container.clientHeight/2);await demoFrame();
+      return {stage:'focused',stableId:command.stableId,cellId:cell.id,scale:graph.getView().scale,includedCellIds:included,viewport:{width:graph.container.clientWidth,height:graph.container.clientHeight}};
     }
     if(command.action==='presentPointer'){
       var id=command.pointerId||'narrator';if(!/^[a-zA-Z0-9_-]{1,40}$/.test(id))throw new Error('Invalid pointer id');

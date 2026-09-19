@@ -2,9 +2,12 @@
   "folders": [{"path": "../.."}],
   "settings": {
     "coldKode.presentationWindow": true,
-    "workbench.colorTheme": "Default Dark Modern",
+    "workbench.colorTheme": "Dark Modern",
     "editor.semanticHighlighting.enabled": true,
     "coldKode.sourceColors.enabled": true,
+    "editor.fontSize": 20,
+    "editor.lineHeight": 28,
+    "editor.stickyScroll.enabled": false,
     "editor.bracketPairColorization.enabled": false,
     "editor.semanticTokenColorCustomizations": {
       "rules": {

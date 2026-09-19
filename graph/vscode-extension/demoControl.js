@@ -9,7 +9,7 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
   const tokenFile = tokenFilePath || path.join(workspaceRoot, 'tmp', 'graph-demo-token.local');
   fs.mkdirSync(path.dirname(tokenFile), { recursive: true });
   fs.writeFileSync(tokenFile, token, { mode: 0o600 });
-  const allowed = { editor:['openDiagram','openSource'], diagram: ['contextMenu', 'menuClick', 'dismissMenu', 'sceneRead', 'sceneSync', 'scenePointer','presentFocus','presentPointer'], runtime: ['waitForAnalysis', 'selectCase', 'selectSegment', 'selectAll'] };
+  const allowed = { editor:['openDiagram','openSource','sourcePointer'], diagram: ['contextMenu', 'menuClick', 'dismissMenu', 'sceneRead', 'sceneSync', 'scenePointer','presentFocus','presentPointer'], runtime: ['waitForAnalysis', 'selectCase', 'selectSegment', 'selectAll'] };
   function finish(id, reply) {
     const job = pending.get(id);
     if (!job) return false;
@@ -18,13 +18,17 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
     return true;
   }
   async function step(input) {
-    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath','placement']
+    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath','placement','visible','includeAnnotations']
       .filter(key => input && Object.prototype.hasOwnProperty.call(input, key)).map(key => [key, input[key]]));
     if (!input || !allowed[input.surface]?.includes(input.action)) throw new Error('Unsupported demo surface/action');
     if (typeof input.functionStableId !== 'string' || !input.functionStableId) throw new Error('functionStableId is required');
     if (input.action.startsWith('scene') && !/^graph-scene:[a-zA-Z0-9_-]{1,64}$/.test(input.functionStableId)) throw new Error('Scene identity required');
     if (pending.size) throw new Error('A demo action is already pending; await it before sending the next');
     if(input.surface==='editor'){
+      if (input.action === 'sourcePointer') {
+        if (typeof openSource?.pointer !== 'function') throw Error('Source pointer unavailable');
+        return openSource.pointer(input);
+      }
       if(typeof openDiagram!=='function'||typeof input.filePath!=='string')throw new Error('Diagram opener unavailable');
       const file=fs.realpathSync(path.resolve(workspaceRoot,input.filePath));
       const dir=fs.realpathSync(path.join(workspaceRoot,'graph/draw'))+path.sep;
@@ -91,6 +95,7 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
     return true;
   }
   return { step, finish, handle, dispose() {
+    openSource?.dispose?.();
     for (const id of [...pending.keys()]) finish(id, { error: 'Extension stopped' });
     try { if (fs.readFileSync(tokenFile, 'utf8') === token) fs.unlinkSync(tokenFile); } catch {}
   } };
