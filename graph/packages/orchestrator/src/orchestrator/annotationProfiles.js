@@ -30,7 +30,7 @@ function parseCallableRoleBindings(value) {
 export function inferAnnotationKind(labels, explicitKind) {
   const labelSet = new Set(labels || []);
   if (labelSet.has('VisualProxy') || labelSet.has('PresentationOnly')) return null;
-  if (explicitKind === 'Projection' || explicitKind === 'SelectedMember') return explicitKind;
+  if (['Projection','SelectedMember','MemberProjection'].includes(explicitKind)) return explicitKind;
   const typeOnlyDeclaration = (
     labelSet.has('TypeReference')
     || labelSet.has('TypeDeclaration')
@@ -127,8 +127,25 @@ export async function loadCompositionContextDependenciesMany(session, stableIds)
       )
     ))
     WITH subject, [node IN collect(DISTINCT member) WHERE node IS NOT NULL] AS members
+    CALL (subject) {
+      OPTIONAL MATCH (subject)-[:USES_MEMBER_REFERENCE]->(selection:MemberReference)-[read:READS_FROM]->(receiver)
+      WHERE read.propertyName IS NOT NULL
+      RETURN collect(DISTINCT selection) + collect(DISTINCT receiver) AS projectedMembers
+    }
+    WITH subject, members + projectedMembers AS members
+    // A receiver reference is not the selected value. Keep the terminal
+    // member identity and its READS_FROM property key across binding gateways.
+    CALL (members) {
+      UNWIND members AS selected
+      OPTIONAL MATCH (selected:MemberReference)-[read:READS_FROM]->(receiver)
+      WHERE read.propertyName IS NOT NULL
+      OPTIONAL MATCH (receiver)-[:RESOLVES_TO]->(receiverBinding)
+      RETURN collect(DISTINCT CASE WHEN read IS NOT NULL THEN selected.stableId END) AS selectedIds,
+             collect(DISTINCT receiver.stableId) AS receiverIds,
+             collect(DISTINCT receiverBinding.stableId) AS receiverBindingIds
+    }
     UNWIND members AS member
-    CALL (member) {
+    CALL (member, receiverIds) {
       OPTIONAL MATCH (member)-[:READS_VALUE|RECEIVES_VALUE|CAPTURES_VALUE]->(linkedBinding:ValueSlot)
       OPTIONAL MATCH (linkedCanonical:ValueSlot {
         stableId: coalesce(linkedBinding.canonicalStableId, linkedBinding.bindingStableId, linkedBinding.value_slot_stableId)
@@ -142,7 +159,8 @@ export async function loadCompositionContextDependenciesMany(session, stableIds)
       })
       OPTIONAL MATCH (directBinding)-[:COMPOSES_SYNTAX]->(directSemanticDeclaration:Declaration)
       OPTIONAL MATCH (member)-[:COMPOSES_SYNTAX]->(composedDeclaration:Declaration)
-      OPTIONAL MATCH (member)-[:USES_REFERENCE]->(:ValueReference)-[:RESOLVES_TO]->(resolvedDeclaration)
+      OPTIONAL MATCH (member)-[:USES_REFERENCE]->(usedReference:ValueReference)-[:RESOLVES_TO]->(resolvedDeclaration)
+      WHERE NOT usedReference.stableId IN receiverIds
       OPTIONAL MATCH (resolvedSemantic)-[:COMPOSES_SYNTAX]->(resolvedDeclaration)
       WHERE resolvedSemantic.annotationKind IS NOT NULL
       WITH member,
@@ -211,8 +229,10 @@ export async function loadCompositionContextDependenciesMany(session, stableIds)
     RETURN subject.stableId AS stableId,
            collect(DISTINCT {
              memberStableId: member.stableId,
+             selectedMember: member.stableId IN selectedIds,
+             selectedReceiver: member.stableId IN receiverIds,
              memberOperationIndex: member.operation_index,
-             bindings: bindings,
+             bindings: CASE WHEN member = subject THEN [binding IN bindings WHERE NOT binding.stableId IN receiverBindingIds] ELSE bindings END,
              callables: callables,
              boundaries: boundaries
            }) AS compositionMembers
@@ -225,8 +245,13 @@ export async function loadCompositionContextDependenciesMany(session, stableIds)
     const dependencies = dependenciesByStableId.get(stableId) || [];
     const seen = new Set(dependencies.map((dependency) => dependency.stableId));
     for (const member of members) {
+      if(member.selectedMember&&!seen.has(member.memberStableId)) {
+        dependencies.push({stableId:member.memberStableId,annotationKind:'MemberProjection',
+          role:'selected-property',dependencyKind:'value-provenance',recurse:true,ordinal:Number(member.memberOperationIndex||0)});
+        seen.add(member.memberStableId);
+      }
       for (const [role, candidates] of [
-        ['composition-value', member.bindings || []],
+        ['composition-value', member.selectedMember||member.selectedReceiver ? [] : member.bindings || []],
         ['composition-callable', member.callables || []],
         ['composition-boundary', member.boundaries || []],
       ]) {
@@ -245,6 +270,17 @@ export async function loadCompositionContextDependenciesMany(session, stableIds)
 
 const PROFILES = {
   ...projectionProfiles,
+  MemberProjection: {
+    id: 'member-projection', version: 2, compositionContext: false,
+    async contextMany(session, ids) {
+      return loadPropertyProjectionContexts(session, ids);
+    },
+    async dependenciesMany(session, ids) {
+      const contexts=await loadPropertyProjectionContexts(session, ids);
+      return new Map(ids.map(id=>[id,(contexts.get(id)?.dependencies||[])
+        .map(d=>contextualDependency(d,'selected-property-value',0)).filter(Boolean)]));
+    },
+  },
   EntityContext: {
     id: 'entity-context',
     version: 1,
@@ -1134,7 +1170,7 @@ const PROFILES = {
   },
   CallSite: {
     id: 'call-site',
-    version: PROFILE_VERSION + 4,
+    version: PROFILE_VERSION + 5,
     compositionContext: true,
     async contextMany(session, stableIds) {
       const result = await session.run(`
@@ -1154,11 +1190,12 @@ const PROFILES = {
         CALL (site) {
           OPTIONAL MATCH (site)-[:COMPOSES_SYNTAX]->(receiverCall:Call)
           OPTIONAL MATCH (site)-[:COMPOSES_SYNTAX]->(memberReference:MemberReference)
-          WHERE coalesce(memberReference.startLine, memberReference.start_line, 0) > coalesce(receiverCall.endLine, receiverCall.end_line, 0)
+          WHERE NOT EXISTS { MATCH (site)-[:HAS_ARGUMENT]->()-[:VALUE_FROM]->(memberReference) }
+            AND (coalesce(memberReference.startLine, memberReference.start_line, 0) > coalesce(receiverCall.endLine, receiverCall.end_line, 0)
              OR (
                coalesce(memberReference.startLine, memberReference.start_line, 0) = coalesce(receiverCall.endLine, receiverCall.end_line, 0)
                AND coalesce(memberReference.startColumn, memberReference.start_column, 0) >= coalesce(receiverCall.endColumn, receiverCall.end_column, 0)
-             )
+             ))
           OPTIONAL MATCH (memberReference)-[:RESOLVES_TO]->(memberDeclaration:Declaration)
           RETURN collect(DISTINCT CASE WHEN memberReference IS NULL THEN null ELSE {
             stableId: memberReference.stableId,
@@ -1175,11 +1212,13 @@ const PROFILES = {
         CALL (site) {
           OPTIONAL MATCH (site)-[:COMPOSES_SYNTAX]->(receiverCall:Call)
           OPTIONAL MATCH (site)-[:COMPOSES_SYNTAX]->(focusedReference:MemberReference)-[:RESOLVES_TO]->(focusedDeclaration:Declaration)
-          WHERE coalesce(focusedReference.startLine, focusedReference.start_line, 0) > coalesce(receiverCall.endLine, receiverCall.end_line, 0)
+          WHERE NOT EXISTS { MATCH (site)-[:HAS_ARGUMENT]->()-[:VALUE_FROM]->(focusedReference) }
+            AND (coalesce(focusedReference.startLine, focusedReference.start_line, 0) > coalesce(receiverCall.endLine, receiverCall.end_line, 0)
              OR (
                coalesce(focusedReference.startLine, focusedReference.start_line, 0) = coalesce(receiverCall.endLine, receiverCall.end_line, 0)
                AND coalesce(focusedReference.startColumn, focusedReference.start_column, 0) >= coalesce(receiverCall.endColumn, receiverCall.end_column, 0)
              )
+            )
           OPTIONAL MATCH (peerUse)-[:USES_MEMBER_REFERENCE]->(peerReference:MemberReference)-[:RESOLVES_TO]->(focusedDeclaration)
           WITH DISTINCT peerUse
           CALL (peerUse) {
@@ -1344,11 +1383,12 @@ const PROFILES = {
         CALL (site) {
           OPTIONAL MATCH (site)-[:COMPOSES_SYNTAX]->(receiverCall:Call)
           OPTIONAL MATCH (site)-[:COMPOSES_SYNTAX]->(memberReference:MemberReference)
-          WHERE coalesce(memberReference.startLine, memberReference.start_line, 0) > coalesce(receiverCall.endLine, receiverCall.end_line, 0)
+          WHERE NOT EXISTS { MATCH (site)-[:HAS_ARGUMENT]->()-[:VALUE_FROM]->(memberReference) }
+            AND (coalesce(memberReference.startLine, memberReference.start_line, 0) > coalesce(receiverCall.endLine, receiverCall.end_line, 0)
              OR (
                coalesce(memberReference.startLine, memberReference.start_line, 0) = coalesce(receiverCall.endLine, receiverCall.end_line, 0)
                AND coalesce(memberReference.startColumn, memberReference.start_column, 0) >= coalesce(receiverCall.endColumn, receiverCall.end_column, 0)
-             )
+             ))
           OPTIONAL MATCH (memberReference)-[:RESOLVES_TO]->(memberDeclaration:Declaration)
           RETURN collect(DISTINCT CASE WHEN memberReference IS NULL THEN null ELSE {
             stableId: memberReference.stableId,
@@ -1365,11 +1405,13 @@ const PROFILES = {
         CALL (site) {
           OPTIONAL MATCH (site)-[:COMPOSES_SYNTAX]->(receiverCall:Call)
           OPTIONAL MATCH (site)-[:COMPOSES_SYNTAX]->(focusedReference:MemberReference)-[:RESOLVES_TO]->(focusedDeclaration:Declaration)
-          WHERE coalesce(focusedReference.startLine, focusedReference.start_line, 0) > coalesce(receiverCall.endLine, receiverCall.end_line, 0)
+          WHERE NOT EXISTS { MATCH (site)-[:HAS_ARGUMENT]->()-[:VALUE_FROM]->(focusedReference) }
+            AND (coalesce(focusedReference.startLine, focusedReference.start_line, 0) > coalesce(receiverCall.endLine, receiverCall.end_line, 0)
              OR (
                coalesce(focusedReference.startLine, focusedReference.start_line, 0) = coalesce(receiverCall.endLine, receiverCall.end_line, 0)
                AND coalesce(focusedReference.startColumn, focusedReference.start_column, 0) >= coalesce(receiverCall.endColumn, receiverCall.end_column, 0)
              )
+            )
           OPTIONAL MATCH (peerUse)-[:USES_MEMBER_REFERENCE]->(peerReference:MemberReference)-[:RESOLVES_TO]->(focusedDeclaration)
           WITH DISTINCT peerUse
           CALL (peerUse) {
@@ -1853,6 +1895,7 @@ export async function resolveAnnotationSubjects(session, requestedStableIds, ann
   const primaryLabels = {
     Projection: 'Call',
     SelectedMember: 'MemberDeclaration',
+    MemberProjection: 'MemberReference',
     FunctionalEntity: 'DeveloperDefined',
     Callable: 'Fn|FnDeclaration',
     Step: 'Step',
@@ -1973,7 +2016,7 @@ export async function resolveAnnotationSubjects(session, requestedStableIds, ann
     const row = normalizeNeo4jValue(record.toObject());
     return [row.requestedStableId, {
       ...row,
-      annotationKind: ['Projection', 'SelectedMember'].includes(annotationKinds.get(row.requestedStableId))
+      annotationKind: ['Projection', 'SelectedMember', 'MemberProjection'].includes(annotationKinds.get(row.requestedStableId))
         ? annotationKinds.get(row.requestedStableId)
         : row.requestedIsFnDeclaration
         ? 'Callable'

@@ -949,6 +949,59 @@ export function scopeCanonicalReferenceGraph(
     argumentFrontier = nextFrontier;
   }
 
+  // Import the provenance slice for selected fields, not the bodies of callers.
+  // Destructuring prepends a segment; selecting an object property consumes it.
+  // The key path is part of the visited state, so the same object can serve
+  // several independent selections without expanding all of its properties.
+  type SelectionState = { id: string; keys: string[]; depth: number };
+  const selections: SelectionState[] = [];
+  for (const id of owned) {
+    for (const edge of outgoing.get(id) || []) {
+      if (edge.type === 'READS_FROM' && typeof edge.props.propertyName === 'string') {
+        selections.push({ id: edge.toId, keys: [edge.props.propertyName], depth: 0 });
+      }
+    }
+  }
+  const selectionVisited = new Set<string>();
+  for (let cursor = 0; cursor < selections.length; cursor++) {
+    const state = selections[cursor]!;
+    const visitKey = JSON.stringify([state.id, state.keys]);
+    if (selectionVisited.has(visitKey) || state.depth >= 64) continue;
+    selectionVisited.add(visitKey);
+    const entity = entityById.get(state.id);
+    const edges = outgoing.get(state.id) || [];
+    const selected = edges.filter(edge => edge.type === 'HAS_PROPERTY' && edge.props.propertyName === state.keys[0]);
+    const follow = (edge: CanonicalRelationship, keys: string[], reverse = false) => {
+      includeRelationship(edge);
+      if (keys.length) selections.push({ id: reverse ? edge.fromId : edge.toId, keys, depth: state.depth + 1 });
+    };
+    const lastExplicitIndex = Math.max(-1, ...selected.map(edge => Number(edge.props.index ?? -1)));
+    for (const edge of selected) {
+      if (Number(edge.props.index ?? -1) < lastExplicitIndex) continue;
+      follow(edge, state.keys.slice(1));
+      // Keep the selected value's immediate origin even at the terminal field.
+      for (const value of outgoing.get(edge.toId) || []) {
+        if (['VALUE_FROM', 'RESOLVES_TO'].includes(value.type)) includeRelationship(value);
+      }
+    }
+    for (const edge of edges) {
+      if (edge.type === 'SPREADS_FROM' && Number(edge.props.index ?? -1) > lastExplicitIndex) {
+        follow(edge, state.keys);
+      } else if (!selected.length && ['VALUE_FROM', 'RESOLVES_TO'].includes(edge.type)) {
+        follow(edge, state.keys);
+      } else if (!selected.length && edge.type === 'READS_FROM'
+        && typeof edge.props.propertyName === 'string'
+        && entity?.labels.some(label => ['PropertyProjection', 'MemberReference'].includes(label))) {
+        follow(edge, [edge.props.propertyName, ...state.keys]);
+      }
+    }
+    if (!selected.length && entity?.labels.includes('Parameter')) {
+      for (const edge of incoming.get(state.id) || []) {
+        if (edge.type === 'BINDS_TO_PARAMETER') follow(edge, state.keys, true);
+      }
+    }
+  }
+
   return {
     entities: graph.entities.filter((entity) => included.has(entity.stableId)),
     relationships: graph.relationships.filter((relationship) => selectedRelationships.has(relationship)),

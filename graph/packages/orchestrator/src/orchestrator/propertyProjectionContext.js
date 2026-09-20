@@ -4,8 +4,8 @@
 export async function loadPropertyProjectionContexts(session, stableIds) {
   const initial = await session.run(`
     UNWIND $stableIds AS id
-    MATCH (subject:PropertyProjection {stableId: id})-[read:READS_FROM]->(source)
-    WHERE read.propertyName IS NOT NULL
+    MATCH (subject {stableId: id})-[read:READS_FROM]->(source)
+    WHERE (subject:PropertyProjection OR subject:MemberReference) AND read.propertyName IS NOT NULL
       AND NOT EXISTS { MATCH (subject)-[:SELECTS_RETURN_PROPERTY]->() }
     RETURN id, subject.syntax AS syntax, read.propertyName AS key, source.stableId AS sourceId,
       elementId(source) AS sourceElementId
@@ -16,12 +16,12 @@ export async function loadPropertyProjectionContexts(session, stableIds) {
     const {id, syntax, key, sourceId, sourceElementId} = record.toObject();
     results.set(id, {stableId: id, syntax, selectedProperty: key,
       selections: [], unresolved: [], dependencies: []});
-    frontier.push({root: id, id: sourceId, elementId: sourceElementId, key, path: [id, sourceId], relationships: ['READS_FROM']});
+    frontier.push({root: id, id: sourceId, elementId: sourceElementId, key, keys: [key], path: [id, sourceId], relationships: ['READS_FROM']});
   }
   const visited = new Set();
-  for (let hop = 0; frontier.length && hop < 12; hop++) {
+  for (let hop = 0; frontier.length && hop < 64; hop++) {
     const states = frontier.filter(s => {
-      const key = JSON.stringify([s.root, s.id, s.key]);
+      const key = JSON.stringify([s.root, s.id, s.keys]);
       if (visited.has(key)) return false;
       visited.add(key); return true;
     });
@@ -33,17 +33,28 @@ export async function loadPropertyProjectionContexts(session, stableIds) {
       CALL (source, state) {
         OPTIONAL MATCH (source)-[field:HAS_PROPERTY]->(selected)
         WHERE field.propertyName = state.key
+          AND NOT EXISTS { MATCH (source)-[later:HAS_PROPERTY]->() WHERE later.propertyName = state.key AND later.index > field.index }
         OPTIONAL MATCH p=(selected)-[:AST_CHILD|VALUE_FROM|RESOLVES_TO|CALLS|CALLS_VALUE*0..6]->(candidate)
         WHERE (candidate:DeveloperDefined OR candidate:Call OR candidate:Request)
           AND none(n IN nodes(p)[0..-1] WHERE n:DeveloperDefined OR n:System OR n:Call OR n:Request)
         RETURN collect(DISTINCT CASE WHEN selected IS NULL THEN null ELSE {
-          stableId: selected.stableId, syntax: coalesce(selected.syntax, selected.action_text_raw),
+          stableId: selected.stableId, elementId: elementId(selected), syntax: coalesce(selected.syntax, selected.action_text_raw),
           propertyName: field.propertyName,
           candidate: CASE WHEN candidate IS NULL THEN null ELSE {
             stableId: candidate.stableId, labels: labels(candidate), annotationKind: candidate.annotationKind,
             path: [n IN nodes(p) | n.stableId], relationships: [r IN relationships(p) | type(r)]
           } END
         } END) AS selectedFields
+      }
+      CALL (source, state) {
+        OPTIONAL MATCH (source)-[spread:SPREADS_FROM]->(next)
+        WHERE NOT EXISTS { MATCH (source)-[field:HAS_PROPERTY]->() WHERE field.propertyName = state.key AND field.index > spread.index }
+        RETURN collect(CASE WHEN next IS NULL THEN null ELSE {id: next.stableId, elementId: elementId(next), relation: type(spread)} END) AS spreads
+      }
+      CALL (source) {
+        OPTIONAL MATCH (source)-[r:READS_FROM]->(next)
+        WHERE (source:PropertyProjection OR source:MemberReference) AND r.propertyName IS NOT NULL
+        RETURN collect(CASE WHEN next IS NULL THEN null ELSE {id: next.stableId, elementId: elementId(next), relation: type(r), prependKey: r.propertyName} END) AS projections
       }
       CALL (source) {
         OPTIONAL MATCH (source)-[r:VALUE_FROM|RESOLVES_TO]->(next)
@@ -54,18 +65,27 @@ export async function loadPropertyProjectionContexts(session, stableIds) {
         WHERE source:Parameter
         RETURN collect(CASE WHEN next IS NULL THEN null ELSE {id: next.stableId, elementId: elementId(next), relation: type(r)} END) AS origins
       }
-      RETURN state, selectedFields, aliases + origins AS nextStates
+      RETURN state, selectedFields, aliases + origins + projections AS nextStates, spreads
     `, { states });
     const progressed = new Set();
     const allStates = new Map();
     for (const record of response.records) {
-      const {state, selectedFields, nextStates} = record.toObject();
-      const stateKey = JSON.stringify([state.root, state.id, state.key]);
+      const {state, selectedFields, nextStates, spreads = []} = record.toObject();
+      const stateKey = JSON.stringify([state.root, state.id, state.keys]);
       allStates.set(stateKey, state);
       const result = results.get(state.root);
       if (selectedFields.length) {
         progressed.add(stateKey);
         for (const field of selectedFields) {
+          // A destructured receiver adds a path segment (options.model).
+          // Selecting its outer property consumes only that segment, not model.
+          if (state.keys.length > 1) {
+            const keys = state.keys.slice(1);
+            frontier.push({...state, id: field.stableId, elementId: field.elementId,
+              keys, key: keys[0], path: [...state.path, field.stableId],
+              relationships: [...state.relationships, 'HAS_PROPERTY']});
+            continue;
+          }
           const evidencePath = {nodeIds: [...state.path, ...(field.candidate?.path || [field.stableId])],
             relationshipTypes: [...state.relationships, 'HAS_PROPERTY', ...(field.candidate?.relationships || [])]};
           if (!result.selections.some(s => s.stableId === field.stableId)) result.selections.push({
@@ -74,9 +94,13 @@ export async function loadPropertyProjectionContexts(session, stableIds) {
             result.dependencies.push({...field.candidate, evidencePath});
           }
         }
-      } else for (const next of nextStates) {
+      }
+      // A later spread may overwrite the explicit property; retain it as a
+      // possible origin, never silently treat an earlier field as definitive.
+      for (const next of [...(selectedFields.length ? [] : nextStates), ...spreads]) {
         progressed.add(stateKey);
-        frontier.push({...state, id: next.id, elementId: next.elementId, path: [...state.path, next.id], relationships: [...state.relationships, next.relation]});
+        const keys = next.prependKey == null ? state.keys : [next.prependKey, ...state.keys];
+        frontier.push({...state, id: next.id, elementId: next.elementId, keys, key: keys[0], path: [...state.path, next.id], relationships: [...state.relationships, next.relation]});
       }
     }
     for (const [key, state] of allStates) if (!progressed.has(key)) {

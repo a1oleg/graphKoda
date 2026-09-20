@@ -993,7 +993,18 @@ function resolveDiagramPath(diagramPath) {
   return resolved;
 }
 
-function findMxCellXml(xml, element = {}) {
+export function findMxCellXml(xml, element = {}) {
+  // stableId is authoritative; mxCell ids are only a view-local hint and
+  // may change after rendering. Prefer the entity over its mosaic parts.
+  const identity = String(element.stableId || '').trim();
+  if (identity) {
+    const cells = String(xml).match(/<mxCell\b[^>]*?(?:\/>|>[\s\S]*?<\/mxCell>)/g) || [];
+    const matches = cells.filter(cell => readMxCellAttribute(cell, 'stableId') === escapeXml(identity)
+      && readMxCellAttribute(cell, 'vertex') === '1'
+      && readMxCellAttribute(cell, 'graphKind') !== 'Annotation');
+    const hint = matches.find(cell => readMxCellAttribute(cell, 'id') === element.cellId);
+    return hint || matches.find(cell => !/-part-\d+$/.test(readMxCellAttribute(cell, 'id'))) || matches[0] || null;
+  }
   const cellId = String(element.cellId || '').trim();
   if (cellId) {
     const match = xml.match(new RegExp(`<mxCell\\b[^>]*\\bid="${escapeRegExp(cellId)}"[^>]*(?:/>|>[\\s\\S]*?</mxCell>)`));
@@ -1239,16 +1250,16 @@ export function insertDrawioAnnotation({
 
   const refreshedTargetCellXml = findMxCellXml(xml, { cellId: targetId }) || targetCellXml;
   const stepRowXml = findStepRowForCell(xml, refreshedTargetCellXml);
-  if (!stepRowXml) {
-    throw new Error(`Target diagram element is not contained by a Step row: ${targetId}`);
-  }
-  const stepRowId = readMxCellAttribute(stepRowXml, 'id');
-  const stepGeometry = readMxGeometry(stepRowXml);
+  // A Step is an optional layout container, not part of entity identity.
+  const stepRowId = stepRowXml ? readMxCellAttribute(stepRowXml, 'id')
+    : readMxCellAttribute(refreshedTargetCellXml, 'parent') || '1';
+  const stepGeometry = readMxGeometry(stepRowXml || refreshedTargetCellXml);
   const storedBaseWidth = Number(readMxCellAttribute(stepRowXml, 'annotationBaseWidth'));
   const stepBaseWidth = Number.isFinite(storedBaseWidth) && storedBaseWidth > 0
     ? storedBaseWidth
     : firstFiniteNumber(stepGeometry.width, 160);
-  const stepHeight = firstFiniteNumber(stepGeometry.height, 80);
+  const stepHeight = stepRowXml ? firstFiniteNumber(stepGeometry.height, 80)
+    : Math.max(80, firstFiniteNumber(stepGeometry.height, 80));
   const verticalFramePadding = 4;
   const { width: annotationWidth, height: annotationHeight } = measureDrawioAnnotation(text, {
     maxHeight: Math.max(36, stepHeight - verticalFramePadding * 2),
@@ -1256,13 +1267,19 @@ export function insertDrawioAnnotation({
   const relativeTarget = readRelativeGeometryWithinAncestor(xml, refreshedTargetCellXml, stepRowId);
   const horizontalGap = 24;
   const framePadding = 24;
-  const annotationX = stepBaseWidth + horizontalGap;
+  const targetGeometry = readMxGeometry(refreshedTargetCellXml);
+  let annotationX = relativeTarget.x + firstFiniteNumber(targetGeometry.width,160) + horizontalGap;
   const maxAnnotationY = Math.max(verticalFramePadding, stepHeight - annotationHeight - verticalFramePadding);
-  const annotationY = Math.max(verticalFramePadding, Math.min(relativeTarget.y, maxAnnotationY));
-  const expandedStepWidth = annotationX + annotationWidth + framePadding;
-  let expandedStepRowXml = setMxCellAttribute(stepRowXml, 'annotationBaseWidth', stepBaseWidth);
-  expandedStepRowXml = setMxGeometryAttribute(expandedStepRowXml, 'width', expandedStepWidth);
-  xml = xml.replace(stepRowXml, expandedStepRowXml);
+  const annotationY = stepRowXml ? Math.max(verticalFramePadding, Math.min(relativeTarget.y, maxAnnotationY)) : relativeTarget.y;
+  annotationX = findFreeAnnotationX(xml, targetId, stepRowId, {
+    x: annotationX, y: annotationY, width: annotationWidth, height: annotationHeight,
+  });
+  const expandedStepWidth = Math.max(stepBaseWidth, annotationX + annotationWidth + framePadding);
+  if (stepRowXml) {
+    let expandedStepRowXml = setMxCellAttribute(stepRowXml, 'annotationBaseWidth', stepBaseWidth);
+    expandedStepRowXml = setMxGeometryAttribute(expandedStepRowXml, 'width', expandedStepWidth);
+    xml = xml.replace(stepRowXml, expandedStepRowXml);
+  }
   nextRootCloseIndex = xml.indexOf('</root>');
 
   const baseId = `annotation-${Date.now().toString(36)}`;
@@ -1296,6 +1313,49 @@ export function insertDrawioAnnotation({
     edgeId,
     removedAnnotationIds,
   };
+}
+
+// Keep annotations close to their entity, not beyond an entire compound Step.
+// Walk only this container's rendered contents and reserve routed edge corridors.
+function findFreeAnnotationX(xml, targetId, parentId, rect) {
+  const cells = String(xml).match(/<mxCell\b[^>]*?(?:\/>|>[\s\S]*?<\/mxCell>)/g) || [];
+  const byId = new Map(cells.map(c=>[readMxCellAttribute(c,'id'),c]));
+  const within=(cell,id)=>{
+    const seen=new Set();
+    while(cell){const current=readMxCellAttribute(cell,'id');if(current===id)return true;if(seen.has(current))break;seen.add(current);cell=byId.get(readMxCellAttribute(cell,'parent'));}
+    return false;
+  };
+  const box=cell=>({...readRelativeGeometryWithinAncestor(xml,cell,parentId),...Object.fromEntries(['width','height'].map(k=>[k,firstFiniteNumber(readMxGeometry(cell)[k])]))});
+  const obstacles=[];
+  for(const cell of cells){
+    if(readMxCellAttribute(cell,'visible')==='0'||readMxCellAttribute(cell,'id')===parentId||within(cell,targetId))continue;
+    if(readMxCellAttribute(cell,'vertex')==='1'){
+      if(!within(cell,parentId))continue;
+      if(/(?:^|;)(?:container=1|group)(?:;|$)/.test(readMxCellAttribute(cell,'style')))continue;
+      obstacles.push(box(cell));
+    } else if(readMxCellAttribute(cell,'edge')==='1'){
+      const a=byId.get(readMxCellAttribute(cell,'source')),b=byId.get(readMxCellAttribute(cell,'target'));
+      if(!a||!b||!within(a,parentId)||!within(b,parentId))continue;
+      const start=box(a),end=box(b);
+      const absolute=cell=>{let x=0,y=0;const seen=new Set();while(cell&&!seen.has(cell)){seen.add(cell);const g=readMxGeometry(cell);x+=firstFiniteNumber(g.x);y+=firstFiniteNumber(g.y);cell=byId.get(readMxCellAttribute(cell,'parent'));}return{x,y};};
+      const edgeParent=absolute(byId.get(readMxCellAttribute(cell,'parent'))),container=absolute(byId.get(parentId));
+      const origin={x:edgeParent.x-container.x,y:edgeParent.y-container.y};
+      const points=[{x:start.x+start.width/2,y:start.y+start.height/2}];
+      for(const m of cell.matchAll(/<mxPoint\b[^>]*>/g)){
+        if(/\bas="offset"/.test(m[0]))continue;
+        points.push({x:origin.x+Number(m[0].match(/\bx="([^"]+)"/)?.[1]||0),y:origin.y+Number(m[0].match(/\by="([^"]+)"/)?.[1]||0)});
+      }
+      points.push({x:end.x+end.width/2,y:end.y+end.height/2});
+      for(let i=1;i<points.length;i++)obstacles.push({x:Math.min(points[i-1].x,points[i].x)-4,y:Math.min(points[i-1].y,points[i].y)-4,width:Math.abs(points[i-1].x-points[i].x)+8,height:Math.abs(points[i-1].y-points[i].y)+8});
+    }
+  }
+  let x=rect.x;
+  for(let i=0;i<=obstacles.length;i++){
+    const hits=obstacles.filter(b=>b.width>0&&b.height>0&&x<b.x+b.width+12&&x+rect.width>b.x-12&&rect.y<b.y+b.height+12&&rect.y+rect.height>b.y-12);
+    if(!hits.length)break;
+    x=Math.max(...hits.map(b=>b.x+b.width+24));
+  }
+  return x;
 }
 
 function prepareDrawioAnnotationUpdate({ diagramPath, annotationCellId, annotationText } = {}) {
@@ -1365,7 +1425,7 @@ function finalizeAnnotationWorkflow(result) {
     ...result,
     diagramInsertion: insertDrawioAnnotation({
       diagramPath: clientContext.diagramPath,
-      element: clientContext.element || {},
+      element: { ...clientContext.element, stableId: result.rootStableId || clientContext.element?.stableId },
       annotationText: result.annotation,
       annotationMetadata: result.annotationMetadata || {},
       replaceExistingForTarget: true,
