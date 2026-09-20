@@ -6,6 +6,7 @@ import neo4j from 'neo4j-driver';
 import { auraConnection } from './fisherYatesConfig.mjs';
 import { composeExpandedFunctions } from './expandedFunctionDrawio.mjs';
 import { expandedFunctionView } from './expandedFunctionView.mjs';
+import { finishPartialFunction } from './partialFunctionDrawio.mjs';
 
 const root = 'services/api/claude.ts:1022:0:2911:1';
 const branch = 'services/api/claude.ts:1033:6:1033:26';
@@ -181,7 +182,8 @@ for (const [id, fn] of functions) {
     execFileSync(process.execPath, ['dev/exportLocalIterativeCoordinateDrawio.mjs','--aura','--fn-stable-id',id,'--output',file,...(id === root ? [] : ['--hide-entry-parameters'])],
       { windowsHide: true, timeout: 120000, stdio: 'pipe' });
   } catch (error) { console.error(error.stderr?.toString()); throw error; }
-  documents.set(id, fs.readFileSync(file,'utf8'));
+  const document = fs.readFileSync(file, 'utf8');
+  documents.set(id, id === root ? finishPartialFunction(document, `${scope}:outside-diff`) : document);
 }
 const result = composeExpandedFunctions(root, functions, calls, documents, { ...expandedFunctionView, name:'Model stub' });
 const output = throughNextIf ? `${dir}/queryModel-next-if.drawio` : 'graph/draw/generated/Model-Stub.drawio';

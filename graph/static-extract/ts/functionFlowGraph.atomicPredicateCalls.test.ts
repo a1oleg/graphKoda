@@ -27,7 +27,7 @@ export async function subject(): Promise<boolean> {
     for (const branch of branches) {
       const parts = JSON.parse(branch.renderPartsJson || '[]');
       const texts = parts.map((p: { text: string }) => p.text);
-      assert.deepEqual(texts, ['enabled', 'set']);
+      assert.deepEqual(texts, ['', 'set']);
       assert.ok(branch.labels.includes('Virtual') && branch.labels.includes('BooleanFlag'));
       const id = typeof branch.stableId === 'string' ? branch.stableId : branch.stableId.value;
       const evaluation = graph.edges.find(e => e.fromId === id && e.type === 'EVAL');

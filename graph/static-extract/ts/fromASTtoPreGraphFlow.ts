@@ -8543,14 +8543,14 @@ class FunctionFlowGraphBuilder {
       ...branch.labels.filter(label => !['Request', 'Call', 'PredicateCall'].includes(label)),
       'Virtual', 'Result', 'ComputedValue', 'BooleanFlag', 'ContainerMethod', 'Method', 'Set',
     ]);
-    branch.diaName = expression.name.text;
+    branch.diaName = '';
     branch.containerStableId = branchStableId;
     branch.containerMethodKind = 'set';
     branch.containerState = 'awaiting-assignment';
     branch.renderPartsLayout = 'container-overlay';
     branch.renderPrimaryPartIndex = 0;
     branch.renderPartsJson = JSON.stringify([
-      { stableId: branchStableId, text: expression.name.text, kind: 'value-container',
+      { stableId: branchStableId, text: '', kind: 'value-container',
         labels: ['Value', 'BooleanFlag', 'Virtual', 'Result'], order: 0, fillState: 'empty',
         sourceStableId: getExtendedStableId(this.sourceFile, expression) },
       { stableId: `${branchStableId}:set`, text: 'set', kind: 'method',

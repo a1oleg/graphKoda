@@ -327,7 +327,10 @@ export function horizontalMosaicImage(side, fillColor, strokeColor, predicate = 
   const endPath = predicate
     ? `M 0 1 H ${rightShoulder} L ${rightTip} 25 L ${rightShoulder} 49 H 0 Z`
     : `M 0 1 H ${svgWidth} V 49 H 0 Z`;
-  const path = side === 'start' ? startPath : side === 'middle' ? middlePath : endPath;
+  const singlePath = predicate
+    ? `M ${leftShoulder} 1 H ${rightShoulder} L ${rightTip} 25 L ${rightShoulder} 49 H ${leftShoulder} L ${leftTip} 25 Z`
+    : middlePath;
+  const path = side === 'single' ? singlePath : side === 'start' ? startPath : side === 'middle' ? middlePath : endPath;
   const svg = [
     `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${svgWidth} 50' preserveAspectRatio='none'>`,
     sketch ? `<defs><clipPath id='c'><path d='${path}'/></clipPath></defs>` : '',
@@ -1015,7 +1018,7 @@ function structuredContainerOverlaySize(node) {
           compactRenderPartWidth(container) + METHOD_CURVED_SIDE_DEPTH * 2,
         )
       : variableContainer
-        ? variableBoxWidth(container?.text)
+        ? variableBoxWidth(container?.text) * ((container?.labels || []).includes('BooleanFlag') ? 2 : 1)
         : variableNodeWidth(container?.text);
   const containerHeight = storageContainer
     ? 70
@@ -1056,8 +1059,8 @@ function structuredContainerOverlaySize(node) {
 
 function structuredContainerPartStyle(node, part, height = 40) {
   if ((part?.labels || []).includes('BooleanFlag')) {
-    const image = horizontalMosaicImage('single', '#ffffff', DRAWIO_PALETTE.valueStroke,
-      true, variableBoxWidth(part.text), (part.labels || []).includes('Virtual'));
+    const image = horizontalMosaicImage('single', DRAWIO_PALETTE.valueFill, DRAWIO_PALETTE.valueStroke,
+      true, variableBoxWidth(part.text) * 2, (part.labels || []).includes('Virtual'));
     return `shape=image;imageAspect=0;image=${image};whiteSpace=wrap;html=1;align=center;verticalAlign=middle;spacing=5;fontColor=#000000;`;
   }
   if (part?.kind === 'function-container') {
@@ -1396,6 +1399,8 @@ function isValueRoutingEdge(edge) {
 function containerOverlayEndpointPart(node, edge, endpoint) {
   const layout = structuredContainerOverlaySize(node);
   if (!layout) return '';
+  if (hasLabel(node, 'BooleanFlag') && hasLabel(node, 'Virtual')
+    && ['TRUE', 'FALSE', 'EVAL'].includes(edge?.type)) return 'container';
   const explicitPartStableId = endpoint === 'source'
     ? edge?.props?.sourceRenderPartStableId || edge?.props?.source_render_part_stable_id
     : edge?.props?.targetRenderPartStableId || edge?.props?.target_render_part_stable_id;
@@ -7343,6 +7348,14 @@ function alignHorizontalDataJoins(nodes, edges, nodeBoxes) {
 }
 
 export function makeDrawio(nodes, edges, options = {}) {
+  const virtualPredicates = new Set(nodes.filter(node => hasLabel(node, 'BooleanFlag')
+    && hasLabel(node, 'Virtual') && edges.some(edge => edge.start === node.id && edge.type === 'EVAL')).map(node => node.id));
+  edges = edges.map(edge => {
+    const port = virtualPredicates.has(edge.start)
+      ? { TRUE: 'bottom', FALSE: 'left', EVAL: 'right' }[edge.type] : null;
+    return port ? { ...edge, props: { ...edge.props, sourcePort: port,
+      sourcePortCandidates: [port], lockPortCandidates: true } } : edge;
+  });
   const methodChainOwnerIds = new Set(nodes
     .filter((node) => methodChainRole(node) === 'continuation')
     .map((node) => methodChainOwnerStableId(node))
