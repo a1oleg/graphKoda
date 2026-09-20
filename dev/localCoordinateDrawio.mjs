@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {updateFunctionBoundaryCaptions} from './functionBoundaryCaption.mjs';
+import {updatePropertyPuzzles} from './propertyPuzzle.mjs';
+import {mosaicPartAdvance} from './mosaicTileGeometry.mjs';
 
 const PORT_STUB_GAP_RATIO = 0.18;
 const PORT_STUB_GAP_MIN = 14;
@@ -921,11 +923,11 @@ export function structuredHorizontalSize(node) {
   const parts = renderPartsForNode(node);
   if (layout !== 'horizontal' || parts.length < 2) return null;
   const hexMosaic = node.labels.includes('Branch');
-  const widths = parts.map((part, index) => (
+  const widths = parts.map((part, index) => mosaicPartAdvance(part, parts[index + 1], structuredRenderPartStyle(node,part,index,parts.length,100), (
     hexMosaic
       ? predicateMosaicPartWidth(part, index === 0 ? 'start' : index === parts.length - 1 ? 'end' : 'middle')
       : structuredHorizontalPartWidth(node, part, index, parts.length)
-  ));
+  )));
   return {
     parts,
     widths,
@@ -990,7 +992,7 @@ function structuredContainerOverlaySize(node) {
   const overlays = parts.slice(1);
   const predicateOverlay = sideBySide && node.labels.includes('Branch');
   const overlayWidths = sideBySide
-    ? overlays.map((part, index) => (
+    ? overlays.map((part, index) => mosaicPartAdvance(part, overlays[index + 1], structuredContainerOverlayPartStyle(node,part,index,overlays.length,true,100,overlays[index+1]), (
         predicateOverlay
           ? predicateMosaicPartWidth(
               part,
@@ -1003,7 +1005,7 @@ function structuredContainerOverlaySize(node) {
                 ? METHOD_CURVED_SIDE_DEPTH
                 : 0
             )
-      ))
+      )))
     : overlays.map(() => Math.max(...overlays.map(compactRenderPartWidth)));
   const overlayWidth = sideBySide
     ? overlayWidths.reduce((sum, width) => sum + width, 0)
@@ -8124,7 +8126,7 @@ export function makeDrawio(nodes, edges, options = {}) {
     : Math.ceil(Math.max(maxCellX, foldingLayout.x + foldingLayout.width) - Math.min(minCellX, foldingLayout.x, 0) + 240);
   const pageHeight = Math.ceil(maxCellY + 240);
 
-  return updateFunctionBoundaryCaptions(`<mxfile host="app.diagrams.net" modified="2026-07-18T00:00:00.000Z" agent="Codex" version="24.7.17"><diagram id="${diagramId}" name="${diagramName}"><mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="${suppressFoldingContainers || disableFoldingMechanics ? 0 : 1}" page="1" pageScale="1" pageWidth="${pageWidth}" pageHeight="${pageHeight}" math="0" shadow="0"><root><mxCell id="0" /><mxCell id="1" parent="0" />${foldingCells.join('')}${nodeCells.join('')}${edgeCells.join('')}</root></mxGraphModel></diagram></mxfile>`, methodMosaicImage).xml;
+  return updatePropertyPuzzles(updateFunctionBoundaryCaptions(`<mxfile host="app.diagrams.net" modified="2026-07-18T00:00:00.000Z" agent="Codex" version="24.7.17"><diagram id="${diagramId}" name="${diagramName}"><mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="${suppressFoldingContainers || disableFoldingMechanics ? 0 : 1}" page="1" pageScale="1" pageWidth="${pageWidth}" pageHeight="${pageHeight}" math="0" shadow="0"><root><mxCell id="0" /><mxCell id="1" parent="0" />${foldingCells.join('')}${nodeCells.join('')}${edgeCells.join('')}</root></mxGraphModel></diagram></mxfile>`, methodMosaicImage).xml, {ready: true}).xml;
 }
 
 function collectEffectiveBridgeIds(nodes, edges) {
