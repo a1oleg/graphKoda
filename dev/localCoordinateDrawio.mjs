@@ -3,6 +3,9 @@ import path from 'node:path';
 import {updateFunctionBoundaryCaptions} from './functionBoundaryCaption.mjs';
 import {updateReturnTypeDiagrams} from './returnTypeDrawio.mjs';
 import {updatePropertyPuzzles} from './propertyPuzzle.mjs';
+import {alignEdgePorts} from './edgePortAlignment.mjs';
+import {compactVerticalContinuations} from './compactVerticalContinuations.mjs';
+import {updateDiagramTypography} from './diagramTypography.mjs';
 import {mosaicPartAdvance} from './mosaicTileGeometry.mjs';
 
 const PORT_STUB_GAP_RATIO = 0.18;
@@ -142,6 +145,8 @@ function virtualMethodPalette() {
   };
 }
 
+const METHOD_OUTLINE_WIDTH = 1;
+
 function operationProviderStackImage(system = false) {
   const fill = system ? DRAWIO_PALETTE.systemActionFill : DRAWIO_PALETTE.operationProviderBackingFill;
   const stroke = system ? DRAWIO_PALETTE.systemActionStroke : DRAWIO_PALETTE.operationProviderStroke;
@@ -150,7 +155,7 @@ function operationProviderStackImage(system = false) {
   const layer = (x, y) => [
     `<g transform="translate(${x} ${y})">`,
     `<path d="${methodPath}" fill="${fill}"/>`,
-    `<path d="${methodPath}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/>`,
+    `<path d="${methodPath}" fill="none" stroke="${stroke}" stroke-width="${METHOD_OUTLINE_WIDTH}" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/>`,
     '</g>',
   ].join('');
   const svg = [
@@ -339,8 +344,7 @@ export function horizontalMosaicImage(side, fillColor, strokeColor, predicate = 
     sketch ? `<defs><clipPath id='c'><path d='${path}'/></clipPath></defs>` : '',
     `<path d='${path}' fill='${sketch ? '#ffffff' : fillColor}'/>`,
     sketch ? `<path d='${sketchHatchPath(svgWidth, 50)}' clip-path='url(#c)' fill='none' stroke='${fillColor}' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/>` : '',
-    `<path d='${path}' fill='none' stroke='${strokeColor}' stroke-width='${sketch ? 1.6 : 1}' stroke-linejoin='miter' vector-effect='non-scaling-stroke'/>`,
-    sketch ? `<path d='${path}' transform='translate(0.45 -0.3)' opacity='0.55' fill='none' stroke='${strokeColor}' stroke-width='0.9' stroke-linejoin='miter' vector-effect='non-scaling-stroke'/>` : '',
+    `<path d='${path}' fill='none' stroke='${strokeColor}' stroke-width='${METHOD_OUTLINE_WIDTH}' stroke-linejoin='miter' vector-effect='non-scaling-stroke'/>`,
     '</svg>',
   ].join('');
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
@@ -458,8 +462,7 @@ export function methodMosaicImage(side, fillColor, strokeColor, {
     sketch ? `<defs><clipPath id='c'><path d='${path}'/></clipPath></defs>` : '',
     `<path d='${path}' fill='${sketch ? '#ffffff' : fillColor}'/>`,
     sketch ? `<path d='${hatch}' clip-path='url(#c)' fill='none' stroke='${fillColor}' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/>` : '',
-    `<path d='${path}' fill='none' stroke='${strokeColor}' stroke-width='${sketch ? 1.6 : 1.5}' stroke-linejoin='miter' vector-effect='non-scaling-stroke'/>`,
-    sketch ? `<path d='${path}' transform='translate(0.45 -0.3)' opacity='0.55' fill='none' stroke='${strokeColor}' stroke-width='0.9' stroke-linejoin='miter' vector-effect='non-scaling-stroke'/>` : '',
+    `<path d='${path}' fill='none' stroke='${strokeColor}' stroke-width='${METHOD_OUTLINE_WIDTH}' stroke-linejoin='miter' vector-effect='non-scaling-stroke'/>`,
     '</svg>',
   ].join('');
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
@@ -2199,7 +2202,7 @@ function styleForEdge(edge) {
     ? `targetJettySize=${Math.round(targetJettySize)};`
     : '';
   const endArrow = edge.props?.axisSegment ? 'none' : 'block';
-  const slotNameStyle = slotNameForEdge(edge) ? 'fontStyle=2;' : '';
+  const slotNameStyle = slotNameForEdge(edge) ? `fontStyle=2;${edge.type === 'ARG' && slotNodeEnd(edge) === 'target' ? 'align=right;' : ''}` : '';
   return `edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;${sourceJetty}${targetJetty}html=1;endArrow=${endArrow};strokeColor=${color};fontColor=${fontColor};${slotNameStyle}${portStyle(edge)}${dashed}`;
 }
 
@@ -2961,7 +2964,7 @@ function sizeForNode(node, label) {
   if (node.labels.includes('Branch') || node.labels.includes('Switch') || node.labels.includes('Case')) return { width: Math.max(150, label.length * 7), height: 30 };
   if (node.labels.includes('EndProxy')) return { width: 74, height: 74 };
   if (node.labels.includes('FunctionEnd')) return { width: 42, height: 42 };
-  if (node.labels.includes('Return')) return { width: 150, height: 50 };
+  if (node.labels.includes('Return')) return { width: 72, height: 28 };
   if (node.labels.includes('ResourceProxy')) return { width: Math.max(160, label.length * 6), height: 52 };
   if (isFlowValueOutcomeNode(node)) return { width: 43, height: 21 };
   if (node.labels.includes('ValueOutcome')) return { width: Number.isFinite(displayWidth) && displayWidth > 0 ? displayWidth : 85, height: 42 };
@@ -3324,7 +3327,7 @@ const RENDERED_NODE_GAP = 8;
 const HORIZONTAL_STEP_COLUMN_GAP = 56;
 const HORIZONTAL_FAMILY_BOUNDARY_GAP = 36;
 const SLOT_EDGE_LABEL_CHARACTER_WIDTH = 7;
-const SLOT_EDGE_LABEL_HORIZONTAL_PADDING = 28;
+const SLOT_EDGE_LABEL_HORIZONTAL_PADDING = 16;
 const HORIZONTAL_MOSAIC_OUTCOME_TOP_INSET = 24;
 
 export function flowBlockLeftBoundary(memberBoxes, memberBounds, layoutLeft) {
@@ -8152,7 +8155,8 @@ export function makeDrawio(nodes, edges, options = {}) {
     : Math.ceil(Math.max(maxCellX, foldingLayout.x + foldingLayout.width) - Math.min(minCellX, foldingLayout.x, 0) + 240);
   const pageHeight = Math.ceil(maxCellY + 240);
 
-  return updateReturnTypeDiagrams(updatePropertyPuzzles(updateFunctionBoundaryCaptions(`<mxfile host="app.diagrams.net" modified="2026-07-18T00:00:00.000Z" agent="Codex" version="24.7.17"><diagram id="${diagramId}" name="${diagramName}"><mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="${suppressFoldingContainers || disableFoldingMechanics ? 0 : 1}" page="1" pageScale="1" pageWidth="${pageWidth}" pageHeight="${pageHeight}" math="0" shadow="0"><root><mxCell id="0" /><mxCell id="1" parent="0" />${foldingCells.join('')}${nodeCells.join('')}${edgeCells.join('')}</root></mxGraphModel></diagram></mxfile>`, methodMosaicImage).xml, {ready: true}).xml, methodMosaicImage).xml;
+  const sizedXml = updateReturnTypeDiagrams(updatePropertyPuzzles(updateFunctionBoundaryCaptions(`<mxfile host="app.diagrams.net" modified="2026-07-18T00:00:00.000Z" agent="Codex" version="24.7.17"><diagram id="${diagramId}" name="${diagramName}"><mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="${suppressFoldingContainers || disableFoldingMechanics ? 0 : 1}" page="1" pageScale="1" pageWidth="${pageWidth}" pageHeight="${pageHeight}" math="0" shadow="0"><root><mxCell id="0" /><mxCell id="1" parent="0" />${foldingCells.join('')}${nodeCells.join('')}${edgeCells.join('')}</root></mxGraphModel></diagram></mxfile>`, methodMosaicImage).xml, {ready: true}).xml, methodMosaicImage).xml;
+  return updateDiagramTypography(alignEdgePorts(compactVerticalContinuations(sizedXml).xml).xml).xml;
 }
 
 function collectEffectiveBridgeIds(nodes, edges) {
@@ -9493,7 +9497,12 @@ function routeNormalEdge(edge, scale, routedCorridors, routeState = {}) {
     const baseFanoutTurnX = Number.isFinite(fanoutTurnGraphX)
       ? graphPointToDrawio({ x: fanoutTurnGraphX, y: 0 }, scale).x
       : undefined;
-    const fanoutTurnX = (edge.type === 'ArgJoin' || edge.type === 'FieldJoin')
+    const fanoutTurnX = edge.type === 'ARG'
+      && portSide(attempt.sourcePort) === 'right'
+      && portSide(attempt.targetPort) === 'left'
+      && routeEnd.x > routeStart.x
+      ? routeStart.x
+      : (edge.type === 'ArgJoin' || edge.type === 'FieldJoin')
       && portSide(attempt.targetPort) === 'left'
       && targetStub
       ? targetStub.x
@@ -11078,6 +11087,7 @@ function segmentOrder(segment) {
 }
 
 function edgeLabelPosition(edge) {
+  if (edge.type === 'ARG' && slotNameForEdge(edge) && slotNodeEnd(edge) === 'target') return ' x="1"';
   if (slotNameForEdge(edge)) {
     const relativeX = Number(edge.props?.slotLabelRelativeX);
     if (Number.isFinite(relativeX)) {
@@ -11096,16 +11106,18 @@ function edgeLabelPosition(edge) {
 
 function edgeGeometry(edge, transformPoint = (point) => point) {
   const labelPosition = edgeLabelPosition(edge);
+  const labelOffset = edge.type === 'ARG' && slotNameForEdge(edge) && slotNodeEnd(edge) === 'target'
+    ? '<mxPoint x="-8" y="0" as="offset" />' : '';
   if (edge.props?.lockRoutePoints !== true) {
-    return `<mxGeometry${labelPosition} relative="1" as="geometry" />`;
+    return `<mxGeometry${labelPosition} relative="1" as="geometry">${labelOffset}</mxGeometry>`;
   }
 
   const points = Array.isArray(edge.props?.explicitPoints) ? edge.props.explicitPoints : [];
-  if (!points.length) return `<mxGeometry${labelPosition} relative="1" as="geometry" />`;
+  if (!points.length) return `<mxGeometry${labelPosition} relative="1" as="geometry">${labelOffset}</mxGeometry>`;
   const pointsXml = points
     .map(transformPoint)
     .map((point) => `<mxPoint x="${xml(point.x)}" y="${xml(point.y)}" />`)
     .join('');
-  return `<mxGeometry${labelPosition} relative="1" as="geometry"><Array as="points">${pointsXml}</Array></mxGeometry>`;
+  return `<mxGeometry${labelPosition} relative="1" as="geometry">${labelOffset}<Array as="points">${pointsXml}</Array></mxGeometry>`;
 }
 
