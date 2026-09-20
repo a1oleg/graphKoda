@@ -296,6 +296,11 @@ export async function resolveAnnotation(driver, database, {
       });
       const subjects = [];
       for (const subject of resolvedSubjects) {
+        // A recursive boundary is not a prohibition on an explicit annotation request.
+        if (depth === 0 && subject.annotationKind === null
+          && !subject.labels.some(label => label === 'VisualProxy' || label === 'PresentationOnly')) {
+          subject.annotationKind = 'EntityContext';
+        }
         if (subject.annotationKind === null) {
           const reference = {
             stableId: subject.stableId,

@@ -26,6 +26,33 @@ function readWidth(cellXml) {
   return Number(cellXml.match(/<mxGeometry\b[^>]*\bwidth="([^"]+)"/)?.[1]);
 }
 
+test('annotation recognizes a Step row in an expanded-function diagram', () => {
+  const directory = fs.mkdtempSync(path.join(process.cwd(), 'tmp', 'annotation-drawio-'));
+  const diagramPath = path.join(directory, 'fixture.drawio');
+  try {
+    fs.writeFileSync(diagramPath, fixtureXml().replaceAll('fold-row-2', 'f0-fold-row-2'), 'utf8');
+    const result = insertDrawioAnnotation({ diagramPath, element: { cellId: 'target-part' }, annotationText: 'Parameter context.' });
+    assert.equal(result.stepRowId, 'f0-fold-row-2');
+    assert.ok(readWidth(readCell(fs.readFileSync(diagramPath, 'utf8'), 'f0-fold-row-2')) > 300);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('return signature composition can contain its own annotation', () => {
+  const directory = fs.mkdtempSync(path.join(process.cwd(), 'tmp', 'annotation-drawio-'));
+  const diagramPath = path.join(directory, 'fixture.drawio');
+  try {
+    const xml = fixtureXml().replaceAll('fold-row-2', 'return-signature')
+      .replace('id="return-signature" vertex', 'id="return-signature" returnTypePresentation="1" style="group;container=1;" vertex');
+    fs.writeFileSync(diagramPath, xml, 'utf8');
+    const result = insertDrawioAnnotation({ diagramPath, element: { cellId: 'target-part' }, annotationText: 'Return contract.' });
+    assert.equal(result.stepRowId, 'return-signature');
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('annotation expands its Step row and creates an initially hidden target edge', () => {
   const directory = fs.mkdtempSync(path.join(process.cwd(), 'tmp', 'annotation-drawio-'));
   const diagramPath = path.join(directory, 'fixture.drawio');

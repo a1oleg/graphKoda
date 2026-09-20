@@ -245,6 +245,28 @@ export async function loadCompositionContextDependenciesMany(session, stableIds)
 
 const PROFILES = {
   ...projectionProfiles,
+  EntityContext: {
+    id: 'entity-context',
+    version: 1,
+    compositionContext: false,
+    async context(session, stableId) {
+      return runSingle(session, `
+        MATCH (subject {stableId: $stableId})
+        OPTIONAL MATCH (subject)-[relation]-(neighbor)
+        RETURN properties(subject) AS subject,
+               labels(subject) AS labels,
+               collect(DISTINCT {
+                 relation: type(relation),
+                 outgoing: startNode(relation) = subject,
+                 stableId: neighbor.stableId,
+                 labels: labels(neighbor),
+                 name: coalesce(neighbor.name, neighbor.diaName, neighbor.label),
+                 syntax: coalesce(neighbor.syntax, neighbor.action_text_raw, neighbor.sourceText, neighbor.text)
+               }) AS neighbors
+      `, { stableId });
+    },
+    async dependencies() { return []; },
+  },
   FunctionalEntity: {
     id: 'functional-accumulation',
     version: 8,

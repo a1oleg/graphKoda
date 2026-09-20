@@ -1,116 +1,97 @@
-<mxfile host="Electron">
-  <diagram id="model-without-stub" name="Без заглушки">
-    <mxGraphModel dx="1619" dy="1179" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1430" pageHeight="1380" math="0" shadow="0">
-      <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-        <mxCell id="c2" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;strokeColor=none;fillColor=none;align=left;fontSize=24;fontStyle=1;" value="Вызов модели: без заглушки" vertex="1">
-          <mxGeometry height="42" width="1260" x="30" y="15" as="geometry"/>
-        </mxCell>
-        <mxCell id="c3" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;strokeColor=none;fillColor=none;align=left;fontSize=13;fontColor=#555555;" value="Потоковый вызов · промежуточные обёртки свёрнуты · исходный масштаб и положение сценария сохранены" vertex="1">
-          <mxGeometry height="28" width="1260" x="30" y="58" as="geometry"/>
-        </mxCell>
-        
-        <mxCell id="c5" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#f0f6fc;strokeColor=#b6cee5;" value="" vertex="1">
-          <mxGeometry height="320" width="1370" x="30" y="740" as="geometry"/>
-        </mxCell>
-        
-        <mxCell id="c7" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="150" y="375" as="sourcePoint"/>
-            <mxPoint x="150" y="1275" as="targetPoint"/>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="c8" parent="1" style="rounded=1;arcSize=50;whiteSpace=wrap;html=0;fillColor=#BBDDFF;strokeColor=#0088FF;strokeWidth=2;fontFamily=Arial;fontSize=13;fontColor=#000000;spacing=8;" value="queryModelWithStreaming()" vertex="1">
-          <mxGeometry height="55" width="210" x="45" y="320" as="geometry"/>
-        </mxCell>
-        <mxCell id="c9" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="440" y="375" as="sourcePoint"/>
-            <mxPoint x="440" y="1275" as="targetPoint"/>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="c10" parent="1" style="rounded=1;arcSize=50;whiteSpace=wrap;html=0;fillColor=#BBDDFF;strokeColor=#0088FF;strokeWidth=2;fontFamily=Arial;fontSize=13;fontColor=#000000;spacing=8;" value="queryModel()" vertex="1">
-          <mxGeometry height="55" width="210" x="335" y="320" as="geometry"/>
-        </mxCell>
-        
-        
-        <mxCell id="c13" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="1015" y="375" as="sourcePoint"/>
-            <mxPoint x="1015" y="1275" as="targetPoint"/>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="c14" parent="1" style="rounded=1;arcSize=50;whiteSpace=wrap;html=0;fillColor=#BBDDFF;strokeColor=#0088FF;strokeWidth=2;fontFamily=Arial;fontSize=13;fontColor=#000000;spacing=8;" value="anthropic.beta.messages&#10;.create()" vertex="1">
-          <mxGeometry height="55" width="210" x="910" y="320" as="geometry"/>
-        </mxCell>
-        <mxCell id="c15" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="1290" y="375" as="sourcePoint"/>
-            <mxPoint x="1290" y="1275" as="targetPoint"/>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="c16" parent="1" style="rounded=1;arcSize=50;whiteSpace=wrap;html=0;fillColor=#BBDDFF;strokeColor=#0088FF;strokeWidth=2;fontFamily=Arial;fontSize=13;fontColor=#000000;spacing=8;" value="globalThis.fetch()" vertex="1">
-          <mxGeometry height="55" width="210" x="1185" y="320" as="geometry"/>
-        </mxCell>
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        <mxCell id="c26" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;strokeColor=none;fillColor=none;align=left;fontColor=#1963a6;fontStyle=1;" value="БЕЗ ЗАГЛУШКИ · исходный путь до коммита" vertex="1">
-          <mxGeometry height="30" width="900" x="45" y="747" as="geometry"/>
-        </mxCell>
-        <mxCell id="c27" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" value="queryModel(...) через withStreamingVCR">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="150" y="807" as="sourcePoint"/>
-            <mxPoint x="440" y="807" as="targetPoint"/>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="c28" parent="1" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#ffffff;strokeColor=#1963a6;fontSize=13;fontColor=light-dark(#000000,#000000);" value="Подготовка запроса и обычные проверки" vertex="1">
-          <mxGeometry height="40" width="290" x="295" y="830" as="geometry"/>
-        </mxCell>
-        <mxCell id="c29" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" value="create({ ...params, stream: true })">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="440" y="905" as="sourcePoint"/>
-            <mxPoint x="1015" y="905" as="targetPoint"/>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="c30" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" value="fetch(...) через транспорт SDK">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="1015" y="950" as="sourcePoint"/>
-            <mxPoint x="1290" y="950" as="targetPoint"/>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="c31" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="Response / поток HTTP">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="1290" y="995" as="sourcePoint"/>
-            <mxPoint x="1015" y="995" as="targetPoint"/>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="c32" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="Поток событий API">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="1015" y="1019" as="sourcePoint"/>
-            <mxPoint x="440" y="1019" as="targetPoint"/>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="c33" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="yield события и сообщения">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="440" y="1044" as="sourcePoint"/>
-            <mxPoint x="150" y="1044" as="targetPoint"/>
-          </mxGeometry>
-        </mxCell>
-        
-        
-        
-        
-        
-        
-      <mxCell id="annotation-c8" parent="1" vertex="1" value="Передаёт историю диалога, системный промпт, инструменты и настройки в queryModel. Возвращает его события по мере поступления, через обёртку withStreamingVCR." annotationFor="c8" evidence="services/api/claude.ts:757" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#F2F2F2;strokeColor=#CCCCCC;fontFamily=Arial;fontSize=13;align=left;verticalAlign=top;spacing=12;"><mxGeometry x="45" y="100" width="210" height="200" as="geometry"/></mxCell><mxCell id="annotation-c10" parent="1" vertex="1" value="Готовит запрос модели и запускает его с повторными попытками. Собирает из потока текст и вызовы инструментов, учитывает расход токенов и выдаёт сообщения, события и ошибки вызывающему коду." annotationFor="c10" evidence="services/api/claude.ts:1022" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#F2F2F2;strokeColor=#CCCCCC;fontFamily=Arial;fontSize=13;align=left;verticalAlign=top;spacing=12;"><mxGeometry x="335" y="100" width="210" height="200" as="geometry"/></mxCell><mxCell id="annotation-c14" parent="1" vertex="1" value="Метод Anthropic SDK. Передаёт сообщения и параметры в POST /v1/messages. Здесь включён stream: true, поэтому результат поступает как поток событий API, а не готовый ответ целиком." annotationFor="c14" evidence="@anthropic-ai/sdk/resources/beta/messages/messages.mjs:44" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#F2F2F2;strokeColor=#CCCCCC;fontFamily=Arial;fontSize=13;align=left;verticalAlign=top;spacing=12;"><mxGeometry x="910" y="100" width="210" height="200" as="geometry"/></mxCell><mxCell id="annotation-c16" parent="1" vertex="1" value="HTTP-транспорт среды выполнения. Отправляет запрос серверу и возвращает Response с заголовками и потоком тела. Не собирает сообщения Claude: это делают SDK и queryModel. Используется, если fetchOverride не задан." annotationFor="c16" evidence="services/api/client.ts:359" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#F2F2F2;strokeColor=#CCCCCC;fontFamily=Arial;fontSize=13;align=left;verticalAlign=top;spacing=12;"><mxGeometry x="1185" y="100" width="210" height="200" as="geometry"/></mxCell></root>
-    </mxGraphModel>
-  </diagram>
+<mxfile host="65bd71144e">
+    <diagram id="model-without-stub" name="Без заглушки">
+        <mxGraphModel dx="1452" dy="1082" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1430" pageHeight="1380" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="c7" value="" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="150" y="375" as="sourcePoint"/>
+                        <mxPoint x="150" y="1275" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c8" value="queryModelWithStreaming()" style="rounded=1;arcSize=50;whiteSpace=wrap;html=0;fillColor=#BBDDFF;strokeColor=#0088FF;strokeWidth=2;fontFamily=Arial;fontSize=13;fontColor=#000000;spacing=8;" parent="1" vertex="1">
+                    <mxGeometry x="45" y="320" width="210" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="c9" value="" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" edge="1" source="c10">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="440" y="375" as="sourcePoint"/>
+                        <mxPoint x="440" y="1275" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c10" value="queryModel()" style="rounded=1;arcSize=50;whiteSpace=wrap;html=0;fillColor=#BBDDFF;strokeColor=#0088FF;strokeWidth=2;fontFamily=Arial;fontSize=13;fontColor=#000000;spacing=8;" parent="1" vertex="1">
+                    <mxGeometry x="335" y="320" width="210" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="c13" value="" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" edge="1" source="c14">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="1015" y="375" as="sourcePoint"/>
+                        <mxPoint x="1015" y="1275" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c14" value="anthropic.beta.messages&#xa;.create()" style="rounded=1;arcSize=50;whiteSpace=wrap;html=0;fillColor=#BBDDFF;strokeColor=#0088FF;strokeWidth=2;fontFamily=Arial;fontSize=13;fontColor=#000000;spacing=8;" parent="1" vertex="1">
+                    <mxGeometry x="910" y="320" width="210" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="c15" value="" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" edge="1" source="c16">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="1290" y="375" as="sourcePoint"/>
+                        <mxPoint x="1290" y="1275" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c16" value="globalThis.fetch()" style="rounded=1;arcSize=50;whiteSpace=wrap;html=0;fillColor=#BBDDFF;strokeColor=#0088FF;strokeWidth=2;fontFamily=Arial;fontSize=13;fontColor=#000000;spacing=8;" parent="1" vertex="1">
+                    <mxGeometry x="1185" y="320" width="210" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="c27" value="через withStreamingVCR" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="150" y="807" as="sourcePoint"/>
+                        <mxPoint x="440" y="807" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c29" value="create({ ...params, stream: true })" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="440" y="905" as="sourcePoint"/>
+                        <mxPoint x="1015" y="905" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c30" value="fetch(...) через транспорт SDK" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="1015" y="950" as="sourcePoint"/>
+                        <mxPoint x="1290" y="950" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c31" value="Response / поток HTTP" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="1290" y="995" as="sourcePoint"/>
+                        <mxPoint x="1015" y="995" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c32" value="Поток событий API" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="1015" y="1019" as="sourcePoint"/>
+                        <mxPoint x="440" y="1019" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c33" value="yield события и сообщения" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="440" y="1044" as="sourcePoint"/>
+                        <mxPoint x="150" y="1044" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="annotation-c8" value="Передаёт историю диалога, системный промпт, инструменты и настройки в queryModel. Возвращает его события по мере поступления, через обёртку withStreamingVCR." style="rounded=0;whiteSpace=wrap;html=0;fillColor=#F2F2F2;strokeColor=#CCCCCC;fontFamily=Arial;fontSize=13;align=left;verticalAlign=top;spacing=12;" vertex="1" annotationFor="c8" evidence="services/api/claude.ts:757" parent="1">
+                    <mxGeometry x="45" y="100" width="210" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="annotation-c10" value="Готовит запрос модели и запускает его с повторными попытками. Собирает из потока текст и вызовы инструментов, учитывает расход токенов и выдаёт сообщения, события и ошибки вызывающему коду." style="rounded=0;whiteSpace=wrap;html=0;fillColor=#F2F2F2;strokeColor=#CCCCCC;fontFamily=Arial;fontSize=13;align=left;verticalAlign=top;spacing=12;" vertex="1" annotationFor="c10" evidence="services/api/claude.ts:1022" parent="1">
+                    <mxGeometry x="335" y="100" width="210" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="annotation-c14" value="Метод Anthropic SDK. Передаёт сообщения и параметры в POST /v1/messages. Здесь включён stream: true, поэтому результат поступает как поток событий API, а не готовый ответ целиком." style="rounded=0;whiteSpace=wrap;html=0;fillColor=#F2F2F2;strokeColor=#CCCCCC;fontFamily=Arial;fontSize=13;align=left;verticalAlign=top;spacing=12;" vertex="1" annotationFor="c14" evidence="@anthropic-ai/sdk/resources/beta/messages/messages.mjs:44" parent="1">
+                    <mxGeometry x="910" y="100" width="210" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="annotation-c16" value="HTTP-транспорт среды выполнения. Отправляет запрос серверу и возвращает Response с заголовками и потоком тела. Не собирает сообщения Claude: это делают SDK и queryModel. Используется, если fetchOverride не задан." style="rounded=0;whiteSpace=wrap;html=0;fillColor=#F2F2F2;strokeColor=#CCCCCC;fontFamily=Arial;fontSize=13;align=left;verticalAlign=top;spacing=12;" vertex="1" annotationFor="c16" evidence="services/api/client.ts:359" parent="1">
+                    <mxGeometry x="1185" y="100" width="210" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="2" value="Вызывающий код REPL / агент" style="html=0;whiteSpace=wrap;fontFamily=Arial;fontSize=15;spacing=8;fillColor=#ffffff;strokeColor=#737b84;fontColor=light-dark(#000000,#000000);" vertex="1" parent="1">
+                    <mxGeometry x="45" y="30" width="210" height="55" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
 </mxfile>

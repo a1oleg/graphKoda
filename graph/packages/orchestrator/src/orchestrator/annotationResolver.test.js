@@ -7,6 +7,7 @@ import {
   isAnnotationPassReady,
   getAnnotationToolMetadata,
   normalizeAnnotationRefreshMode,
+  resolveAnnotation,
   selectNextAnnotationTask,
   shouldRecurseAnnotationDependency,
   shouldRefreshAnnotation,
@@ -18,6 +19,29 @@ import {
   loadCompositionContextDependenciesMany,
   resolveAnnotationSubjects,
 } from './annotationProfiles.js';
+
+test('explicit reference requests get a persistable context without recursive dependencies', async () => {
+  const stableId = 'fixture:return-type';
+  const driver = { session: () => ({
+    async run(query) {
+      if (query.includes('AS requestedStableId')) return { records: [{ toObject: () => ({
+        requestedStableId: stableId, stableId, labels: ['Reference', 'GenericUse'], annotationKind: null,
+      }) }] };
+      if (query.includes('properties(subject) AS subject')) return { records: [{ toObject: () => ({
+        subject: { stableId, name: 'AsyncGenerator' }, labels: ['Reference', 'GenericUse'], neighbors: [],
+      }) }] };
+      throw new Error(`Unexpected query: ${query}`);
+    },
+    async close() {},
+  }) };
+  const result = await resolveAnnotation(driver, 'neo4j', { stableId, maxDepth: 0, persist: false });
+  assert.equal(result.root.annotationKind, 'EntityContext');
+  assert.ok(result.root.annotationId);
+  assert.equal(result.generationOrder.length, 1);
+  assert.deepEqual(result.root.dependencies, []);
+  assert.equal(inferAnnotationKind(['Reference', 'GenericUse']), null);
+  assert.equal(inferAnnotationKind(['TypeReference']), null);
+});
 
 test('a saved root alone does not complete the accumulated annotation pass', () => {
   assert.equal(isAnnotationPassReady({ status: 'ready' }, [{ status: 'pending' }]), false);

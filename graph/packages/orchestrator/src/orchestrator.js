@@ -1398,7 +1398,9 @@ function findStepRowForCell(xml, cellXml) {
   let current = cellXml;
   for (let depth = 0; current && depth < 12; depth += 1) {
     const id = readMxCellAttribute(current, 'id');
-    if (id.startsWith('fold-row-')) return current;
+    if (readMxCellAttribute(current, 'runtimeStepStableId') || /^(?:f\d+-)?fold-row-/.test(id)) return current;
+    if (readMxCellAttribute(current, 'returnTypePresentation') === '1'
+      && /(?:^|;)container=1(?:;|$)/.test(readMxCellAttribute(current, 'style'))) return current;
     const parentId = readMxCellAttribute(current, 'parent');
     if (!parentId) return null;
     current = findMxCellXml(xml, { cellId: parentId });
