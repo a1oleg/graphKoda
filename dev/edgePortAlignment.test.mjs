@@ -7,7 +7,7 @@ import {alignEdgePorts} from './edgePortAlignment.mjs';
 import {compactVerticalContinuations} from './compactVerticalContinuations.mjs';
 
 const file='C:/GitHub/coldKode/graph/draw/generated/queryModel.drawio';
-const cellIds=['f0-e9','f0-e27','f0-e28','f0-e30','f0-e32','f0-e34','f0-e40'];
+const cellIds=['f0-e9','f0-e27','f0-e28','f0-e30','f0-e32','f0-e34','f0-e35','f0-e39','f0-e40'];
 test('actual queryModel: reported routes meet their port normals in draw.io',async()=>{
   const require=createRequire('C:/GitHub/drawio-inspector/package.json');
   const {Client}=await import(pathToFileURL(require.resolve('@modelcontextprotocol/sdk/client/index.js')));
@@ -47,6 +47,11 @@ test('actual queryModel: reported routes meet their port normals in draw.io',asy
       }
       inspected.push(edge);
     }
+    const joins=inspected.filter(e=>['f0-e35','f0-e39'].includes(e.cellId));
+    assert.deepEqual(joins[0].route.slice(-2),joins[1].route.slice(-2),'Argument joins share the final entry segment');
+    const opening=await client.callTool({name:'inspect_element',arguments:{file,cellId:'f0-n22-part-9',mode:'rendered'}},undefined,{timeout:180000});
+    assert.ok(!opening.isError);
+    assert.equal(opening.structuredContent.elements[0].label,'(');
     const validation=await client.callTool({name:'validate_geometry',arguments:{file,mode:'rendered'}},undefined,{timeout:180000});
     assert.ok(!validation.isError);
     assert.ok(!validation.structuredContent.findings.some(f=>f.participants?.some(p=>cellIds.includes(p.cellId))),

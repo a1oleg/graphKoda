@@ -32,7 +32,10 @@ export function updatePropertyPuzzles(xml,{ready=false}={}) {
     for(let i=0;i<row.length;i++) {
       const c=row[i],g=geometry(c),prev=row[i-1],next=row[i+1];
       const x=num(g,'x'),w=num(g,'width'),h=num(g,'height');
-      if(c.getAttribute('mosaicGeometryVersion')==='3') continue;
+      // An opening parenthesis at a split call's end faces into the gap.
+      // Its silhouette must not look like the closing ')' on the other side.
+      const openingCall=!next&&label(c)==='('&&row.some(p=>/Call|Request|Method/.test(p.getAttribute('graphLabels')||''));
+      if(c.getAttribute('mosaicGeometryVersion')==='3'&&!openingCall) continue;
       const s=styles(c.getAttribute('style')),body=decodeMosaicImage(c.getAttribute('style'));
       // Storage boxes, provider backings and vertical mosaics retain their own layout.
       const horizontal=other=>other && Math.abs(num(geometry(other),'y')+num(geometry(other),'height')/2-num(g,'y')-h/2)<.1;
@@ -41,6 +44,7 @@ export function updatePropertyPuzzles(xml,{ready=false}={}) {
       const layout=measureMosaicTile(label(c),body,{
         leftTab:left,rightSocket:right,fontSize:Number(s.get('fontSize')||12),bold:(Number(s.get('fontStyle'))&1)!==0,
       });
+      if(openingCall)layout.right='inward';
       const wasTab=c.getAttribute('puzzleLeft')==='true';
       const oldAdvance=w-(wasTab?PROPERTY_TAB:0);
       const delta=layout.advance-oldAdvance;

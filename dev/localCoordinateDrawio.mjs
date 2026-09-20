@@ -6,6 +6,8 @@ import {updatePropertyPuzzles} from './propertyPuzzle.mjs';
 import {alignEdgePorts} from './edgePortAlignment.mjs';
 import {compactVerticalContinuations} from './compactVerticalContinuations.mjs';
 import {updateDiagramTypography} from './diagramTypography.mjs';
+import {argumentFamilyMetrics} from './argumentFamilyMetrics.mjs';
+import {sharedArgumentJoins} from './sharedArgumentJoins.mjs';
 import {mosaicPartAdvance} from './mosaicTileGeometry.mjs';
 
 const PORT_STUB_GAP_RATIO = 0.18;
@@ -6216,19 +6218,14 @@ export function alignHorizontalArgumentFamilies(nodes, edges, nodeBoxes) {
     const source = nodeById.get(sourceId);
     const sourceBox = nodeBoxes.get(sourceId);
     const sourceBounds = source && sourceBox ? visualNodeBounds(source, sourceBox) : null;
-    const requiredOpeningGap = Math.max(
-      HORIZONTAL_FAMILY_BOUNDARY_GAP,
-      ...argumentEdges.map((edge) => (
-        slotNameForEdge(edge)
-          ? slotEdgeLabelRequiredGap(edge)
-          : HORIZONTAL_FAMILY_BOUNDARY_GAP
-      )),
-    );
-    const familyLeft = sourceBounds
-      ? sourceBounds.right + requiredOpeningGap
-      : Math.min(...branches.map((branch) => branch.left));
+    const metrics = argumentFamilyMetrics(branches.map((branch,index)=>({
+      width: widths[index],
+      labelWidth: String(slotNameForEdge(argumentEdges[index])||'').length * SLOT_EDGE_LABEL_CHARACTER_WIDTH,
+    })));
+    const familyOrigin = sourceBounds?.right
+      ?? Math.min(...branches.map((branch,index)=>branch.left-metrics.offsets[index]));
     branches.forEach((branch, index) => {
-      const desiredLeft = familyLeft + (maxWidth - widths[index]) / 2;
+      const desiredLeft = familyOrigin + metrics.offsets[index];
       const deltaX = Math.round(desiredLeft - branch.left);
       if (!deltaX) return;
       for (const memberId of branch.memberIds) {
@@ -6295,7 +6292,7 @@ export function alignHorizontalArgumentFamilies(nodes, edges, nodeBoxes) {
     for (const closingId of sharedClosingIds) {
       const closingBox = nodeBoxes.get(closingId);
       if (!closingBox) continue;
-      const desiredX = familyLeft + maxWidth + HORIZONTAL_FAMILY_BOUNDARY_GAP;
+      const desiredX = familyOrigin + metrics.closingOffset;
       if (closingBox.x === desiredX) continue;
       closingBox.x = desiredX;
       moved += 1;
@@ -8156,7 +8153,7 @@ export function makeDrawio(nodes, edges, options = {}) {
   const pageHeight = Math.ceil(maxCellY + 240);
 
   const sizedXml = updateReturnTypeDiagrams(updatePropertyPuzzles(updateFunctionBoundaryCaptions(`<mxfile host="app.diagrams.net" modified="2026-07-18T00:00:00.000Z" agent="Codex" version="24.7.17"><diagram id="${diagramId}" name="${diagramName}"><mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="${suppressFoldingContainers || disableFoldingMechanics ? 0 : 1}" page="1" pageScale="1" pageWidth="${pageWidth}" pageHeight="${pageHeight}" math="0" shadow="0"><root><mxCell id="0" /><mxCell id="1" parent="0" />${foldingCells.join('')}${nodeCells.join('')}${edgeCells.join('')}</root></mxGraphModel></diagram></mxfile>`, methodMosaicImage).xml, {ready: true}).xml, methodMosaicImage).xml;
-  return updateDiagramTypography(alignEdgePorts(compactVerticalContinuations(sizedXml).xml).xml).xml;
+  return updateDiagramTypography(sharedArgumentJoins(alignEdgePorts(compactVerticalContinuations(sizedXml).xml).xml).xml).xml;
 }
 
 function collectEffectiveBridgeIds(nodes, edges) {
