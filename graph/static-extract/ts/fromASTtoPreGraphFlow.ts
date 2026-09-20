@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
+import {constructorSemantics} from '../../vscode-source-colors/constructorSemantics.cjs';
 
 import {
   buildAsyncAssignmentSemantic as buildAsyncAssignmentSemanticForBuilder,
@@ -5040,6 +5041,23 @@ class FunctionFlowGraphBuilder {
     if (crossesBooleanControlBoundary(expression)) return undefined;
 
     type SourcePart = Omit<RenderPartDescriptor, 'stableId' | 'order'> & { primary?: boolean };
+    const typeParts = (type: ts.TypeNode): SourcePart[] => {
+      const part=(anchor:ts.Node,text:string,kind:SourcePart['kind'],labels:string[]):SourcePart=>({
+        text,kind,labels:['TypeArgument',...labels],sourceStableId:getExtendedStableId(this.sourceFile,anchor),
+      });
+      if(ts.isTypeLiteralNode(type)) return [
+        part(type,'{','punctuation',['TypeObjectBoundary']),
+        ...type.members.flatMap((member,index)=>[
+          ...(index?[part(member,';','punctuation',['TypeObjectBoundary'])]:[]),
+          ...(ts.isPropertySignature(member) && member.type
+            ? [part(member.name,`${member.name.getText(this.sourceFile)}${member.questionToken?'?':''}:`,'value',['FieldName','TypeMember']),...typeParts(member.type)]
+            : [part(member,member.getText(this.sourceFile),'value',['TypeMember'])]),
+        ]),
+        part(type,'}','punctuation',['TypeObjectBoundary']),
+      ];
+      const primitive=[ts.SyntaxKind.BooleanKeyword,ts.SyntaxKind.StringKeyword,ts.SyntaxKind.NumberKeyword,ts.SyntaxKind.BigIntKeyword,ts.SyntaxKind.SymbolKeyword,ts.SyntaxKind.VoidKeyword,ts.SyntaxKind.UnknownKeyword,ts.SyntaxKind.AnyKeyword,ts.SyntaxKind.NeverKeyword,ts.SyntaxKind.UndefinedKeyword].includes(type.kind);
+      return [part(type,type.getText(this.sourceFile),'value',primitive?['Type','System','PrimitiveType']:['Type'])];
+    };
     const valuePart = (expression: ts.Expression, text = expression.getText(this.sourceFile)): SourcePart => {
       const literal = isLiteralValueExpression(expression);
       const systemValue = isSystemValueExpression(expression);
@@ -5114,7 +5132,7 @@ class FunctionFlowGraphBuilder {
           ...(index ? [punctuation(',')] : []),
           ...(ts.isPropertyAssignment(property)
             ? [{ text: `${property.name.getText(this.sourceFile)}:`, kind: 'value' as const,
-                labels: ['Field'], sourceStableId: getExtendedStableId(this.sourceFile, property.name) }, ...visit(property.initializer)]
+                labels: ['Field','FieldName'], sourceStableId: getExtendedStableId(this.sourceFile, property.name) }, ...visit(property.initializer)]
             : [{ text: property.getText(this.sourceFile), kind: 'value' as const,
                 labels: ['ValueAccess'], sourceStableId: getExtendedStableId(this.sourceFile, property) }]),
         ]), punctuation('}')];
@@ -5254,6 +5272,21 @@ class FunctionFlowGraphBuilder {
           },
         ];
       }
+      if (ts.isNewExpression(current)) {
+        const origin=constructorSemantics(ts,this.checker,current.expression);
+        const sourceStableId=getExtendedStableId(this.sourceFile,current);
+        const labels=['Op','Call','Constructor',origin.system?'System':'DeveloperDefined',...(origin.error?['SystemError']:[])];
+        const keyword=current.getChildren(this.sourceFile).find(child=>child.kind===ts.SyntaxKind.NewKeyword)!;
+        return [
+          {text:'new',kind:'method',labels:['Op','System','Keyword','New'],sourceStableId:getExtendedStableId(this.sourceFile,keyword)},
+          {text:`${current.expression.getText(this.sourceFile)}(`,kind:'method',labels,primary:true,sourceStableId},
+          ...(current.arguments || []).flatMap((argument,index)=>[
+            ...(index?[{text:',',kind:'punctuation' as const,labels:['ArgumentSeparator'],sourceStableId}]:[]),
+            ...visit(argument),
+          ]),
+          {text:')',kind:'method',labels:[...labels,'CallBoundary'],sourceStableId},
+        ];
+      }
       if (ts.isCallExpression(current)) {
         const callee = unwrapExpression(current.expression);
         const operationProviderLabels = this.operationProviderLabels(current);
@@ -5272,15 +5305,14 @@ class FunctionFlowGraphBuilder {
         if (completeCalls && boundaryDesign === 'split') {
           const sourceStableId = getExtendedStableId(this.sourceFile, current);
           const punctuation = (text: string): SourcePart => ({ text, kind: 'punctuation',
-            labels: ['Op', 'System', 'CallBoundary'], sourceStableId });
+            labels: text==='(' || text===')' ? ['Op','CallBoundary','CallDelimiter',...callOriginLabels] : ['Op', 'System', 'CallBoundary'], sourceStableId });
           return [
             ...(isPropertyAccessLikeExpression(callee) ? visit(callee.expression) : []),
             { text: isPropertyAccessLikeExpression(callee) ? `.${callee.name.getText(this.sourceFile)}` : current.expression.getText(this.sourceFile),
               kind: 'method', labels: ['Op', 'Call', ...callOriginLabels], primary: true, sourceStableId },
             ...(current.typeArguments?.length ? [punctuation('<'), ...current.typeArguments.flatMap((type, index) => [
               ...(index ? [punctuation(',')] : []),
-              { text: type.getText(this.sourceFile), kind: 'value' as const, labels: ['TypeArgument'],
-                sourceStableId: getExtendedStableId(this.sourceFile, type) },
+              ...typeParts(type),
             ]), punctuation('>')] : []),
             punctuation('('),
             ...current.arguments.flatMap((argument, index) => [...(index ? [punctuation(',')] : []), ...visit(argument)]),

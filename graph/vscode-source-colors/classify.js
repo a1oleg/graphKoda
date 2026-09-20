@@ -1,4 +1,5 @@
 // Parse actual syntax; classify standard-library symbols with the TS checker, not names.
+const {constructorSemantics}=require('./constructorSemantics.cjs');
 function classify(ts, file, text) {
   const options = {target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, jsx: ts.JsxEmit.Preserve, allowJs: true, skipLibCheck: true};
   const host = ts.createCompilerHost(options);
@@ -10,7 +11,7 @@ function classify(ts, file, text) {
   const targetPath = canonical(file);
   host.getSourceFile = (name, ...args) => canonical(name) === targetPath ? ts.createSourceFile(name, text, options.target, true) : original(name, ...args);
   const program = ts.createProgram([file], options, host);
-  const source = program.getSourceFile(file), checker = program.getTypeChecker(), marks = [];
+  const source = program.getSourceFile(file), checker = program.getTypeChecker(), marks = [], constructorMarks=[];
   function system(node) {
     const symbol = checker.getSymbolAtLocation(node);
     return !!symbol?.declarations?.length && symbol.declarations.every(d => program.isSourceFileDefaultLibrary(d.getSourceFile()) || /[\\/]node_modules[\\/]@types[\\/]node[\\/]/.test(d.getSourceFile().fileName));
@@ -62,6 +63,16 @@ function classify(ts, file, text) {
     }
     if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
       const target = ts.isPropertyAccessExpression(node.expression) ? node.expression.name : node.expression;
+      if(ts.isNewExpression(node)) {
+        const origin=constructorSemantics(ts,checker,node.expression);
+        const role=origin.error?'systemError':origin.system?'system':'call';
+        const mark=(n,r)=>constructorMarks.push({start:n.getStart(source),end:n.end,role:r,text:n.getText(source)});
+        mark(target,role);
+        for(const child of node.getChildren(source)) {
+          if(child.kind===ts.SyntaxKind.NewKeyword)mark(child,'system');
+          if(child.kind===ts.SyntaxKind.OpenParenToken||child.kind===ts.SyntaxKind.CloseParenToken)mark(child,role);
+        }
+      }
       const role = system(target) || node.expression.kind===ts.SyntaxKind.ImportKeyword ? 'system' : 'call';
       if(system(target))add(target,'systemMember');
       for (const child of node.getChildren(source)) {
@@ -82,6 +93,6 @@ function classify(ts, file, text) {
     ts.forEachChild(node, visit);
   }
   visit(source);
-  return [...new Map(marks.map(m=>[`${m.start}:${m.end}`,m])).values()];
+  return [...new Map([...marks,...constructorMarks].map(m=>[`${m.start}:${m.end}`,m])).values()];
 }
 module.exports = {classify};

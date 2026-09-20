@@ -1118,6 +1118,27 @@ function mosaicFieldAccessAlignment(part, nextPart) {
   return 'align=center;';
 }
 
+function constructorPartStyle(part,index,count,width) {
+  const labels=part?.labels || [];
+  const typeBrace=labels.includes('TypeObjectBoundary');
+  const fieldName=labels.includes('FieldName') || labels.includes('Field') && /:$/.test(part.text || '');
+  const primitiveType=labels.includes('PrimitiveType');
+  if(typeBrace || fieldName || primitiveType) {
+    const fill=primitiveType?DRAWIO_PALETTE.systemActionFill:'#FFFFFF';
+    const stroke=primitiveType?DRAWIO_PALETTE.systemActionStroke:fieldName?DRAWIO_PALETTE.valueStroke:'#000000';
+    return `shape=image;imageAspect=0;image=${horizontalMosaicImage('middle',fill,stroke,false,width)};html=1;whiteSpace=nowrap;labelPosition=center;verticalLabelPosition=middle;verticalAlign=middle;align=center;fontColor=${fieldName?DRAWIO_PALETTE.valueStroke:'#000000'};fontStyle=${fieldName?2:0};spacing=2;`;
+  }
+  const keyword=labels.includes('New') && labels.includes('Keyword');
+  if(!keyword && !labels.includes('Constructor') && !labels.includes('CallDelimiter'))return null;
+  const error=labels.includes('SystemError');
+  const system=keyword || labels.includes('System');
+  const fill=error?'#F8CECC':system?DRAWIO_PALETTE.systemActionFill:DRAWIO_PALETTE.actionFill;
+  const stroke=error?'#CC0000':system?DRAWIO_PALETTE.systemActionStroke:DRAWIO_PALETTE.actionStroke;
+  const side=index===0?'start':index===count-1?'end':'middle';
+  const image=keyword?horizontalMosaicImage('middle',fill,stroke,false,width):methodMosaicImage(side,fill,stroke,{width});
+  return `shape=image;imageAspect=0;image=${image};html=1;whiteSpace=nowrap;labelPosition=center;verticalLabelPosition=middle;verticalAlign=middle;align=center;fontColor=#000000;spacing=2;`;
+}
+
 function structuredContainerOverlayPartStyle(
   node,
   part,
@@ -1127,6 +1148,8 @@ function structuredContainerOverlayPartStyle(
   width = 100,
   nextPart = null,
 ) {
+  const constructorStyle=constructorPartStyle(part,index,count,width);
+  if(constructorStyle)return constructorStyle;
   if (part?.kind === 'operation-provider-container') {
     const side = index === 0 ? 'start' : index === count - 1 ? 'end' : 'middle';
     const systemProvider = (part?.labels || []).includes('SystemProvider');
@@ -1473,7 +1496,9 @@ function containerOverlayEndpointPart(node, edge, endpoint) {
   return '';
 }
 
-function structuredRenderPartStyle(node, part, index, count, width) {
+export function structuredRenderPartStyle(node, part, index, count, width) {
+  const constructorStyle=constructorPartStyle(part,index,count,width);
+  if(constructorStyle)return constructorStyle;
   if (node.labels.includes('Collection') && index === 0) {
     return collectionLayerStyle(part?.fillState === 'empty', isVirtualResultNode(node));
   }
