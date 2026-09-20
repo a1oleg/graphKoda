@@ -4,6 +4,7 @@ import path from 'node:path';
 import neo4j from 'neo4j-driver';
 
 import { isFunctionFlowTraversalRelationship } from './relationshipSemantics.js';
+import {projectSignatureLayout} from './signatureLayout.js';
 
 const DEFAULT_FN_STABLE_ID = 'screens/REPL.tsx:3142:31:3533:3';
 const SOURCE = 'semantic/functionFlowGraph';
@@ -2375,7 +2376,8 @@ async function loadFunctionDiagramSubgraph(localDriver, database, fnStableId) {
       nodes = hydrateSyntaxCompositions(nodes, compositionNodes, compositionEdges);
     }
 
-    return { nodes, edges, semanticEdges };
+    const signatureLayout=projectSignatureLayout(nodes,edges);
+    return { ...signatureLayout, semanticEdges };
   } finally {
     await session.close();
   }

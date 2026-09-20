@@ -101,6 +101,10 @@ type FlowNodeKind = 'Step' | 'Eval' | 'Branch' | 'ArgBranch' | 'FieldBranch' | '
 type SemanticFlowNodeKind = Exclude<FlowNodeKind, 'Step'>;
 type FlowEdgeKind =
   | 'NEXT'
+  | 'SIGNATURE_PARAMETER'
+  | 'SIGNATURE_RETURN'
+  | 'BODY_ENTRY'
+  | 'RETURN_TYPE_ARGUMENT'
   | 'AST_CHILD'
   | 'PARAM'
   | 'TRUE'
@@ -4419,12 +4423,43 @@ class FunctionFlowGraphBuilder {
     this.finalizeExtractedFlowSteps();
     this.normalizeFlowBlockReferences();
     this.assertSubmethodStepOwnership();
+    this.materializeSignatureContract();
 
     return {
       nodes: this.nodes,
       edges: this.edges,
       semanticRelationships: this.semanticRelationships,
     };
+  }
+
+  private materializeSignatureContract() {
+    const parameterIds=this.fnNode.parameters.map(p=>getExtendedStableId(this.sourceFile,p));
+    const parameters=new Set(parameterIds);
+    for(const edge of this.edges) {
+      if(edge.type==='NEXT' && parameters.has(edge.toId) && (parameters.has(edge.fromId)||edge.fromId===this.functionStartStableId)) {
+        edge.type='SIGNATURE_PARAMETER';edge.flowLayer='data';edge.semanticExpansion='function-signature';
+      }
+    }
+    const previous=parameterIds.at(-1)||this.functionStartStableId;
+    if(!previous)return;
+    const bodyEdges=this.edges.filter(e=>e.fromId===previous && e.type==='NEXT');
+    if(!this.fnNode.type){for(const edge of bodyEdges)edge.type='BODY_ENTRY';return;}
+    const type=this.fnNode.type;
+    const name=ts.isTypeReferenceNode(type)?type.typeName.getText(this.sourceFile):type.getText(this.sourceFile);
+    const symbol=ts.isTypeReferenceNode(type)?this.checker.getSymbolAtLocation(type.typeName):undefined;
+    const system=!!symbol?.declarations?.length && symbol.declarations.every(d=>/[/\\]typescript[/\\]lib[/\\]lib\..*\.d\.ts$/.test(d.getSourceFile().fileName));
+    const returnId=this.createNode('Op',name,type,{
+      labels:['ReturnType','Signature',system?'System':'DeveloperDefined'],diaName:name,
+      actionTextRaw:type.getText(this.sourceFile),synthetic:false,
+    },getExtendedStableId(this.sourceFile,type),false);
+    this.addEdge(undefined,previous,undefined,returnId,'SIGNATURE_RETURN',{flowLayer:'data',semanticExpansion:'function-signature'});
+    for(const edge of bodyEdges){edge.fromId=returnId;edge.type='BODY_ENTRY';edge.semanticExpansion='function-signature';}
+    if(ts.isTypeReferenceNode(type))type.typeArguments?.forEach((argument,index)=>{
+      const argumentId=this.createNode('Value',argument.getText(this.sourceFile),argument,{
+        labels:['ReturnTypeArgument','Signature','Type'],diaName:argument.getText(this.sourceFile),synthetic:false,
+      },getExtendedStableId(this.sourceFile,argument),false);
+      this.addEdge(undefined,returnId,undefined,argumentId,'RETURN_TYPE_ARGUMENT',{flowLayer:'data',argumentIndex:index,semanticExpansion:'function-signature'});
+    });
   }
 
   private propagateBindingSemanticsToRenderParts() {

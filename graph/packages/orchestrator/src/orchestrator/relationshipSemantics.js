@@ -8,6 +8,10 @@ const DEFAULT_POLICY = Object.freeze({
 });
 
 const DEFINITIONS = {
+  SIGNATURE_PARAMETER: { annotationUse: 'binding', flowTraversal: true },
+  SIGNATURE_RETURN: { annotationUse: 'type', flowTraversal: true },
+  RETURN_TYPE_ARGUMENT: { annotationUse: 'type', flowTraversal: false },
+  BODY_ENTRY: { annotationUse: null, flowTraversal: true },
   AST_CHILD: { flowTraversal: false, flowVisible: false, functionalVisible: false },
   COMPOSES_SYNTAX: {
     annotationUse: 'canonical-bridge',
