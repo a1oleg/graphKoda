@@ -260,8 +260,10 @@ test('developer-defined canonical entities use bottom-up functional accumulation
   assert.equal(profile.accumulateToSystemBoundary, true);
   await profile.contextMany(session, ['helpers']);
   await profile.dependenciesMany(session, ['helpers']);
-  assert.match(queries[1], /RETURNS_VALUE/);
-  queries.splice(1, 1); // Projection probe returned no match; inspect the fallback below.
+  assert.ok(queries.some(query => /RETURNS_VALUE/.test(query)));
+  // Field and callback selection probes returned no matches; inspect fallback.
+  const fallback = queries.filter(query => /effectPath=|directPath=/.test(query));
+  queries.splice(0, queries.length, ...fallback);
   assert.match(queries[0], /system:System/);
   assert.match(queries[0], /HAS_OPERATION/);
   assert.match(queries[0], /terminalEffects/);
@@ -293,7 +295,8 @@ test('functional evidence survives context loading and task construction with di
     }],
   };
   const contexts = await getAnnotationProfile('FunctionalEntity').contextMany({
-    async run() {
+    async run(query) {
+      if (query.includes('subject:PropertyProjection')) return { records: [] };
       return { records: [{ get(key) {
         return key === 'stableId' ? 'writer' : { stableId: 'writer', evidenceGraph };
       } }] };

@@ -2,6 +2,7 @@ import neo4j from 'neo4j-driver';
 
 import { relationshipTypesForAnnotation } from './relationshipSemantics.js';
 import { loadProjectionDependencies, projectionProfiles } from './projectionContext.js';
+import { loadPropertyProjectionContexts } from './propertyProjectionContext.js';
 
 const PROFILE_VERSION = 13;
 
@@ -31,7 +32,8 @@ export function inferAnnotationKind(labels, explicitKind) {
   if (labelSet.has('VisualProxy') || labelSet.has('PresentationOnly')) return null;
   if (explicitKind === 'Projection' || explicitKind === 'SelectedMember') return explicitKind;
   const typeOnlyDeclaration = (
-    labelSet.has('TypeDeclaration')
+    labelSet.has('TypeReference')
+    || labelSet.has('TypeDeclaration')
     || labelSet.has('TypeAliasDeclaration')
     || labelSet.has('AliasDeclaration')
     || labelSet.has('TypeMember')
@@ -245,10 +247,13 @@ const PROFILES = {
   ...projectionProfiles,
   FunctionalEntity: {
     id: 'functional-accumulation',
-    version: 7,
+    version: 8,
     compositionContext: false,
     accumulateToSystemBoundary: true,
     async contextMany(session, stableIds) {
+      const selected = await loadPropertyProjectionContexts(session, stableIds);
+      const remainingIds = stableIds.filter(id => !selected.has(id));
+      if (!remainingIds.length) return selected;
       const result = await session.run(`
         UNWIND $stableIds AS stableId
         MATCH (subject:DeveloperDefined {stableId: stableId})
@@ -310,11 +315,18 @@ const PROFILES = {
             }]
           }
         } AS context
-      `, { stableIds });
-      return new Map(result.records.map((record) => [record.get('stableId'), normalizeNeo4jValue(record.get('context'))]));
+      `, { stableIds: remainingIds });
+      return new Map([...selected, ...result.records.map((record) => [record.get('stableId'), normalizeNeo4jValue(record.get('context'))])]);
     },
     async dependenciesMany(session, stableIds) {
       const projections = await loadProjectionDependencies(session, stableIds);
+      const selected = await loadPropertyProjectionContexts(session, stableIds.filter(id => !projections.has(id)));
+      for (const [id, selection] of selected) projections.set(id, selection.dependencies.flatMap((candidate, ordinal) => {
+        const annotationKind = inferAnnotationKind(candidate.labels, candidate.annotationKind);
+        return annotationKind ? [{stableId: candidate.stableId, annotationKind,
+          role: 'selected-property-origin', dependencyKind: 'value-provenance', recurse: true,
+          ordinal, evidencePath: candidate.evidencePath}] : [];
+      }));
       const remainingIds = stableIds.filter(id => !projections.has(id));
       if (!remainingIds.length) return projections;
       const result = await session.run(`
