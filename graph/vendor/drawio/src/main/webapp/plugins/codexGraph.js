@@ -1332,7 +1332,10 @@ Draw.loadPlugin(function(ui) {
       var initialScale=view.scale,initialX=(graph.container.scrollLeft+graph.container.clientWidth/2)/view.scale-view.translate.x,initialY=(graph.container.scrollTop+graph.container.clientHeight/2)/view.scale-view.translate.y;
       var finalX=logical.x+logical.width/2,finalY=logical.y+logical.height/2;
       // Begin the narrated path at the top, not halfway down the viewport.
-      if(!command.previousStableId)finalY=state.y/view.scale-view.translate.y+(graph.container.clientHeight/2-32)/scale;
+      if(!command.previousStableId){
+        finalY=state.y/view.scale-view.translate.y+(graph.container.clientHeight/2-32)/scale;
+        finalX=state.x/view.scale-view.translate.x+(graph.container.clientWidth/2-32)/scale;
+      }
       if(command.previousStableId){var half=(graph.container.clientWidth/2-48)/scale;finalX=Math.max(logical.x+logical.width-half,Math.min(initialX,logical.x+half));}
       var duration=Math.max(0,Math.min(5000,Number(command.durationMs)||0)),started=performance.now(),samples=[];
       clearPresentationPointers();
@@ -1349,6 +1352,7 @@ Draw.loadPlugin(function(ui) {
     }
     if(command.action==='presentPointer'){
       var id=command.pointerId||'narrator';if(!/^[a-zA-Z0-9_-]{1,40}$/.test(id))throw new Error('Invalid pointer id');
+      if(command.visible===false){var hidden=presentationPointers[id];if(hidden){hidden.element.remove();delete presentationPointers[id];}return {stage:'pointer-hidden',pointerId:id};}
       var target={x:state.x+state.width,y:state.y+state.height/2},entry=presentationPointers[id];
       var textBounds=null;
       if(command.text!=null){
