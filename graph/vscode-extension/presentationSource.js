@@ -53,7 +53,7 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
       // Re-running a scene must reuse the two zones, not accumulate new splits.
       await vscode.commands.executeCommand('vscode.setEditorLayout', {
         orientation: placement === 'BELOW' ? 1 : 0,
-        groups: [{ size: placement === 'BELOW' ? 0.66 : 0.55 }, { size: placement === 'BELOW' ? 0.34 : 0.45 }],
+        groups: [{ size: placement === 'BELOW' ? 0.66 : 0.5 }, { size: placement === 'BELOW' ? 0.34 : 0.5 }],
       });
     }
     const anchor = vscode.window.tabGroups.activeTabGroup;
