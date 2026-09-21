@@ -6,6 +6,7 @@ import {DOMParser, XMLSerializer} from '@xmldom/xmldom';
 import roots from './projectPaths.cjs';
 import {awaitedTypeArgumentIndex} from '../graph/static-extract/ts/awaitedTypeContract.mjs';
 import {measureMosaicTile,mosaicTileImage} from './mosaicTileGeometry.mjs';
+import {refineCallFamilies} from './callFamilyRefinement.mjs';
 
 const geo=c=>Array.from(c?.childNodes||[]).find(n=>n.nodeName==='mxGeometry');
 const num=(g,k)=>Number(g?.getAttribute(k)||0);
@@ -135,6 +136,7 @@ export function updateAwaitedTypeDiagrams(xml) {
     }
     changed++;
   }
+  refineCallFamilies(doc);
   return {xml:new XMLSerializer().serializeToString(doc),changed};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){const file=process.argv[2];const result=updateAwaitedTypeDiagrams(fs.readFileSync(file,'utf8'));fs.writeFileSync(file,result.xml);console.log(JSON.stringify({changed:result.changed,file}));}

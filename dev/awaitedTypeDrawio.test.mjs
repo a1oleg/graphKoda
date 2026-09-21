@@ -23,7 +23,8 @@ test('actual queryModel diagram keeps the awaited family below arguments and ret
   const children=id=>cells.filter(c=>c.getAttribute('parent')===id&&c.getAttribute('vertex')==='1');
   const opening=cells.find(c=>c.getAttribute('sourceCallStableId')==='services/api/claude.ts:1054:12:1059:7'&&c.getAttribute('awaitedTypePresentation')==='1'&&c.hasAttribute('locationStableId'));
   assert(opening);const tiles=children(opening.getAttribute('id'));
-  assert.equal(tiles.length,1);assert.equal(tiles[0].getAttribute('value'),'getDynamicConfig_BLOCKS_ON_INIT(');
+  assert.equal(tiles.length,2);assert(tiles.some(c=>c.getAttribute('value')==='getDynamicConfig_BLOCKS_ON_INIT('));
+  assert(tiles.some(c=>c.getAttribute('value')==='await'&&c.getAttribute('callPrefixVersion')==='1'));
   const frame=cells.find(c=>c.getAttribute('id')===opening.getAttribute('id')+'-awaited-type');assert(frame);
   const members=children(frame.getAttribute('id'));
   assert(members.some(c=>c.getAttribute('puzzleOriginalLabel')==='.activated'));
@@ -31,5 +32,8 @@ test('actual queryModel diagram keeps the awaited family below arguments and ret
   const member=members.find(c=>c.getAttribute('puzzleOriginalLabel')==='.activated');
   assert(cells.some(c=>c.getAttribute('source')===member.getAttribute('id')&&c.getAttribute('edgeType')==='ASSIGNS_VALUE'));
   assert.equal(cells.filter(c=>c.getAttribute('edgeType')==='AWAITS_TYPE').length,1);
+  const wait=cells.find(c=>c.getAttribute('edgeType')==='AWAITS_TYPE');
+  assert.equal(wait.getElementsByTagName('mxPoint').length,4);
+  assert.equal(wait.getAttribute('value'),'');
   assert.equal(updateAwaitedTypeDiagrams(xml).xml,xml,'repeat render must not duplicate or move the family');
 });
