@@ -1306,7 +1306,7 @@ Draw.loadPlugin(function(ui) {
   async function performPresentationCommand(command) {
     if(command.functionStableId!==presentationOwner())throw new Error('Wrong presentation document');
     var model=graph.getModel(), allCells=Object.keys(model.cells).map(function(id){return model.cells[id];});
-    var matches=allCells.filter(function(c){return c.vertex&&getAttribute(c,'stableId')===command.stableId&&(!command.cellId||c.id===command.cellId);});
+    var matches=allCells.filter(function(c){return (c.vertex||(c.edge&&command.cellId&&command.action==='presentPointer'))&&getAttribute(c,'stableId')===command.stableId&&(!command.cellId||c.id===command.cellId);});
     // An annotation belongs to the supplied semantic head via its explicit target id.
     if (!matches.length && command.cellId) matches=allCells.filter(function(c){var owner=model.getCell(getAttribute(c,'annotationTargetId'));return c.id===command.cellId&&c.vertex&&owner&&getAttribute(owner,'stableId')===command.stableId;});
     if(matches.length!==1)throw new Error('Missing/ambiguous semantic target; specify cellId');

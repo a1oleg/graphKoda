@@ -5,6 +5,23 @@ const fs=require('node:fs');
 const path=require('node:path');
 const ts=require('typescript');
 const {classify}=require('./classify');
+test('Fisher undefined types and intrinsic value are all system-colored',()=>{
+  const file=path.resolve(__dirname,'../../examples/fisher-yates/src/shuffle.ts');
+  const text=fs.readFileSync(file,'utf8');
+  const source=ts.createSourceFile(file,text,ts.ScriptTarget.Latest,true);
+  const marks=classify(ts,file,text);
+  let types=0,values=0;
+  function visit(node){
+    if(node.kind===ts.SyntaxKind.UndefinedKeyword || (ts.isIdentifier(node)&&node.text==='undefined')){
+      const mark=marks.find(m=>m.start===node.getStart(source)&&m.end===node.end);
+      assert.equal(mark?.role,'system',`undefined at ${node.getStart(source)}`);
+      if(node.kind===ts.SyntaxKind.UndefinedKeyword)types++;else values++;
+    }
+    ts.forEachChild(node,visit);
+  }
+  visit(source);
+  assert(types>=2&&values>=1,'Exercise both type and value syntax in actual Fisher code');
+});
 test('color ranges use the editor buffer despite normalized paths and different line endings',()=>{
   const os=require('node:os');
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'source-colors-'));

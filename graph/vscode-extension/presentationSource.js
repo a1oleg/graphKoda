@@ -38,9 +38,11 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
       const range = new vscode.Range(target.startLine-1,target.startColumn,target.endLine-1,target.endColumn);
       const alreadyVisible=currentEditor.visibleRanges.some(r=>r.contains(range));
       currentEditor.setDecorations(pointer, []);
-      if (!alreadyVisible) currentEditor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+      // A continued presentation follows the semantic focus in both panes.
+      // Merely being visible near an edge is not sufficient for narration.
+      currentEditor.revealRange(range, vscode.TextEditorRevealType.InCenter);
       currentStableId=stableId;
-      return {stage:'source-continued',stableId,previousStableId,placement,file:target.file,viewColumn:currentEditor.viewColumn,range:target,scrolled:!alreadyVisible};
+      return {stage:'source-continued',stableId,previousStableId,placement,file:target.file,viewColumn:currentEditor.viewColumn,range:target,previouslyVisible:alreadyVisible,scrollRequested:true,reveal:'center'};
     }
     const command = placement === 'RIGHT' ? 'workbench.action.newGroupRight' : 'workbench.action.newGroupBelow';
     if (!(await vscode.commands.getCommands(true)).includes(command)) throw Error('Editor split command unavailable: ' + command);

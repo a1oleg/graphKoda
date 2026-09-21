@@ -13,7 +13,12 @@ function classify(ts, file, text) {
   const program = ts.createProgram([file], options, host);
   const source = program.getSourceFile(file), checker = program.getTypeChecker(), marks = [], constructorMarks=[];
   function system(node) {
+    // Type-position undefined is a keyword; value-position undefined is an
+    // intrinsic symbol without library declarations. Do not match by spelling:
+    // a user binding or object member named undefined is not that intrinsic.
+    if (node.kind === ts.SyntaxKind.UndefinedKeyword) return true;
     const symbol = checker.getSymbolAtLocation(node);
+    if (symbol && checker.isUndefinedSymbol(symbol)) return true;
     return !!symbol?.declarations?.length && symbol.declarations.every(d => program.isSourceFileDefaultLibrary(d.getSourceFile()) || /[\\/]node_modules[\\/]@types[\\/]node[\\/]/.test(d.getSourceFile().fileName));
   }
   function add(node, role) { marks.push({start: node.getStart(source), end: node.end, role, text: node.getText(source)}); }
@@ -45,6 +50,7 @@ function classify(ts, file, text) {
     }
     if(node.kind===ts.SyntaxKind.TrueKeyword)add(node,'true');
     if(node.kind===ts.SyntaxKind.FalseKeyword)add(node,'false');
+    if(node.kind===ts.SyntaxKind.UndefinedKeyword)add(node,'system');
     if(ts.isIdentifier(node)&&system(node)&&!ts.isPropertyAccessExpression(node.parent))add(node,'system');
     for(const child of node.getChildren(source)) {
       if([ts.SyntaxKind.QuestionToken,ts.SyntaxKind.QuestionDotToken,ts.SyntaxKind.QuestionQuestionToken].includes(child.kind))add(child,'system');
