@@ -11,6 +11,7 @@ import {updateDiagramTypography} from './diagramTypography.mjs';
 import {argumentFamilyMetrics} from './argumentFamilyMetrics.mjs';
 import {sharedArgumentJoins} from './sharedArgumentJoins.mjs';
 import {mosaicPartAdvance} from './mosaicTileGeometry.mjs';
+import {providerMosaicParts} from './providerMosaic.mjs';
 
 const PORT_STUB_GAP_RATIO = 0.18;
 const PORT_STUB_GAP_MIN = 14;
@@ -828,7 +829,7 @@ function renderPartsForNode(node) {
   }
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? providerMosaicParts(parsed) : [];
   } catch {
     return [];
   }
@@ -5349,7 +5350,9 @@ function alignContainerProducerMosaics(nodes, edges, nodeBoxes) {
   for (const evaluation of edges.filter(edge => edge.type === 'EVAL')) {
     const source = nodeById.get(evaluation.start);
     const entry = nodeBoxes.get(evaluation.end);
-    if (!hasLabel(source, 'Branch') || !hasLabel(source, 'BooleanFlag') || !entry) continue;
+    const inlineProducer = renderPartsForNode(nodeById.get(evaluation.end) || { labels: [] }).length > 1
+      && !edges.some(edge => edge.start === evaluation.end && ['ARG', 'FIELD', 'REQUEST', 'INVOKES'].includes(edge.type));
+    if (!entry || !source || (!(hasLabel(source, 'Branch') && hasLabel(source, 'BooleanFlag')) && !inlineProducer)) continue;
     const container = structuredContainerOverlayPartBox(source, nodeBoxes.get(source.id), 'container');
     if (!container) continue;
     const family = new Set([evaluation.end]);

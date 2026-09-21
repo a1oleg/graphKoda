@@ -7,7 +7,7 @@ export const PROPERTY_TAB=9;
 const geometry=c=>Array.from(c?.childNodes || []).find(n=>n.nodeName==='mxGeometry');
 const num=(g,k)=>Number(g?.getAttribute(k)||0);
 const label=c=>c.getAttribute('puzzleOriginalLabel') || c.getAttribute('value') || '';
-const member=c=>c && /^\.[$\p{ID_Start}][\p{ID_Continue}$]*(?:\()?$/u.test(label(c));
+const member=c=>c && /^\.[$\p{ID_Start}][\p{ID_Continue}$]*(?:\(\)?)?$/u.test(label(c));
 function styles(raw) {
   return new Map(String(raw).split(';').filter(Boolean).map(s=>{
     const i=s.indexOf('='); return i<0?[s,'']:[s.slice(0,i),s.slice(i+1)];

@@ -18,7 +18,7 @@ export function decodeMosaicImage(style) {
 export function mosaicPartAdvance(part, next, style, fallback) {
   const svg=decodeMosaicImage(style);
   if(!svg) return fallback;
-  const member=p=>/^\.[$\p{ID_Start}][\p{ID_Continue}$]*(?:\()?$/u.test(p?.plainText || p?.text || '');
+  const member=p=>/^\.[$\p{ID_Start}][\p{ID_Continue}$]*(?:\(\)?)?$/u.test(p?.plainText || p?.text || '');
   return measureMosaicTile(part.plainText || part.text || '',svg,{
     leftTab:member(part),rightSocket:member(next),
     bold:/(?:^|;)fontStyle=[1357](?:;|$)/u.test(style),
