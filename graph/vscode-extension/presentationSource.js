@@ -23,12 +23,14 @@ function resolvePresentationSource(stableId, roots) {
 
 function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
   const panels = new Map();
-  let currentEditor, currentStableId, currentPlacement;
+  let currentEditor, currentStableId, currentPlacement, scrollTimer;
+  const sourceHeadroomLines = 5;
   const pointer = vscode.window.createTextEditorDecorationType({
     after: { contentIconPath: vscode.Uri.file(path.join(__dirname, 'media', 'presentation-code-pointer.svg')), width: '44px', height: '30px', margin: '0 4px' },
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
   });
   const open = async ({ stableId, placement, diagramFile, previousStableId }) => {
+    clearTimeout(scrollTimer);
     if (!['RIGHT', 'BELOW'].includes(placement)) throw Error('Choose RIGHT or BELOW');
     const target = resolvePresentationSource(stableId, roots);
     const document = await vscode.workspace.openTextDocument(vscode.Uri.file(target.file));
@@ -38,11 +40,21 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
       const range = new vscode.Range(target.startLine-1,target.startColumn,target.endLine-1,target.endColumn);
       const alreadyVisible=currentEditor.visibleRanges.some(r=>r.contains(range));
       currentEditor.setDecorations(pointer, []);
-      // A continued presentation follows the semantic focus in both panes.
-      // Merely being visible near an edge is not sufficient for narration.
-      currentEditor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+      // Give code more headroom than the diagram's 32px top inset. Animate by
+      // source lines, not screen pixels, while the diagram animates in parallel.
+      const editor=currentEditor, from=editor.visibleRanges[0]?.start.line||0;
+      const to=Math.max(0,target.startLine-1-sourceHeadroomLines), started=Date.now(), durationMs=1400;
+      let lastLine=-1;
+      const advance=()=>{
+        if(!vscode.window.visibleTextEditors.includes(editor))return;
+        const t=Math.min(1,(Date.now()-started)/durationMs), eased=t*t*(3-2*t);
+        const line=Math.round(from+(to-from)*eased);
+        if(line!==lastLine){editor.revealRange(new vscode.Range(line,0,line,0),vscode.TextEditorRevealType.AtTop);lastLine=line;}
+        if(t<1)scrollTimer=setTimeout(advance,40);
+      };
+      advance();
       currentStableId=stableId;
-      return {stage:'source-continued',stableId,previousStableId,placement,file:target.file,viewColumn:currentEditor.viewColumn,range:target,previouslyVisible:alreadyVisible,scrollRequested:true,reveal:'center'};
+      return {stage:'source-continued',stableId,previousStableId,placement,file:target.file,viewColumn:currentEditor.viewColumn,range:target,previouslyVisible:alreadyVisible,scrollRequested:true,reveal:'top-with-headroom',headroomLines:sourceHeadroomLines,durationMs};
     }
     const command = placement === 'RIGHT' ? 'workbench.action.newGroupRight' : 'workbench.action.newGroupBelow';
     if (!(await vscode.commands.getCommands(true)).includes(command)) throw Error('Editor split command unavailable: ' + command);
@@ -74,7 +86,7 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
     currentEditor = editor;
     currentStableId = stableId; currentPlacement = placement;
     editor.selection = new vscode.Selection(start, start);
-    editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+    editor.revealRange(range, vscode.TextEditorRevealType.AtTop);
     return { stage: 'source-opened', stableId, placement, file: target.file, viewColumn: editor.viewColumn, range: target };
   };
   // The code pointer uses the editor's own range layout, never screenshot coordinates.
@@ -87,9 +99,9 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
     if (target.endLine > document.lineCount || target.startColumn > document.lineAt(target.startLine - 1).text.length || target.endColumn > document.lineAt(target.endLine - 1).text.length) throw Error('Source pointer range is stale');
     const range = new vscode.Range(target.startLine - 1, target.startColumn, target.endLine - 1, target.endColumn);
     currentEditor.setDecorations(pointer, [range]);
-    return { stage: 'source-pointer-moved', stableId, text: document.getText(range), viewColumn: currentEditor.viewColumn, coordinateSource: 'VS Code source range' };
+    return { stage: 'source-pointer-moved', stableId, text: document.getText(range), viewColumn: currentEditor.viewColumn, visibleStartLine:(currentEditor.visibleRanges[0]?.start.line??0)+1, coordinateSource: 'VS Code source range' };
   };
-  open.dispose = () => pointer.dispose();
+  open.dispose = () => {clearTimeout(scrollTimer);pointer.dispose();};
   return open;
 }
 module.exports = { resolvePresentationSource, createPresentationSourceOpener };

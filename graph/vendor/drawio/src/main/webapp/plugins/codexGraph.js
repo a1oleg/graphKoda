@@ -1331,9 +1331,9 @@ Draw.loadPlugin(function(ui) {
       if(command.scale!=null){if(!Number.isFinite(command.scale)||command.scale<.1||command.scale>4)throw new Error('Invalid presentation scale');scale=command.scale;}
       var initialScale=view.scale,initialX=(graph.container.scrollLeft+graph.container.clientWidth/2)/view.scale-view.translate.x,initialY=(graph.container.scrollTop+graph.container.clientHeight/2)/view.scale-view.translate.y;
       var finalX=logical.x+logical.width/2,finalY=logical.y+logical.height/2;
-      // Begin the narrated path at the top, not halfway down the viewport.
+      // Every narrated head, including continued scrolling, lands at the top.
+      finalY=state.y/view.scale-view.translate.y+(graph.container.clientHeight/2-32)/scale;
       if(!command.previousStableId){
-        finalY=state.y/view.scale-view.translate.y+(graph.container.clientHeight/2-32)/scale;
         finalX=state.x/view.scale-view.translate.x+(graph.container.clientWidth/2-32)/scale;
       }
       if(command.previousStableId){var half=(graph.container.clientWidth/2-48)/scale;finalX=Math.max(logical.x+logical.width-half,Math.min(initialX,logical.x+half));}
