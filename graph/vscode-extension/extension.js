@@ -124,7 +124,7 @@ async function activate(context) {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || context.extensionPath;
   demoControl = createDemoControl({ workspaceRoot,
     tokenFilePath: path.join(workspaceRoot, 'tmp', PRESENTATION_WINDOW ? 'graph-presenter-token.local' : 'graph-demo-token.local'),
-    openDiagram: file=>openDrawioFile(file),
+    openDiagram: (file,options)=>openDrawioFile(file,options),
     openSource: require('./presentationSource').createPresentationSourceOpener({vscode,roots:[workspaceRoot,resolveSourceRoot(workspaceRoot)],openDiagram:openDrawioFile}),
     runtimeSend: message => runtimeAnalysisPanel?.webview.postMessage(message) || false,
     runtimeState: () => runtimeAnalysisState });
@@ -458,8 +458,14 @@ async function openNodeDiagram(context, workspaceRoot, node) {
   }
 }
 
-async function openDrawioFile(filePath) {
+async function openDrawioFile(filePath, options = {}) {
   if (PRESENTATION_WINDOW) {
+    if(options.diagramOnly){
+      await vscode.commands.executeCommand('vscode.setEditorLayout',{orientation:0,groups:[{size:1}]});
+      await vscode.commands.executeCommand('workbench.action.closeSidebar');
+      await vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar');
+      await vscode.commands.executeCommand('workbench.action.closePanel');
+    }
     const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
     return openDrawioDiagramPanel(presentationContext, workspaceRoot, { title: path.basename(filePath), filePath: path.resolve(filePath) });
   }

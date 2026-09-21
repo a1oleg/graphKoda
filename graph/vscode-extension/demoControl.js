@@ -38,7 +38,7 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
         if(typeof openSource!=='function')throw new Error('Source opener unavailable');
         return openSource({stableId:input.stableId,placement:input.placement,diagramFile:file,previousStableId:input.previousStableId});
       }
-      await openDiagram(file);return {stage:'diagram-opened',file};
+      await openDiagram(file,{diagramOnly:true});return {stage:'diagram-opened',file,diagramOnly:true};
     }
     if (input.surface === 'runtime' && input.action === 'waitForAnalysis') {
       const deadline = Date.now() + 15000;
