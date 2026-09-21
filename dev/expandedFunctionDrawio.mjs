@@ -49,7 +49,7 @@ export function composeExpandedFunctions(rootId, functions, calls, documents, op
     const ownHeight = Math.max(...rects.map(r => r.y + r.height)) - minY + 80;
     const group = element('mxCell', { id: prefix + 'block', vertex: 1, parent: '1', value: functions.get(fnId).name,
       stableId: fnId, graphKind: 'Fn', functionStableId: fnId,
-      style: 'rounded=0;fillColor=none;strokeColor=#999999;verticalAlign=top;align=left;spacing=8;fontStyle=1;collapsible=0;container=1;' }, root);
+      style: 'shape=coldKodeFoldingFrame;html=1;flowBlock=1;rounded=0;fillColor=none;strokeColor=#878787;strokeWidth=1.5;verticalAlign=top;align=left;spacing=8;fontStyle=1;collapsible=0;container=1;recursiveResize=0;' }, root);
     const groupGeometry = element('mxGeometry', { x: 0, y: 0, width: ownWidth, height: ownHeight, as: 'geometry' }, group);
     const copied = new Map();
     for (const cell of cells) {
