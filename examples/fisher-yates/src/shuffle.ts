@@ -1,7 +1,6 @@
 
 
 
-
 //алгоритм Фишера-Йетса
 export function shuffle(): string[] {
 
