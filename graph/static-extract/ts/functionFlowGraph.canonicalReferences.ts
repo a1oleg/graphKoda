@@ -4,6 +4,7 @@ import path from 'node:path';
 import ts from 'typescript';
 import { declaredMemberEvidence } from './declaredMemberEvidence.js';
 import { callbackContributesToResult } from './callbackResultFlow.js';
+import { awaitedTypeArgumentIndex } from './awaitedTypeContract.mjs';
 
 import {
   getExtendedStableId,
@@ -543,10 +544,14 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       if (target) target.labels = [...new Set([...target.labels, 'GenericDeclaration'])];
       emitRelationship(id, targetId, 'INSTANTIATES', { resolution: 'typescript-checker' });
     }
+    const awaitedIndex = ts.isCallExpression(node) ? awaitedTypeArgumentIndex(ts, node, resolvedDeclaration) : -1;
     typeArguments.forEach((argument, index) => {
       let targets = targetDeclarationIds(typeReferenceTargetNode(argument), 'TypeDeclaration');
       if (!targets.length && isDerivedTypeNode(argument)) targets = [emitDerivedType(argument)];
-      for (const targetId of targets) emitRelationship(id, targetId, 'TYPE_ARGUMENT', { index });
+      for (const targetId of targets) emitRelationship(id, targetId, index === awaitedIndex ? 'AWAITS_TYPE' : 'TYPE_ARGUMENT', {
+        index, layer: 'type', resolution: 'typescript-signature',
+        ...(index === awaitedIndex ? { staticOnly: true, runtimeValidation: false } : {}),
+      });
     });
   }
 
