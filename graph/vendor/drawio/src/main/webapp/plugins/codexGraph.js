@@ -1328,6 +1328,7 @@ Draw.loadPlugin(function(ui) {
       var width=logical.width,height=logical.height;
       var scale=Math.max(.1,Math.min(2,(graph.container.clientWidth-96)/width,(graph.container.clientHeight-96)/height));
       if(command.previousStableId)scale=Math.min(view.scale,scale);
+      if(command.scale!=null){if(!Number.isFinite(command.scale)||command.scale<.1||command.scale>4)throw new Error('Invalid presentation scale');scale=command.scale;}
       var initialScale=view.scale,initialX=(graph.container.scrollLeft+graph.container.clientWidth/2)/view.scale-view.translate.x,initialY=(graph.container.scrollTop+graph.container.clientHeight/2)/view.scale-view.translate.y;
       var finalX=logical.x+logical.width/2,finalY=logical.y+logical.height/2;
       if(command.previousStableId){var half=(graph.container.clientWidth/2-48)/scale;finalX=Math.max(logical.x+logical.width-half,Math.min(initialX,logical.x+half));}

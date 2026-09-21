@@ -18,9 +18,10 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
     return true;
   }
   async function step(input) {
-    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath','placement','visible','includeAnnotations','includeStep','previousStableId','text']
+    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath','placement','visible','includeAnnotations','includeStep','previousStableId','text','scale']
       .filter(key => input && Object.prototype.hasOwnProperty.call(input, key)).map(key => [key, input[key]]));
     if (!input || !allowed[input.surface]?.includes(input.action)) throw new Error('Unsupported demo surface/action');
+    if(input.scale!=null&&(!Number.isFinite(input.scale)||input.scale<.1||input.scale>4))throw Error('Scale must be between 0.1 and 4');
     if (typeof input.functionStableId !== 'string' || !input.functionStableId) throw new Error('functionStableId is required');
     if (input.action.startsWith('scene') && !/^graph-scene:[a-zA-Z0-9_-]{1,64}$/.test(input.functionStableId)) throw new Error('Scene identity required');
     if (pending.size) throw new Error('A demo action is already pending; await it before sending the next');

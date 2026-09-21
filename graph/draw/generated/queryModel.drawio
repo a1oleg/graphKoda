@@ -1096,7 +1096,7 @@
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="annotation-muat8u6b" value="Преобразует ошибку аварийного отключения Opus в сообщение ассистента: модель перегружена, предлагается переключиться на Sonnet через /model. Сообщение помечается как rate_limit; исключение не выбрасывается." style="rounded=1;whiteSpace=wrap;html=1;overflow=fill;fillColor=#f5f5f5;strokeColor=#b3b3b3;fontSize=14;align=center;verticalAlign=top;spacing=6;resizable=1;editable=1;" vertex="1" annotationTargetId="f0-n30" annotationSavedText="Преобразует ошибку аварийного отключения Opus в сообщение ассистента: модель перегружена, предлагается переключиться на Sonnet через /model. Сообщение помечается как rate_limit; исключение не выбрасывается." graphKind="Annotation" annotationToolGitCommitShortHash="" annotationMaxDepth="0" parent="f0-block">
-                    <mxGeometry x="514.5" y="2910" width="620" height="66" as="geometry"/>
+                    <mxGeometry x="490" y="2910" width="620" height="66" as="geometry"/>
                 </mxCell>
                 <mxCell id="annotation-muat8u6b-link" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#999999;strokeWidth=1.5;" visible="0" edge="1" annotationLink="1" annotationTargetId="f0-n30" parent="f0-block" source="annotation-muat8u6b" target="f0-n30">
                     <mxGeometry relative="1" as="geometry"/>
