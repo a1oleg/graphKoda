@@ -26,7 +26,9 @@ export async function frameSheetScene({functionStableId,file,row=12,spreadsheetI
     return heads[0];
   };
   const upper=head(top),lower=head(bottom);
+  const rightId=source.values[0][7];
+  const rightmost=rightId&&rightId!=='нет'?head(rightId):null;
   const command={functionStableId,surface:'diagram',action:'presentFocus',stableId:top,cellId:upper.cellId,bottomStableId:bottom,bottomCellId:lower.cellId};
   const result=apply?await bridge(command):{};
-  return {source,upper,lower,command,...result};
+  return {source,upper,lower,rightmost,command,...result};
 }
