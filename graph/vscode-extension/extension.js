@@ -461,6 +461,10 @@ async function openNodeDiagram(context, workspaceRoot, node) {
 async function openDrawioFile(filePath, options = {}) {
   if (PRESENTATION_WINDOW) {
     if(options.diagramOnly){
+      const duplicateTabs = vscode.window.tabGroups.all.flatMap(group => group.tabs)
+        .filter(tab => tab.input?.uri?.fsPath && path.resolve(tab.input.uri.fsPath).toLowerCase() === path.resolve(filePath).toLowerCase());
+      if (duplicateTabs.some(tab => tab.isDirty)) throw new Error('Save the native diagram editor before opening presentation');
+      if (duplicateTabs.length) await vscode.window.tabGroups.close(duplicateTabs);
       await vscode.commands.executeCommand('vscode.setEditorLayout',{orientation:0,groups:[{size:1}]});
       await vscode.commands.executeCommand('workbench.action.closeSidebar');
       await vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar');
@@ -782,6 +786,9 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
   .variable-box.collection-box { width:84px; height:54px; background-image:url("${collectionBoxImage}"); }
   .details td { overflow-wrap:anywhere; }
   .swap-letter { color:#0000ff; }
+  .transition-repeat { color:#0000ff; }
+  .transition-false { color:#cc0000; }
+  #demo-pointer { position:fixed; width:30px; height:42px; background:#e53935; clip-path:polygon(0 0,12% 76%,35% 55%,67% 100%,90% 85%,57% 42%,88% 37%); filter:drop-shadow(1px 1px 1px white); pointer-events:none; z-index:1000; }
   .details tr.selected { background:#e1effa; }
   body { margin: 0; color: var(--loop-panel-foreground); background: var(--loop-panel-editor-background); font: 13px/1.4 var(--loop-panel-font-family); }
   header { min-height:44px; padding:11px 12px 11px 4px; border-bottom:1px solid var(--loop-panel-panel-border); }
@@ -946,6 +953,9 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
           } catch {}
         }
         if (index >= 1 && index <= variables.length + 1) cell.className = 'variable-cell';
+        if (index === variables.length + 2 && current.methodName === 'for') {
+          cell.className = value === 'repeat' ? 'transition-repeat' : value === 'false' ? 'transition-false' : '';
+        }
         if (current.hasAccumulator && index === variables.length + 3) cell.className = 'accumulator';
         row.appendChild(cell);
       });
@@ -968,14 +978,21 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
         if (command.action === 'selectCase') {
           const row = [...document.querySelectorAll('#details tr')].find(row => Number(row.dataset.caseIndex) === command.index);
           if (!row) throw new Error('Case not visible; select all or the matching segment first');
-          row.scrollIntoView({ block: 'nearest' }); row.click();
+          row.scrollIntoView({ block: 'nearest' });
+          let pointer = document.getElementById('demo-pointer');
+          if (!pointer) { pointer = document.createElement('div'); pointer.id = 'demo-pointer'; document.body.appendChild(pointer); }
+          const bounds = row.cells[1].getBoundingClientRect();
+          pointer.style.left = (bounds.left + bounds.width / 2) + 'px';
+          pointer.style.top = (bounds.top + bounds.height / 2) + 'px';
+          pointer.hidden = false;
+          row.click();
         } else if (command.action === 'selectSegment') {
           const segment = current.segments.find(item => item.id === command.id);
           if (!segment) throw new Error('Segment not found');
           const element = [...document.querySelectorAll('[data-segment-id]')].find(el => el.getAttribute('data-segment-id') === command.id);
           if (!element) throw new Error('Segment control not visible');
           element.click();
-        } else if (command.action === 'selectAll') byId('all').click();
+        } else if (command.action === 'selectAll') { byId('all').click(); const pointer=document.getElementById('demo-pointer'); if(pointer)pointer.hidden=true; }
         else throw new Error('Unsupported runtime demo action');
         requestAnimationFrame(() => vscode.postMessage({type:'demoResult', requestId:command.requestId, result:{action:command.action,index:command.index,id:command.id,stage:'panel-clicked'}}));
       } catch (error) { vscode.postMessage({type:'demoResult',requestId:command.requestId,error:error.message}); }

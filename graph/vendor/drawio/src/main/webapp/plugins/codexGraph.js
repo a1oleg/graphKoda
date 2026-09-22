@@ -291,7 +291,23 @@ Draw.loadPlugin(function(ui) {
   var runtimeValueOriginalGeometries = {};
   var runtimeValuesActive = false;
 
+  function preserveRuntimeCamera(action) {
+    var view = graph.getView(), container = graph.container;
+    var camera = { scale: view.scale, x: view.translate.x, y: view.translate.y,
+      left: container.scrollLeft, top: container.scrollTop };
+    try { return action(); }
+    finally {
+      view.scaleAndTranslate(camera.scale, camera.x, camera.y);
+      container.scrollLeft = camera.left;
+      container.scrollTop = camera.top;
+    }
+  }
+
   function clearRuntimeHighlight() {
+    return preserveRuntimeCamera(clearRuntimeHighlightStyles);
+  }
+
+  function clearRuntimeHighlightStyles() {
     model.beginUpdate();
     try {
       runtimeOutlines.forEach(function(cell) {
@@ -1132,6 +1148,10 @@ Draw.loadPlugin(function(ui) {
   }
 
   function runtimeHighlight(selection) {
+    return preserveRuntimeCamera(function() { applyRuntimeHighlight(selection); });
+  }
+
+  function applyRuntimeHighlight(selection) {
     clearRuntimeHighlight();
     if (selection && selection.eventSequences && selection.eventSequences.length) {
       selection = Object.assign({}, selection, {
@@ -1316,7 +1336,10 @@ Draw.loadPlugin(function(ui) {
     var state=graph.getView().getState(cell);if(!state)throw new Error('Target not visible');
     if(command.action==='presentRead'){
       var v=graph.getView();
-      return {stableId:command.stableId,cellId:cell.id,camera:{scale:v.scale,translate:{x:v.translate.x,y:v.translate.y},scrollLeft:graph.container.scrollLeft,scrollTop:graph.container.scrollTop},annotations:allCells.filter(function(c){var owner=model.getCell(getAttribute(c,'annotationTargetId'));return c.vertex&&owner&&getAttribute(owner,'stableId')===command.stableId;}).map(function(c){return {cellId:c.id,text:graph.convertValueToString(c)};})};
+      var screenBounds={x:state.x-graph.container.scrollLeft,y:state.y-graph.container.scrollTop,width:state.width,height:state.height};
+      var viewport={width:graph.container.clientWidth,height:graph.container.clientHeight};
+      var visible=screenBounds.x>=0&&screenBounds.y>=0&&screenBounds.x+screenBounds.width<=viewport.width&&screenBounds.y+screenBounds.height<=viewport.height;
+      return {stableId:command.stableId,cellId:cell.id,screenBounds:screenBounds,viewport:viewport,visible:visible,camera:{scale:v.scale,translate:{x:v.translate.x,y:v.translate.y},scrollLeft:graph.container.scrollLeft,scrollTop:graph.container.scrollTop}};
     }
     if(command.action==='presentFocus'){
       // Reapply before framing: a restored floating Format window can cover targets.
@@ -1470,7 +1493,7 @@ Draw.loadPlugin(function(ui) {
     throw new Error('Unsupported diagram demo action');
   }
   async function pollDemoBridge() {
-    if (demoPolling) return;
+    if (demoPolling || document.visibilityState === 'hidden') return;
     demoPolling = true;
     try {
       var owner = presentationOwner();

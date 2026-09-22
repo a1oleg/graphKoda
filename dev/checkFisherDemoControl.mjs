@@ -92,10 +92,32 @@ try{
  await runtimePage.setContent(buildRuntimeAnalysisHtml(boxImage(),boxImage({collection:true})));
  await runtimePage.evaluate(analysis=>window.dispatchEvent(new MessageEvent('message',{data:{type:'analysis',analysis}})),analysis);
  const ready=await broker.step({surface:'runtime',action:'waitForAnalysis',functionStableId:latest.root});
+ await broker.step({surface:'diagram',action:'presentFocus',functionStableId:latest.root,stableId:latest.loop,cellId,scale:0.6});
+ const camera=()=>page.evaluate(cellId=>{
+  const g=window.__demoAuditUi.editor.graph,v=g.view,s=v.getState(g.model.getCell(cellId));
+  return {scale:v.scale,x:v.translate.x,y:v.translate.y,left:g.container.scrollLeft,top:g.container.scrollTop,
+    screenX:s.x-g.container.scrollLeft,screenY:s.y-g.container.scrollTop};
+ },cellId);
+ const beforeResize=await camera();
+ await page.setViewportSize({width:800,height:900});
+ await page.waitForTimeout(400);
+ const afterResize=await camera();
+ assert(Math.abs(afterResize.screenX-beforeResize.screenX)<1,'Opening statistics moved the diagram horizontally');
+ assert(Math.abs(afterResize.screenY-beforeResize.screenY)<1,'Opening statistics moved the diagram vertically');
+ assert(afterResize.screenX>=0&&afterResize.screenX<800,'Loop is outside the narrowed viewport');
+ const fixedCamera=afterResize;
  for(const item of analysis.cases){
   await broker.step({surface:'runtime',action:'selectCase',functionStableId:latest.root,index:item.index});
   assert(messages.some(m=>m.type==='showCase'&&m.index===item.index));
   assert.equal(await runtimePage.locator('#details tr.selected').getAttribute('data-case-index'),String(item.index));
+  const outcome=runtimePage.locator('#details tr.selected td').nth(3+analysis.variableColumns.length);
+  assert.equal(await outcome.innerText(),item.terminal?'false':'repeat');
+  assert.equal(await outcome.evaluate(el=>getComputedStyle(el).color),item.terminal?'rgb(204, 0, 0)':'rgb(0, 0, 255)');
+  await page.evaluate(selection=>window.postMessage(JSON.stringify({action:'runtimeHighlight',selection}),'*'),item);
+  await page.waitForTimeout(150);
+  assert(await page.evaluate(()=>Object.values(window.__demoAuditUi.editor.graph.model.cells)
+    .some(c=>c.edge&&/strokeWidth=3;shadow=0/.test(c.style||''))),`Case ${item.index} did not highlight edges`);
+  assert.deepEqual(await camera(),fixedCamera,`Case ${item.index} moved the diagram`);
  }
  for(const segment of analysis.segments){
   await broker.step({surface:'runtime',action:'selectSegment',functionStableId:latest.root,id:segment.id});
@@ -103,6 +125,10 @@ try{
  }
  await broker.step({surface:'runtime',action:'selectAll',functionStableId:latest.root});
  assert.equal(await runtimePage.locator('#details tr').count(),analysis.cases.length);
+ await page.evaluate(()=>window.postMessage(JSON.stringify({action:'runtimeHighlightClear'}),'*'));
+ await page.waitForTimeout(150);
+ assert.deepEqual(await camera(),fixedCamera,'Clearing case selection moved the diagram');
+ console.log('Verified transition colors and fixed camera for all cases and clear');
  console.log('Runtime case clicks:',ready.cases.length,'segment clicks:',analysis.segments.length);
  console.log(JSON.stringify({file:'Fisher-Yates.drawio',cellId,opened,clicked,dispatchedAction:dispatched.action,missingMenuRejected:true}));
 }finally{await browser.close();broker.dispose();await new Promise(r=>server.close(r));}
