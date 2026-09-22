@@ -14,6 +14,7 @@ import {sharedArgumentJoins} from './sharedArgumentJoins.mjs';
 import {mosaicPartAdvance} from './mosaicTileGeometry.mjs';
 import {providerMosaicParts} from './providerMosaic.mjs';
 import {familyMembers} from './familyFootprint.mjs';
+import {compactForDeparture} from './compactForDeparture.mjs';
 
 const PORT_STUB_GAP_RATIO = 0.18;
 const PORT_STUB_GAP_MIN = 14;
@@ -8168,7 +8169,7 @@ export function makeDrawio(nodes, edges, options = {}) {
   const pageHeight = Math.ceil(maxCellY + 240);
 
   const sizedXml = updateReturnTypeDiagrams(updatePropertyPuzzles(updateFunctionBoundaryCaptions(`<mxfile host="app.diagrams.net" modified="2026-07-18T00:00:00.000Z" agent="Codex" version="24.7.17"><diagram id="${diagramId}" name="${diagramName}"><mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="${suppressFoldingContainers || disableFoldingMechanics ? 0 : 1}" page="1" pageScale="1" pageWidth="${pageWidth}" pageHeight="${pageHeight}" math="0" shadow="0"><root><mxCell id="0" /><mxCell id="1" parent="0" />${foldingCells.join('')}${nodeCells.join('')}${edgeCells.join('')}</root></mxGraphModel></diagram></mxfile>`, methodMosaicImage).xml, {ready: true}).xml, methodMosaicImage).xml;
-  return compactNextRows(compactBlockEntries(updateAwaitedTypeDiagrams(updateDiagramTypography(sharedArgumentJoins(alignEdgePorts(compactVerticalContinuations(sizedXml).xml).xml).xml).xml).xml).xml).xml;
+  return compactForDeparture(compactNextRows(compactBlockEntries(updateAwaitedTypeDiagrams(updateDiagramTypography(sharedArgumentJoins(alignEdgePorts(compactVerticalContinuations(sizedXml).xml).xml).xml).xml).xml).xml).xml).xml;
 }
 
 function collectEffectiveBridgeIds(nodes, edges) {
