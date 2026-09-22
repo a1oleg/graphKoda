@@ -1370,10 +1370,28 @@ Draw.loadPlugin(function(ui) {
       var scale=Math.max(.1,Math.min(2,(graph.container.clientWidth-96)/width,(graph.container.clientHeight-96)/height));
       if(command.previousStableId)scale=Math.min(view.scale,scale);
       if(command.scale!=null){if(!Number.isFinite(command.scale)||command.scale<.1||command.scale>4)throw new Error('Invalid presentation scale');scale=command.scale;}
+      var topPadding=32;
+      if(command.bottomStableId){
+        if(command.scale!=null)throw new Error('Explicit scale conflicts with vertical framing');
+        var bottoms=allCells.filter(function(c){return c.vertex&&getAttribute(c,'stableId')===command.bottomStableId&&(!command.bottomCellId||c.id===command.bottomCellId);});
+        if(bottoms.length!==1)throw new Error('Missing/ambiguous lower framing target');
+        var bottomCell=bottoms[0];
+        for(var parent=bottomCell.parent;parent;parent=parent.parent)if(parent.collapsed)graph.foldCells(false,false,[parent]);
+        view.validate();
+        state=view.getState(cell);
+        var bottomState=view.getState(bottomCell);
+        if(!bottomState)throw new Error('Lower framing target is not rendered');
+        var span=(bottomState.y+bottomState.height-state.y)/view.scale;
+        if(span<=0)throw new Error('Lower framing target must be below the upper target');
+        topPadding=16;
+        scale=(graph.container.clientHeight-2*topPadding)/span;
+        if(scale<.1||scale>4)throw new Error('Vertical framing requires unsupported scale');
+        included.push(bottomCell.id);
+      }
       var initialScale=view.scale,initialX=(graph.container.scrollLeft+graph.container.clientWidth/2)/view.scale-view.translate.x,initialY=(graph.container.scrollTop+graph.container.clientHeight/2)/view.scale-view.translate.y;
       var finalX=logical.x+logical.width/2,finalY=logical.y+logical.height/2;
       // Every narrated head, including continued scrolling, lands at the top.
-      finalY=state.y/view.scale-view.translate.y+(graph.container.clientHeight/2-32)/scale;
+      finalY=state.y/view.scale-view.translate.y+(graph.container.clientHeight/2-topPadding)/scale;
       if(!command.previousStableId){
         finalX=state.x/view.scale-view.translate.x+(graph.container.clientWidth/2-32)/scale;
       }

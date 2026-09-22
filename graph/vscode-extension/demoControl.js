@@ -23,7 +23,7 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
       if (typeof reloadWindow !== 'function') throw new Error('Window reload is unavailable');
       return reloadWindow();
     }
-    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath','placement','visible','includeAnnotations','includeStep','previousStableId','text','scale']
+    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath','placement','visible','includeAnnotations','includeStep','previousStableId','text','scale','bottomStableId','bottomCellId']
       .filter(key => input && Object.prototype.hasOwnProperty.call(input, key)).map(key => [key, input[key]]));
     if (!input || !allowed[input.surface]?.includes(input.action)) throw new Error('Unsupported demo surface/action');
     if(input.scale!=null&&(!Number.isFinite(input.scale)||input.scale<.1||input.scale>4))throw Error('Scale must be between 0.1 and 4');
