@@ -32,8 +32,8 @@ export function shuffle(): string[] {
 }
 
 function getRandom(length: number): number {
-  const index = Math.floor(Math.random() * length);
-  return index;
+  const randomIndex = Math.floor(Math.random() * length);
+  return randomIndex;
 }
 
 function swap<T>(alphabet: T[], current: { index: number; value: T | undefined }, random: number): void {

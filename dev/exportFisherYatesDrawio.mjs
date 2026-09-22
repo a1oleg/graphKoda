@@ -10,6 +10,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const outputIndex = process.argv.indexOf('--output');
 const output = outputIndex >= 0 ? process.argv[outputIndex + 1] : path.join(root, 'graph/draw/generated/Fisher-Yates.drawio');
 const view = { ...expandedFunctionView, name: 'Fisher-Yates',
+  parameterFunctions: ['getRandom'],
   secondaryParameters: process.argv.includes('--show-secondary-parameters') ? 'visible' : 'hidden',
   alignCalledStart: !process.argv.includes('--no-align-called-start'),
 };
@@ -34,7 +35,7 @@ fs.mkdirSync(path.join(root, 'tmp/fisher-yates'), { recursive: true });
 for (const [id, fn] of functions) {
   const file = path.join(root, 'tmp/fisher-yates', `${fn.name}.drawio`);
   execFileSync(process.execPath, ['dev/exportLocalIterativeCoordinateDrawio.mjs', '--aura', '--fn-stable-id', id, '--output', file,
-    ...(id !== fisherYatesRoot && view.secondaryParameters === 'hidden' ? ['--hide-entry-parameters'] : [])], {
+    ...(id !== fisherYatesRoot && view.secondaryParameters === 'hidden' && !view.parameterFunctions.includes(fn.name) ? ['--hide-entry-parameters'] : [])], {
     cwd: root, windowsHide: true, timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'],
   });
   documents.set(id, fs.readFileSync(file, 'utf8'));
