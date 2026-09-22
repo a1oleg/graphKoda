@@ -983,10 +983,11 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
     byId('details').replaceChildren(...rows);
     alignDistributionWidth();
   }
-  window.addEventListener('message', (event) => {
+  window.addEventListener('message', async (event) => {
     if (event.data?.type === 'analysis') render(event.data.analysis);
     if (event.data?.type === 'demoAction') {
       const command = event.data;
+      const pointerSamples=[];
       try {
         if (!current) throw new Error('Analysis not ready');
         if (command.action === 'selectCase') {
@@ -996,9 +997,17 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
           let pointer = document.getElementById('demo-pointer');
           if (!pointer) { pointer = document.createElement('div'); pointer.id = 'demo-pointer'; document.body.appendChild(pointer); }
           const bounds = row.cells[1].getBoundingClientRect();
-          pointer.style.left = (bounds.left + bounds.width / 2) + 'px';
-          pointer.style.top = (bounds.top + bounds.height / 2) + 'px';
+          const target={x:bounds.left+bounds.width/2,y:bounds.top+bounds.height/2};
+          const from=pointer.hidden||!pointer.style.left?{x:0,y:Math.max(0,Math.min(1,Number(command.pointer?.yFraction)||0.5))*innerHeight}:{x:parseFloat(pointer.style.left),y:parseFloat(pointer.style.top)};
           pointer.hidden = false;
+          const duration=Math.max(0,Math.min(5000,Number(command.durationMs)||0)),start=performance.now();
+          let t;
+          do {
+            t=duration?Math.min(1,(performance.now()-start)/duration):1;
+            const k=t*t*(3-2*t),x=from.x+(target.x-from.x)*k,y=from.y+(target.y-from.y)*k;
+            pointer.style.left=x+'px';pointer.style.top=y+'px';pointerSamples.push({t,x,y});
+            if(t<1)await new Promise(resolve=>requestAnimationFrame(resolve));
+          } while(t<1);
           row.click();
         } else if (command.action === 'selectSegment') {
           const segment = current.segments.find(item => item.id === command.id);
@@ -1008,7 +1017,7 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
           element.click();
         } else if (command.action === 'selectAll') { byId('all').click(); const pointer=document.getElementById('demo-pointer'); if(pointer)pointer.hidden=true; }
         else throw new Error('Unsupported runtime demo action');
-        requestAnimationFrame(() => vscode.postMessage({type:'demoResult', requestId:command.requestId, result:{action:command.action,index:command.index,id:command.id,stage:'panel-clicked'}}));
+        requestAnimationFrame(() => vscode.postMessage({type:'demoResult', requestId:command.requestId, result:{action:command.action,index:command.index,id:command.id,stage:'panel-clicked',pointerSamples}}));
       } catch (error) { vscode.postMessage({type:'demoResult',requestId:command.requestId,error:error.message}); }
     }
     if (event.data?.type === 'analysisError') { byId('main').hidden=true; byId('error').hidden=false; byId('error').textContent=event.data.error; }

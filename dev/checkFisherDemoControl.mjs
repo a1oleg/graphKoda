@@ -70,6 +70,8 @@ try{
  const opened=await broker.step({surface:'diagram',action:'contextMenu',cellId,functionStableId:latest.root});
  assert.equal(opened.stage,'menu-open');
  assert(opened.items.includes('показать статистику Цикла'));
+ const hover=await broker.step({surface:'diagram',action:'menuHover',label:'показать статистику Цикла',durationMs:200,functionStableId:latest.root});
+ assert(hover.samples.length>=3,'Menu pointer did not slide');
  const clicked=await broker.step({surface:'diagram',action:'menuClick',label:'показать статистику Цикла',functionStableId:latest.root});
  assert.equal(clicked.stage,'menu-handler-invoked');
  await page.waitForTimeout(100);
@@ -107,7 +109,8 @@ try{
  assert(afterResize.screenX>=0&&afterResize.screenX<800,'Loop is outside the narrowed viewport');
  const fixedCamera=afterResize;
  for(const item of analysis.cases){
-  await broker.step({surface:'runtime',action:'selectCase',functionStableId:latest.root,index:item.index});
+  const moved=await broker.step({surface:'runtime',action:'selectCase',functionStableId:latest.root,index:item.index,durationMs:150});
+  assert(moved.pointerSamples.length>=3,'Case pointer did not slide');
   assert(messages.some(m=>m.type==='showCase'&&m.index===item.index));
   assert.equal(await runtimePage.locator('#details tr.selected').getAttribute('data-case-index'),String(item.index));
   assert(await runtimePage.locator('#demo-pointer').isVisible(),'Case pointer is missing');

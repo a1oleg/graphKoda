@@ -9,7 +9,7 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
   const tokenFile = tokenFilePath || path.join(workspaceRoot, 'tmp', 'graph-demo-token.local');
   fs.mkdirSync(path.dirname(tokenFile), { recursive: true });
   fs.writeFileSync(tokenFile, token, { mode: 0o600 });
-  const allowed = { editor:['openDiagram','openSource','sourcePointer'], diagram: ['contextMenu', 'menuClick', 'dismissMenu', 'sceneRead', 'sceneSync', 'scenePointer','presentFocus','presentPointer','presentRead'], runtime: ['waitForAnalysis', 'selectCase', 'selectSegment', 'selectAll'] };
+  const allowed = { editor:['openDiagram','openSource','sourcePointer'], diagram: ['contextMenu', 'menuHover', 'cursorExit', 'menuClick', 'dismissMenu', 'sceneRead', 'sceneSync', 'scenePointer','presentFocus','presentPointer','presentRead'], runtime: ['waitForAnalysis', 'selectCase', 'selectSegment', 'selectAll'] };
   function finish(id, reply) {
     const job = pending.get(id);
     if (!job) return false;

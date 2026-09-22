@@ -1480,11 +1480,36 @@ Draw.loadPlugin(function(ui) {
     }
     throw new Error('Unsupported scene action');
   }
+  var demoCursor=null;
+  async function moveDemoCursor(target,duration) {
+    if(!demoCursor){
+      demoCursor=document.createElement('div');
+      demoCursor.style.cssText='position:fixed;width:30px;height:42px;background:#e53935;clip-path:polygon(0 0,12% 76%,35% 55%,67% 100%,90% 85%,57% 42%,88% 37%);pointer-events:none;z-index:2147483647';
+      document.body.appendChild(demoCursor);
+      var first=target();demoCursor.style.left=first.x+'px';demoCursor.style.top=first.y+'px';
+    }
+    demoCursor.hidden=false;
+    var from={x:parseFloat(demoCursor.style.left),y:parseFloat(demoCursor.style.top)},started=performance.now(),samples=[];
+    duration=Math.max(0,Math.min(5000,Number(duration)||0));
+    do {
+      var t=duration?Math.min(1,(performance.now()-started)/duration):1,k=t*t*(3-2*t),to=target();
+      var x=from.x+(to.x-from.x)*k,y=from.y+(to.y-from.y)*k;
+      demoCursor.style.left=x+'px';demoCursor.style.top=y+'px';samples.push({t:t,x:x,y:y});
+      if(t<1)await demoFrame();
+    }while(t<1);
+    return {samples:samples,yFraction:parseFloat(demoCursor.style.top)/window.innerHeight};
+  }
   async function performDemoCommand(command) {
     if (command.action.indexOf('present') === 0) return performPresentationCommand(command);
     if (command.action.indexOf('scene') === 0) return performSceneCommand(command);
     var menu = graph.popupMenuHandler;
-    if (command.action === 'dismissMenu') { menu.hideMenu(); demoMenuItems = []; return { stage: 'menu-closed' }; }
+    if (command.action === 'dismissMenu') { menu.hideMenu(); demoMenuItems = []; if(demoCursor)demoCursor.hidden=true; return { stage: 'menu-closed' }; }
+    if(command.action==='cursorExit'){
+      if(!demoCursor)throw Error('Menu pointer is unavailable');
+      var y=Math.min(window.innerHeight-45,parseFloat(demoCursor.style.top));
+      var motion=await moveDemoCursor(function(){return {x:window.innerWidth-2,y:y};},command.durationMs);
+      demoCursor.hidden=true;return {stage:'pointer-exited',...motion};
+    }
     if (command.action === 'contextMenu') {
       var cells = Object.keys(graph.getModel().cells).map(function(id) { return graph.getModel().cells[id]; });
       var candidates = cells.filter(function(cell) {
@@ -1514,7 +1539,21 @@ Draw.loadPlugin(function(ui) {
       finally { menu.addItem = originalAdd; }
       await demoFrame();
       if (!menu.isMenuShowing()) throw new Error('Context menu did not open');
+      clearPresentationPointers();
+      await moveDemoCursor(function(){return {x:x,y:y};},0);
       return { stage:'menu-open',cellId:cell.id,items:demoMenuItems.map(function(item){return item.label;}) };
+    }
+    if(command.action==='menuHover'){
+      if(!menu.isMenuShowing())throw Error('Open the context menu first');
+      var rows=demoMenuItems.filter(function(item){return item.label===command.label;});
+      if(rows.length!==1||!rows[0].row)throw Error('Menu target missing or ambiguous');
+      var row=rows[0].row;
+      row.scrollIntoView({block:'nearest',behavior:'smooth'});
+      var motion=await moveDemoCursor(function(){var r=row.getBoundingClientRect();return {x:r.left+Math.min(50,r.width/2),y:r.top+r.height/2};},command.durationMs);
+      var r=row.getBoundingClientRect();
+      if(r.top<0||r.bottom>window.innerHeight)throw Error('Menu item is outside viewport');
+      row.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:r.left+50,clientY:r.top+r.height/2}));
+      return {stage:'menu-hovered',label:command.label,...motion};
     }
     if (command.action === 'menuClick') {
       if (!menu.isMenuShowing()) throw new Error('Open the context menu first');
