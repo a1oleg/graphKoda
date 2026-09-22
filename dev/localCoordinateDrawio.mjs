@@ -13,6 +13,7 @@ import {argumentFamilyMetrics} from './argumentFamilyMetrics.mjs';
 import {sharedArgumentJoins} from './sharedArgumentJoins.mjs';
 import {mosaicPartAdvance} from './mosaicTileGeometry.mjs';
 import {providerMosaicParts} from './providerMosaic.mjs';
+import {familyMembers} from './familyFootprint.mjs';
 
 const PORT_STUB_GAP_RATIO = 0.18;
 const PORT_STUB_GAP_MIN = 14;
@@ -5349,7 +5350,9 @@ function alignContainerProducerMosaics(nodes, edges, nodeBoxes) {
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   let moved = 0;
   for (const evaluation of edges.filter(edge => edge.type === 'EVAL')) {
-    const source = nodeById.get(evaluation.start);
+    const sourcePartId = evaluation.props?.sourceRenderPartStableId || evaluation.props?.source_render_part_stable_id;
+    const source = (sourcePartId && nodes.find(node => renderPartsForNode(node).some(part => part.stableId === sourcePartId)))
+      || nodeById.get(evaluation.start);
     const entry = nodeBoxes.get(evaluation.end);
     const inlineProducer = renderPartsForNode(nodeById.get(evaluation.end) || { labels: [] }).length > 1
       && !edges.some(edge => edge.start === evaluation.end && ['ARG', 'FIELD', 'REQUEST', 'INVOKES'].includes(edge.type));
@@ -5361,8 +5364,14 @@ function alignContainerProducerMosaics(nodes, edges, nodeBoxes) {
     for (const id of family) for (const edge of edges) {
       if (edge.start === id && familyTypes.has(edge.type) && edge.end !== source.id) family.add(edge.end);
     }
-    const dx = container.x + container.width + 36 - entry.x;
-    const dy = container.y + container.height / 2 - (entry.y + entry.height / 2);
+    const ownerFamily = familyMembers(source.id, edges, family);
+    const familyRight = [...ownerFamily].reduce((right, id) => {
+      const node = nodeById.get(id), box = nodeBoxes.get(id);
+      return node && box ? Math.max(right, visualNodeBounds(node, box).right) : right;
+    }, container.x + container.width);
+    const dx = familyRight + 36 - entry.x;
+    const targetContainer = structuredContainerOverlayPartBox(nodeById.get(evaluation.end), entry, 'container') || entry;
+    const dy = container.y + container.height / 2 - (targetContainer.y + targetContainer.height / 2);
     for (const id of family) {
       const box = nodeBoxes.get(id);
       if (!box) continue;
@@ -7531,7 +7540,6 @@ export function makeDrawio(nodes, edges, options = {}) {
   }
   if (
     alignNestedArithmeticMosaics(visibleNodes, edges, nodeBoxes)
-    + alignContainerProducerMosaics(visibleNodes, edges, nodeBoxes)
     + alignNestedSubmethodRows(visibleNodes, edges, nodeBoxes)
     + alignHorizontalDataJoins(visibleNodes, edges, nodeBoxes)
     + alignExpandedObjectFamilies(visibleNodes, edges, nodeBoxes)
@@ -7547,6 +7555,7 @@ export function makeDrawio(nodes, edges, options = {}) {
     + alignHorizontalArgumentFamilies(visibleNodes, edges, nodeBoxes)
     + alignMethodChainMosaics(visibleNodes, nodeBoxes)
     + alignDataBranchResultTargetsToFalseGrade(visibleNodes, edges, nodeBoxes)
+    + alignContainerProducerMosaics(visibleNodes, edges, nodeBoxes)
   ) {
     obstacleLayout = buildFoldingRows(
       visibleNodes,
