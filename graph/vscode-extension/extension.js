@@ -990,13 +990,15 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
       const pointerSamples=[];
       try {
         if (!current) throw new Error('Analysis not ready');
-        if (command.action === 'selectCase') {
-          const row = [...document.querySelectorAll('#details tr')].find(row => Number(row.dataset.caseIndex) === command.index);
-          if (!row) throw new Error('Case not visible; select all or the matching segment first');
-          row.scrollIntoView({ block: 'nearest' });
+        if (command.action === 'selectCase' || command.action === 'selectSegment') {
+          const element = command.action === 'selectCase'
+            ? [...document.querySelectorAll('#details tr')].find(row => Number(row.dataset.caseIndex) === command.index)
+            : [...document.querySelectorAll('[data-segment-id]')].find(el => el.getAttribute('data-segment-id') === command.id);
+          if (!element) throw new Error('Case or segment control not visible');
+          element.scrollIntoView({ block: 'nearest' });
           let pointer = document.getElementById('demo-pointer');
           if (!pointer) { pointer = document.createElement('div'); pointer.id = 'demo-pointer'; document.body.appendChild(pointer); }
-          const bounds = row.cells[1].getBoundingClientRect();
+          const bounds = (command.action === 'selectCase' ? element.cells[1] : element).getBoundingClientRect();
           const target={x:bounds.left+bounds.width/2,y:bounds.top+bounds.height/2};
           const from=pointer.hidden||!pointer.style.left?{x:0,y:Math.max(0,Math.min(1,Number(command.pointer?.yFraction)||0.5))*innerHeight}:{x:parseFloat(pointer.style.left),y:parseFloat(pointer.style.top)};
           pointer.hidden = false;
@@ -1008,12 +1010,6 @@ function buildRuntimeAnalysisHtml(variableBoxImage, collectionBoxImage = variabl
             pointer.style.left=x+'px';pointer.style.top=y+'px';pointerSamples.push({t,x,y});
             if(t<1)await new Promise(resolve=>requestAnimationFrame(resolve));
           } while(t<1);
-          row.click();
-        } else if (command.action === 'selectSegment') {
-          const segment = current.segments.find(item => item.id === command.id);
-          if (!segment) throw new Error('Segment not found');
-          const element = [...document.querySelectorAll('[data-segment-id]')].find(el => el.getAttribute('data-segment-id') === command.id);
-          if (!element) throw new Error('Segment control not visible');
           element.click();
         } else if (command.action === 'selectAll') { byId('all').click(); const pointer=document.getElementById('demo-pointer'); if(pointer)pointer.hidden=true; }
         else throw new Error('Unsupported runtime demo action');
