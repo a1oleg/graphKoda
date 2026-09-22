@@ -123,6 +123,20 @@ async function activate(context) {
   presentationContext = context;
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || context.extensionPath;
   demoControl = createDemoControl({ workspaceRoot,
+    reloadWindow: () => {
+      if (!PRESENTATION_WINDOW) throw new Error('Reload is restricted to the presentation window');
+      if (vscode.workspace.textDocuments.some(document => document.isDirty)
+          || vscode.window.tabGroups.all.some(group => group.tabs.some(tab => tab.isDirty))) {
+        throw new Error('Save or close unsaved documents before reloading');
+      }
+      // Allow the authenticated HTTP response to finish before stopping its host.
+      const timer = setTimeout(() => {
+        void vscode.commands.executeCommand('workbench.action.reloadWindow').then(undefined,
+          error => vscode.window.showErrorMessage('Presentation reload failed: ' + error.message));
+      }, 500);
+      context.subscriptions.push({ dispose: () => clearTimeout(timer) });
+      return { stage: 'reload-scheduled', pid: process.pid, version: EXTENSION_VERSION };
+    },
     tokenFilePath: path.join(workspaceRoot, 'tmp', PRESENTATION_WINDOW ? 'graph-presenter-token.local' : 'graph-demo-token.local'),
     openDiagram: (file,options)=>openDrawioFile(file,options),
     openSource: require('./presentationSource').createPresentationSourceOpener({vscode,roots:[workspaceRoot,resolveSourceRoot(workspaceRoot)],openDiagram:openDrawioFile}),

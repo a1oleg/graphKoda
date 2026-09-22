@@ -1310,6 +1310,20 @@ Draw.loadPlugin(function(ui) {
     });
   }
   var presentationPointers = {};
+  var presentationFrameAnchor = null;
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(function() {
+    if (!presentationFrameAnchor || !graph.container.clientWidth || !graph.container.clientHeight) return;
+    requestAnimationFrame(function() {
+      var anchor = presentationFrameAnchor;
+      if (!anchor) return;
+      graph.getView().validate();
+      var anchoredState = graph.getView().getState(model.getCell(anchor.cellId));
+      if (anchoredState) {
+        graph.container.scrollLeft = Math.max(0, anchoredState.x - anchor.x);
+        graph.container.scrollTop = Math.max(0, anchoredState.y - anchor.y);
+      }
+    });
+  }).observe(graph.container);
   function clearPresentationPointers() {
     Object.keys(presentationPointers).forEach(function(id){presentationPointers[id].element.remove();});
     presentationPointers={};
@@ -1336,12 +1350,16 @@ Draw.loadPlugin(function(ui) {
     var state=graph.getView().getState(cell);if(!state)throw new Error('Target not visible');
     if(command.action==='presentRead'){
       var v=graph.getView();
-      var screenBounds={x:state.x-graph.container.scrollLeft,y:state.y-graph.container.scrollTop,width:state.width,height:state.height};
+      var renderedNode=state.shape&&state.shape.node;
+      if(!renderedNode||!renderedNode.isConnected)throw new Error('Target has no rendered shape');
+      var renderedBounds=renderedNode.getBoundingClientRect(),containerBounds=graph.container.getBoundingClientRect();
+      var screenBounds={x:renderedBounds.left-containerBounds.left,y:renderedBounds.top-containerBounds.top,width:renderedBounds.width,height:renderedBounds.height};
       var viewport={width:graph.container.clientWidth,height:graph.container.clientHeight};
-      var visible=screenBounds.x>=0&&screenBounds.y>=0&&screenBounds.x+screenBounds.width<=viewport.width&&screenBounds.y+screenBounds.height<=viewport.height;
-      return {stableId:command.stableId,cellId:cell.id,screenBounds:screenBounds,viewport:viewport,visible:visible,camera:{scale:v.scale,translate:{x:v.translate.x,y:v.translate.y},scrollLeft:graph.container.scrollLeft,scrollTop:graph.container.scrollTop}};
+      var visible=screenBounds.width>0&&screenBounds.height>0&&screenBounds.x>=0&&screenBounds.y>=0&&screenBounds.x+screenBounds.width<=viewport.width&&screenBounds.y+screenBounds.height<=viewport.height;
+      return {stableId:command.stableId,cellId:cell.id,screenBounds:screenBounds,viewport:viewport,visible:visible,camera:{scale:v.scale,translate:{x:v.translate.x,y:v.translate.y},scrollLeft:graph.container.scrollLeft,scrollTop:graph.container.scrollTop},annotations:allCells.filter(function(c){var owner=model.getCell(getAttribute(c,'annotationTargetId'));return c.vertex&&owner&&getAttribute(owner,'stableId')===command.stableId;}).map(function(c){return {cellId:c.id,text:graph.convertValueToString(c)};})};
     }
     if(command.action==='presentFocus'){
+      presentationFrameAnchor = null;
       // Reapply before framing: a restored floating Format window can cover targets.
       hidePresenterFormatPanel();
       var view=graph.getView(), bounds=new mxRectangle(state.x,state.y,state.width,state.height), included=[cell.id];
@@ -1371,6 +1389,8 @@ Draw.loadPlugin(function(ui) {
         if(t<1)await demoFrame();
       }while(t<1);
       await demoFrame();
+      var finalState=graph.getView().getState(cell);
+      presentationFrameAnchor={cellId:cell.id,x:finalState.x-graph.container.scrollLeft,y:finalState.y-graph.container.scrollTop};
       return {stage:'focused',stableId:command.stableId,cellId:cell.id,scale:graph.getView().scale,includedCellIds:included,formatPanelVisible:ui.isFormatPanelVisible(),transition:{durationMs:duration,samples:samples},viewport:{width:graph.container.clientWidth,height:graph.container.clientHeight}};
     }
     if(command.action==='presentPointer'){

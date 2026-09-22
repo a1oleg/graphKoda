@@ -3,7 +3,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagram, openSource, tokenFilePath }) {
+function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagram, openSource, tokenFilePath, reloadWindow }) {
   const token = crypto.randomBytes(32).toString('hex');
   const pending = new Map();
   const tokenFile = tokenFilePath || path.join(workspaceRoot, 'tmp', 'graph-demo-token.local');
@@ -18,6 +18,11 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
     return true;
   }
   async function step(input) {
+    if (input?.surface === 'window' && input.action === 'reload') {
+      if (pending.size) throw new Error('Wait for the active demo action before reloading');
+      if (typeof reloadWindow !== 'function') throw new Error('Window reload is unavailable');
+      return reloadWindow();
+    }
     input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath','placement','visible','includeAnnotations','includeStep','previousStableId','text','scale']
       .filter(key => input && Object.prototype.hasOwnProperty.call(input, key)).map(key => [key, input[key]]));
     if (!input || !allowed[input.surface]?.includes(input.action)) throw new Error('Unsupported demo surface/action');

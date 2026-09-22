@@ -110,6 +110,9 @@ try{
   await broker.step({surface:'runtime',action:'selectCase',functionStableId:latest.root,index:item.index});
   assert(messages.some(m=>m.type==='showCase'&&m.index===item.index));
   assert.equal(await runtimePage.locator('#details tr.selected').getAttribute('data-case-index'),String(item.index));
+  assert(await runtimePage.locator('#demo-pointer').isVisible(),'Case pointer is missing');
+  const pointerBounds=await runtimePage.locator('#demo-pointer').boundingBox();
+  assert(pointerBounds.x>=0&&pointerBounds.y>=0,'Case pointer is outside the panel');
   const outcome=runtimePage.locator('#details tr.selected td').nth(3+analysis.variableColumns.length);
   assert.equal(await outcome.innerText(),item.terminal?'false':'repeat');
   assert.equal(await outcome.evaluate(el=>getComputedStyle(el).color),item.terminal?'rgb(204, 0, 0)':'rgb(0, 0, 255)');
