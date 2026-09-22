@@ -26,6 +26,10 @@ const alphabetInitializer = rootFunction.body.statements.filter(ts.isVariableSta
 assert(alphabetInitializer && ts.isArrayLiteralExpression(alphabetInitializer)
   && alphabetInitializer.elements.every(ts.isStringLiteral), 'Expected a string-array alphabet initializer');
 const initialAlphabet = alphabetInitializer.elements.map(element => element.text);
+const firstRandomArgument = process.argv.indexOf('--first-random');
+const firstRandom = firstRandomArgument < 0 ? null : Number(process.argv[firstRandomArgument + 1]);
+assert(firstRandom === null || (Number.isInteger(firstRandom) && firstRandom >= 0 && firstRandom < initialAlphabet.length),
+  '--first-random must be an index in the initial alphabet');
 const { extractFunctionFlowGraphs, payloadForTransport } = await import('../graph/static-extract/ts/fromASTtoPreGraphFlow.ts');
 const graph = payloadForTransport(extractFunctionFlowGraphs(program));
 const targets = [];
@@ -105,7 +109,16 @@ await fs.writeFile(output, compiled);
 const reporter = await import('./runtimeNodePassReporter.mjs');
 assert(reporter.installRuntimeNodePassReporter());
 const { shuffle } = await import(pathToFileURL(output));
-const alphabet = shuffle();
+const originalRandom = Math.random;
+let randomCalls = 0;
+let alphabet;
+try {
+  if (firstRandom !== null) Math.random = () => randomCalls++ === 0
+    ? (firstRandom + 0.5) / initialAlphabet.length : originalRandom();
+  alphabet = shuffle();
+} finally {
+  Math.random = originalRandom;
+}
 await reporter.flushPendingNodePassEvents();
 assert.deepEqual([...alphabet].sort(), [...initialAlphabet].sort());
 const sessionId = process.env.GRAPH_RUNTIME_SESSION_ID;
@@ -135,6 +148,12 @@ assert.deepEqual(analysis.conditionChecks, { total: 8, true: 7, false: 1 });
 assert.deepEqual(analysis.iterations.map(i => JSON.parse(i.itemPreview).current.index), [7, 6, 5, 4, 3, 2, 1]);
 assert.deepEqual(JSON.parse(analysis.cases[0].itemPreview).current, { index: 7, value: initialAlphabet[7] });
 assert(analysis.iterations.every(c => Number.isInteger(JSON.parse(c.variableValues.random))));
+if (firstRandom !== null) {
+  assert.equal(JSON.parse(analysis.cases[0].variableValues.random), firstRandom);
+  const expected = [...initialAlphabet];
+  [expected[7], expected[firstRandom]] = [expected[firstRandom], expected[7]];
+  assert.deepEqual(JSON.parse(analysis.cases[0].variableValues.alphabet), expected);
+}
 assert.equal(analysis.totalCases, 8);
 assert.deepEqual(analysis.cases.map(c => c.transition), [...Array(7).fill('continue'), 'break']);
 assert.deepEqual(JSON.parse(analysis.cases.at(-1).itemPreview).current, { index: 0, value: JSON.parse(analysis.iterations.at(-1).itemPreview).current.value });
@@ -162,6 +181,6 @@ assert(values.values.length > 0);
 assert.equal(JSON.parse(values.values.find(v => v.stableId === incrementId).valuePreview).index, 0);
 assert.deepEqual(JSON.parse(values.values.find(v => v.stableId === swapId).valuePreview), alphabet);
 assert(analysis.iterations.every(i => !i.staticStableIds.some(id => returnIds.includes(id))), 'Return must not be part of every iteration');
-const report = { sessionId, root, loop, alphabet, targets: targets.length, trace, values, analysis };
+const report = { sessionId, root, loop, alphabet, ...(firstRandom !== null ? { firstRandom } : {}), targets: targets.length, trace, values, analysis };
 await fs.writeFile(path.join(outputDir, 'latest.json'), JSON.stringify(report, null, 2));
 console.log(JSON.stringify({ sessionId, alphabet, instrumented: targets.length, traceEvents: trace.chain.length, values: values.values.length, iterations: analysis.totalIterations, report: path.join(outputDir, 'latest.json') }, null, 2));
