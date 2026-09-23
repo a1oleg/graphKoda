@@ -224,7 +224,7 @@ function runStubApp(workspaceRoot) {
     cwd: workspaceRoot,
     env: {
       CLAUDE_CODE_MODEL_STUB: '1',
-      CLAUDE_CODE_MODEL_STUB_RESPONSE: 'заглушка',
+      MODEL_STUB_REPLY: 'заглушка',
       GRAPH_NODE_LOGGING: '1',
       RUNTIME_RELAY_URL: 'http://127.0.0.1:8787/graph-relay',
     },

@@ -124,7 +124,7 @@ const child = pty.spawn(
     env: {
       ...process.env,
       CLAUDE_CODE_MODEL_STUB: '1',
-      CLAUDE_CODE_MODEL_STUB_RESPONSE: 'model-call-was-not-expected',
+      MODEL_STUB_REPLY: 'model-call-was-not-expected',
       GRAPH_NODE_LOGGING: '1',
       GRAPH_RUNTIME_SESSION_ID: SESSION_ID,
       RUNTIME_RELAY_URL: RELAY_URL,
