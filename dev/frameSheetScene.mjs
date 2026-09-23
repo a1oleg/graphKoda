@@ -24,7 +24,7 @@ export async function frameSheetScene({functionStableId,file,row=12,spreadsheetI
     if(i<0&&required)throw Error('Missing framing column: '+pattern);
     return String(source.values[0][i]||'').replace(/^stableId:\s*/i,'').trim();
   };
-  const top=value(/^верхний/,true),bottom=value(/^нижний/,true);
+  const top=value(/^(?:стартовый\s+)?верхний/,true),bottom=value(/^(?:стартовый\s+)?нижний/,true);
   if(!top||!bottom)throw Error('Both upper and lower framing targets are required');
   const index=await diagramIndex({file});
   const head=id=>{
