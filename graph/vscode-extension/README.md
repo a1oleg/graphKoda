@@ -1,4 +1,4 @@
-# coldKode Graph Explorer
+# graphKoda Graph Explorer
 
 Local VS Code extension for browsing the graph-backed function diagram.
 

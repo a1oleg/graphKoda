@@ -6,7 +6,7 @@ import {pathToFileURL} from 'node:url';
 import {alignEdgePorts} from './edgePortAlignment.mjs';
 import {compactVerticalContinuations} from './compactVerticalContinuations.mjs';
 
-const file='C:/GitHub/coldKode/graph/draw/generated/queryModel.drawio';
+const file='C:/GitHub/graphKoda/graph/draw/generated/queryModel.drawio';
 const cellIds=['f0-e9','f0-e27','f0-e28','f0-e30','f0-e32','f0-e34','f0-e35','f0-e39','f0-e40'];
 test('actual queryModel: reported routes meet their port normals in draw.io',async()=>{
   const require=createRequire('C:/GitHub/drawio-inspector/package.json');

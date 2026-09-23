@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { renderSwaggerUi } from '../../graph/packages/orchestrator/src/orchestrator/apiContract.js';
 const assets = createRequire(import.meta.url)('swagger-ui-dist').getAbsoluteFSPath();
 export const runtimeOpenApi = {
-  openapi: '3.1.0', info: { title: 'ColdKode Runtime API', version: '1' }, servers: [{ url: '/' }],
+  openapi: '3.1.0', info: { title: 'graphKoda Runtime API', version: '1' }, servers: [{ url: '/' }],
   paths: Object.fromEntries([
     ['/health', 'Runtime relay and Redis health'], ['/stats', 'Runtime storage statistics'],
     ['/runtime-trace', 'Show executed function Trace'], ['/runtime-values', 'Show recorded variable values'],
@@ -36,7 +36,7 @@ export function serveRuntimeDocs(req, res) {
   }
   if (route === '/api/docs' || route === '/swagger') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(renderSwaggerUi().replace('ColdKode Graph Orchestrator API', 'ColdKode Runtime API')); return true;
+    res.end(renderSwaggerUi().replace('graphKoda Graph Orchestrator API', 'graphKoda Runtime API')); return true;
   }
   const asset = route.slice('/api/docs/assets/'.length);
   if (route.startsWith('/api/docs/assets/') && ['swagger-ui.css', 'swagger-ui-bundle.js'].includes(asset)) {

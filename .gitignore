@@ -1,6 +1,6 @@
 .cache/
-.coldkode-data/
-coldkode.local.json
+.graphKoda-data/
+graphKoda.local.json
 .venv/
 node_modules/
 __pycache__/

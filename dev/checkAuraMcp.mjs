@@ -5,7 +5,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const client = new Client({ name: 'coldkode-aura-check', version: '1.0.0' });
+const client = new Client({ name: 'graphKoda-aura-check', version: '1.0.0' });
 const transport = new StdioClientTransport({
   command: path.join(root, '.venv/Scripts/python.exe'),
   args: [path.join(root, 'graph/mcp/neo4j_mcp_server.py'), '--profile', 'aura'],

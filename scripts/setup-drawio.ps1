@@ -14,7 +14,7 @@ if (-not (Test-Path -LiteralPath $targetRoot -PathType Container)) {
   throw "Каталог рабочей копии не найден: $targetRoot"
 }
 if (-not (Test-Path -LiteralPath (Join-Path $drawioRoot 'src/main/webapp/index.html'))) {
-  $upstreamRoot = Join-Path $targetRoot '.cache/coldkode/drawio-upstream'
+  $upstreamRoot = Join-Path $targetRoot '.cache/graphKoda/drawio-upstream'
   if (-not (Test-Path -LiteralPath (Join-Path $upstreamRoot 'src/main/webapp/index.html'))) {
     New-Item -ItemType Directory -Path (Split-Path $upstreamRoot) -Force | Out-Null
     & git clone --depth 1 https://github.com/jgraph/drawio.git $upstreamRoot
@@ -28,4 +28,4 @@ if (-not (Test-Path -LiteralPath (Join-Path $drawioRoot 'src/main/webapp/index.h
 
 New-Item -ItemType Directory -Path (Split-Path $pluginTarget) -Force | Out-Null
 Copy-Item -LiteralPath $pluginSource -Destination $pluginTarget -Force
-Write-Host "draw.io установлен, coldKode plugin наложен: $pluginTarget"
+Write-Host "draw.io установлен, graphKoda plugin наложен: $pluginTarget"

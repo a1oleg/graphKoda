@@ -37,7 +37,7 @@ function textResult(value) {
 }
 
 const server = new McpServer({
-  name: 'coldkode-runtime-redis',
+  name: 'graphKoda-runtime-redis',
   version: '1.0.0',
 });
 

@@ -29,9 +29,9 @@ DEFAULT_NEO4J_BATCH_SIZE = 100_000
 DEFAULT_NEO4J_CLEAR_TIMING = 'after-extract'
 IMPORT_LABEL = '_GraphImportNode'
 IMPORT_CONSTRAINT = 'graph_import_node_stable_id'
-PROJECT_CONFIG_PATH = Path(os.getenv('COLDKODE_PROJECT_CONFIG', str(WORKSPACE_DIR / 'coldkode.local.json')))
+PROJECT_CONFIG_PATH = Path(os.getenv('graphKoda_PROJECT_CONFIG', str(WORKSPACE_DIR / 'graphKoda.local.json')))
 PROJECT_CONFIG = json.loads(PROJECT_CONFIG_PATH.read_text(encoding='utf-8')) if PROJECT_CONFIG_PATH.is_file() else {}
-DATA_ROOT = (WORKSPACE_DIR / os.getenv('COLDKODE_DATA_ROOT', PROJECT_CONFIG.get('dataRoot', '.coldkode-data'))).resolve()
+DATA_ROOT = (WORKSPACE_DIR / os.getenv('graphKoda_DATA_ROOT', PROJECT_CONFIG.get('dataRoot', '.graphKoda-data'))).resolve()
 DEFAULT_STAGE_PATH = DATA_ROOT / 'cache' / 'function-flow.duckdb'
 DEFAULT_PARQUET_DIR = DATA_ROOT / 'cache' / 'function-flow-parquet'
 SCOPED_EXTRACTOR_PROTOCOL_VERSION = 1

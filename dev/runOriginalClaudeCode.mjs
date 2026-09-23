@@ -21,7 +21,7 @@ const dotenvResult = loadDotEnv({ path: path.join(root, 'graph', '.env'), quiet:
 
 const passthroughArgs = process.argv.slice(2);
 if (
-  process.env.COLDKODE_ORIGINAL_AUTH !== 'api_key' &&
+  process.env.graphKoda_ORIGINAL_AUTH !== 'api_key' &&
   !hadAnthropicApiKey &&
   dotenvResult.parsed &&
   Object.hasOwn(dotenvResult.parsed, 'ANTHROPIC_API_KEY')

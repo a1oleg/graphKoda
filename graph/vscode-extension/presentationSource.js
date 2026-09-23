@@ -61,7 +61,7 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
     const command = placement === 'RIGHT' ? 'workbench.action.newGroupRight' : 'workbench.action.newGroupBelow';
     if (!(await vscode.commands.getCommands(true)).includes(command)) throw Error('Editor split command unavailable: ' + command);
     await openDiagram(diagramFile);
-    const dedicated = vscode.workspace.getConfiguration('coldKode').get('presentationWindow', false);
+    const dedicated = vscode.workspace.getConfiguration('graphKoda').get('presentationWindow', false);
     let codeFraction=placement==='BELOW'?0.34:0.5, codeHeight=null;
     if(placement==='BELOW'&&last){
       if(!Number.isFinite(editorAreaHeight)||editorAreaHeight<200)throw Error('Measured editorAreaHeight required for bounded code pane');

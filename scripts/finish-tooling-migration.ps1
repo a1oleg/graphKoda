@@ -1,7 +1,7 @@
 param([switch]$Apply)
 $ErrorActionPreference = 'Stop'
 $source = (Resolve-Path -LiteralPath 'C:\GitHub\claude-code').Path
-$target = (Resolve-Path -LiteralPath 'C:\GitHub\coldKode').Path
+$target = (Resolve-Path -LiteralPath 'C:\GitHub\graphKoda').Path
 if ($source -eq $target) { throw 'Source and target must differ.' }
 $tracked = @{}
 git -C $source ls-files | ForEach-Object { $tracked[$_] = $true }

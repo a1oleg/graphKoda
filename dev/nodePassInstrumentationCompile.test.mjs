@@ -13,7 +13,7 @@ test('instrumented REPL compiles when a logged binding awaits its value', async 
   const source = await readFile(path.join(projectPaths.sourceRoot, filePath), 'utf8');
   const instrumented = await instrumentNodePassSource(source, filePath);
 
-  assert.match(instrumented, /await globalThis\.__coldKodeEvaluateAsyncNode/);
+  assert.match(instrumented, /await globalThis\.__graphKodaEvaluateAsyncNode/);
   assert.equal((instrumented.match(/role:\s*"parameter-value"/g) || []).length, 4);
   assert.ok(
     instrumented.lastIndexOf('role:"parameter-value"')

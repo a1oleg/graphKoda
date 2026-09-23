@@ -84,7 +84,7 @@ function buildEvaluatedExpression(t, target, originalExpression) {
   const awaited = t.isAwaitExpression(originalExpression);
   const evaluator = t.memberExpression(
     t.identifier('globalThis'),
-    t.identifier(awaited ? '__coldKodeEvaluateAsyncNode' : '__coldKodeEvaluateNode'),
+    t.identifier(awaited ? '__graphKodaEvaluateAsyncNode' : '__graphKodaEvaluateNode'),
   );
   const evaluatedExpression = awaited
     ? originalExpression.argument
@@ -114,7 +114,7 @@ function buildCollectionIterationExpression(t, target, originalCall) {
 
   const wrapCallback = t.memberExpression(
     t.identifier('globalThis'),
-    t.identifier('__coldKodeWrapCollectionCallback'),
+    t.identifier('__graphKodaWrapCollectionCallback'),
   );
   originalCall.arguments[callbackIndex] = t.callExpression(wrapCallback, [
     buildTargetDetails(t, target),
@@ -123,7 +123,7 @@ function buildCollectionIterationExpression(t, target, originalCall) {
 
   const evaluateCollection = t.memberExpression(
     t.identifier('globalThis'),
-    t.identifier('__coldKodeEvaluateCollectionCall'),
+    t.identifier('__graphKodaEvaluateCollectionCall'),
   );
   return t.callExpression(evaluateCollection, [
     buildTargetDetails(t, target),
@@ -134,7 +134,7 @@ function buildCollectionIterationExpression(t, target, originalCall) {
 function buildForOfIterableExpression(t, target, originalIterable) {
   const wrapIterable = t.memberExpression(
     t.identifier('globalThis'),
-    t.identifier('__coldKodeWrapForOfIterable'),
+    t.identifier('__graphKodaWrapForOfIterable'),
   );
   return t.callExpression(wrapIterable, [
     buildTargetDetails(t, target),
@@ -143,7 +143,7 @@ function buildForOfIterableExpression(t, target, originalIterable) {
 }
 
 function buildFunctionEntryStatement(t, target) {
-  const logger = t.memberExpression(t.identifier('globalThis'), t.identifier('__coldKodeLogNodePass'));
+  const logger = t.memberExpression(t.identifier('globalThis'), t.identifier('__graphKodaLogNodePass'));
   return t.expressionStatement(t.unaryExpression(
     'void',
     t.callExpression(logger, [buildTargetDetails(t, target)]),
@@ -159,7 +159,7 @@ function buildParameterValueStatement(t, target, parameter) {
 
 export default function nodePassInstrumentationPlugin({ types: t }) {
   return {
-    name: 'coldkode-node-pass-instrumentation',
+    name: 'graphKoda-node-pass-instrumentation',
     pre(file) {
       const filename = normalizePath(file.opts.filename || '');
       const root = normalizePath(process.cwd()).replace(/\/$/, '');
@@ -229,19 +229,19 @@ export default function nodePassInstrumentationPlugin({ types: t }) {
             ? loopPath.node.init.declarations.filter(d => t.isIdentifier(d.id)).map(d =>
               t.objectProperty(t.identifier(d.id.name), t.identifier(d.id.name))) : [];
           loopPath.node.body = t.blockStatement([
-            t.expressionStatement(runtimeCall('__coldKodeBeginForIteration', [stateId, t.objectExpression(bindings)])),
+            t.expressionStatement(runtimeCall('__graphKodaBeginForIteration', [stateId, t.objectExpression(bindings)])),
             t.tryStatement(body, t.catchClause(errorId, t.blockStatement([
               t.expressionStatement(t.assignmentExpression('=', t.memberExpression(stateId, t.identifier('error')), errorId)),
               t.throwStatement(errorId),
             ])), t.blockStatement([
-              t.expressionStatement(runtimeCall('__coldKodeEndForIteration', [stateId])),
+              t.expressionStatement(runtimeCall('__graphKodaEndForIteration', [stateId])),
             ])),
           ]);
           const loop = t.cloneNode(loopPath.node, true);
           loopPath.replaceWith(t.blockStatement([
-            t.variableDeclaration('const', [t.variableDeclarator(stateId, runtimeCall('__coldKodeBeginFor', [buildTargetDetails(t, target)]))]),
+            t.variableDeclaration('const', [t.variableDeclarator(stateId, runtimeCall('__graphKodaBeginFor', [buildTargetDetails(t, target)]))]),
             t.tryStatement(t.blockStatement([loop]), null, t.blockStatement([
-              t.expressionStatement(runtimeCall('__coldKodeEndFor', [stateId])),
+              t.expressionStatement(runtimeCall('__graphKodaEndFor', [stateId])),
             ])),
           ]));
           this.instrumentedStableIds.push(target.stableId);

@@ -1,6 +1,6 @@
 {
-  "name": "coldkode-graph-explorer",
-  "displayName": "coldKode Graph Explorer",
+  "name": "graphKoda-graph-explorer",
+  "displayName": "graphKoda Graph Explorer",
   "description": "VS Code graph explorer for function diagrams.",
   "version": "0.0.437",
   "publisher": "local",
@@ -13,64 +13,64 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onCommand:coldKodeGraphExplorer.openFisherYates",
+    "onCommand:graphKodaGraphExplorer.openFisherYates",
     "onUri",
-    "onView:coldKodeGraphExplorer.functions",
-    "onCommand:coldKodeGraphExplorer.openNode",
-    "onCommand:coldKodeGraphExplorer.openRuntimeAnalysis",
-    "onCommand:coldKodeGraphExplorer.openHelpersFunctionalSegment",
-    "onCommand:coldKodeGraphExplorer.runStubApp",
-    "onCommand:coldKodeGraphExplorer.refresh"
+    "onView:graphKodaGraphExplorer.functions",
+    "onCommand:graphKodaGraphExplorer.openNode",
+    "onCommand:graphKodaGraphExplorer.openRuntimeAnalysis",
+    "onCommand:graphKodaGraphExplorer.openHelpersFunctionalSegment",
+    "onCommand:graphKodaGraphExplorer.runStubApp",
+    "onCommand:graphKodaGraphExplorer.refresh"
   ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "coldKodeGraphExplorer.openFisherGraphScene",
+        "command": "graphKodaGraphExplorer.openFisherGraphScene",
         "title": "Фишер: управляемая сцена графа"
       },
       {
-        "command": "coldKodeGraphExplorer.demoStep",
+        "command": "graphKodaGraphExplorer.demoStep",
         "title": "Demo: execute a structured step"
       },
       {
-        "command": "coldKodeGraphExplorer.openFisherYates",
+        "command": "graphKodaGraphExplorer.openFisherYates",
         "title": "Нарисовать Фишера"
       },
       {
-        "command": "coldKodeGraphExplorer.openNode",
+        "command": "graphKodaGraphExplorer.openNode",
         "title": "Open Graph Diagram"
       },
       {
-        "command": "coldKodeGraphExplorer.openRuntimeAnalysis",
+        "command": "graphKodaGraphExplorer.openRuntimeAnalysis",
         "title": "Open Runtime Analysis"
       },
       {
-        "command": "coldKodeGraphExplorer.openHelpersFunctionalSegment",
+        "command": "graphKodaGraphExplorer.openHelpersFunctionalSegment",
         "title": "Draw Helpers Functional Segment"
       },
       {
-        "command": "coldKodeGraphExplorer.refresh",
+        "command": "graphKodaGraphExplorer.refresh",
         "title": "Refresh Graph Explorer"
       },
       {
-        "command": "coldKodeGraphExplorer.runStubApp",
+        "command": "graphKodaGraphExplorer.runStubApp",
         "title": "Run App (Stub)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "coldKodeGraphExplorer",
+          "id": "graphKodaGraphExplorer",
           "title": "Graph Explorer",
           "icon": "media/graph-flow.svg"
         }
       ]
     },
     "views": {
-      "coldKodeGraphExplorer": [
+      "graphKodaGraphExplorer": [
         {
-          "id": "coldKodeGraphExplorer.functions",
+          "id": "graphKodaGraphExplorer.functions",
           "name": "Graph Explorer"
         }
       ]
@@ -78,8 +78,8 @@
     "menus": {
       "view/title": [
         {
-          "command": "coldKodeGraphExplorer.refresh",
-          "when": "view == coldKodeGraphExplorer.functions",
+          "command": "graphKodaGraphExplorer.refresh",
+          "when": "view == graphKodaGraphExplorer.functions",
           "group": "navigation"
         }
       ]

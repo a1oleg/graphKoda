@@ -9,7 +9,7 @@ import { DuckDBInstance } from '@duckdb/node-api';
 import { FunctionFlowDuckdbStage } from './functionFlowDuckdbStage.ts';
 
 test('canonical flow layer is preserved from extractor entity properties', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'coldkode-flow-layer-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'graphKoda-flow-layer-'));
   const databasePath = path.join(root, 'stage.duckdb');
   const parquetDir = path.join(root, 'parquet');
   try {
@@ -47,7 +47,7 @@ test('canonical flow layer is preserved from extractor entity properties', async
 });
 
 test('canonicalization merges only duplicate entity and relationship records', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'coldkode-canonical-duplicates-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'graphKoda-canonical-duplicates-'));
   const databasePath = path.join(root, 'stage.duckdb');
   const parquetDir = path.join(root, 'parquet');
   try {
@@ -93,7 +93,7 @@ test('canonicalization merges only duplicate entity and relationship records', a
 });
 
 test('canonicalization preserves alternative value returns between the same nodes', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'coldkode-alternative-returns-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'graphKoda-alternative-returns-'));
   const databasePath = path.join(root, 'stage.duckdb');
   const parquetDir = path.join(root, 'parquet');
   try {

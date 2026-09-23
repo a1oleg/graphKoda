@@ -27,7 +27,7 @@ let runtimeHighlightBridgeMessage = null;
 let runtimeHighlightBridgeFunctionStableId = '';
 const diagramPanelsByPath = new Map();
 
-const PRESENTATION_WINDOW = vscode.workspace.getConfiguration('coldKode').get('presentationWindow', false) === true;
+const PRESENTATION_WINDOW = vscode.workspace.getConfiguration('graphKoda').get('presentationWindow', false) === true;
 const GRAPH_COMMAND_PORT = PRESENTATION_WINDOW ? 17844 : 17843;
 
 const EXTENSION_VERSION = require('./package.json').version;
@@ -78,7 +78,7 @@ class GraphExplorerProvider {
       : new vscode.ThemeIcon(node.payload.icon || 'symbol-method');
     item.contextValue = node.kind;
     item.command = {
-      command: node.payload.command || 'coldKodeGraphExplorer.openNode',
+      command: node.payload.command || 'graphKodaGraphExplorer.openNode',
       title: node.payload.commandTitle || 'Open Graph',
       arguments: [node],
     };
@@ -93,7 +93,7 @@ class GraphExplorerProvider {
         description: 'response: заглушка',
         tooltip: 'Launch the interactive app without model API calls',
         icon: 'play',
-        command: 'coldKodeGraphExplorer.runStubApp',
+        command: 'graphKodaGraphExplorer.runStubApp',
         commandTitle: 'Run App (Stub)',
       }),
       new GraphNode('action', {
@@ -101,7 +101,7 @@ class GraphExplorerProvider {
         description: 'Aura → draw.io',
         tooltip: 'Фишер-Йетс: раскрыть вызываемые функции на одной диаграмме',
         icon: 'type-hierarchy-sub',
-        command: 'coldKodeGraphExplorer.openFisherYates',
+        command: 'graphKodaGraphExplorer.openFisherYates',
         commandTitle: 'Нарисовать Фишера',
       }),
       ...FUNCTION_DIAGRAMS.map((diagram) => new GraphNode('function', {
@@ -143,7 +143,7 @@ async function activate(context) {
     runtimeSend: message => runtimeAnalysisPanel?.webview.postMessage(message) || false,
     runtimeState: () => runtimeAnalysisState });
   context.subscriptions.push({ dispose: () => demoControl?.dispose() },
-    vscode.commands.registerCommand('coldKodeGraphExplorer.demoStep', step => demoControl.step(step)));
+    vscode.commands.registerCommand('graphKodaGraphExplorer.demoStep', step => demoControl.step(step)));
   const provider = new GraphExplorerProvider(workspaceRoot, context.extensionPath);
 
   try {
@@ -173,16 +173,16 @@ async function activate(context) {
     vscode.window.registerUriHandler({
       handleUri: (uri) => handleGraphContextUri(context, workspaceRoot, uri),
     }),
-    vscode.window.registerTreeDataProvider('coldKodeGraphExplorer.functions', provider),
+    vscode.window.registerTreeDataProvider('graphKodaGraphExplorer.functions', provider),
     vscode.window.onDidCloseTerminal((terminal) => {
       if (terminal === stubAppTerminal) stubAppTerminal = null;
     }),
-    vscode.commands.registerCommand('coldKodeGraphExplorer.refresh', () => {
+    vscode.commands.registerCommand('graphKodaGraphExplorer.refresh', () => {
       clearDiagramCache(workspaceRoot);
       provider.refresh();
     }),
-    vscode.commands.registerCommand('coldKodeGraphExplorer.openNode', (node) => openNodeDiagram(context, workspaceRoot, node)),
-    vscode.commands.registerCommand('coldKodeGraphExplorer.openFisherYates', async () => {
+    vscode.commands.registerCommand('graphKodaGraphExplorer.openNode', (node) => openNodeDiagram(context, workspaceRoot, node)),
+    vscode.commands.registerCommand('graphKodaGraphExplorer.openFisherYates', async () => {
       try {
         const outputPath = path.join(workspaceRoot, 'graph/draw/generated/Fisher-Yates.drawio');
         await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Фишер-Йетс из Aura' }, () => new Promise((resolve, reject) => {
@@ -193,22 +193,22 @@ async function activate(context) {
         await openDrawioFile(outputPath);
       } catch (error) { vscode.window.showErrorMessage(`Fisher-Yates: ${error?.message || error}`); }
     }),
-    vscode.commands.registerCommand('coldKodeGraphExplorer.openFisherGraphScene', async () => {
+    vscode.commands.registerCommand('graphKodaGraphExplorer.openFisherGraphScene', async () => {
       try {
         await new Promise((resolve, reject) => execFile(process.platform === 'win32' ? 'node.exe' : 'node', ['dev/openFisherGraphScene.mjs'],
           {cwd:workspaceRoot,encoding:'utf8',windowsHide:true,timeout:30000}, (error,stdout,stderr) => error ? reject(new Error(stderr||error.message)) : resolve()));
         await openDrawioFile(path.join(workspaceRoot,'graph/draw/scenes/fisher.drawio'));
       } catch(error) { vscode.window.showErrorMessage(`Graph scene: ${error.message}`); }
     }),
-    vscode.commands.registerCommand('coldKodeGraphExplorer.openRuntimeAnalysis', (item) => openRuntimeAnalysis(context, workspaceRoot, item || {})),
-    vscode.commands.registerCommand('coldKodeGraphExplorer.openHelpersFunctionalSegment', async () => {
+    vscode.commands.registerCommand('graphKodaGraphExplorer.openRuntimeAnalysis', (item) => openRuntimeAnalysis(context, workspaceRoot, item || {})),
+    vscode.commands.registerCommand('graphKodaGraphExplorer.openHelpersFunctionalSegment', async () => {
       try {
         await openFunctionalSegmentDiagram(context, workspaceRoot, HELPERS_FUNCTIONAL_SEGMENT);
       } catch (error) {
         vscode.window.showErrorMessage(`Helpers functional segment failed: ${error?.message || error}`);
       }
     }),
-    vscode.commands.registerCommand('coldKodeGraphExplorer.runStubApp', () => runStubApp(workspaceRoot)),
+    vscode.commands.registerCommand('graphKodaGraphExplorer.runStubApp', () => runStubApp(workspaceRoot)),
   );
 }
 
@@ -506,7 +506,7 @@ async function openDrawioDiagramPanel(context, workspaceRoot, { title, filePath 
     return existingPanel;
   }
   const panel = vscode.window.createWebviewPanel(
-    'coldKodeGraphDiagram',
+    'graphKodaGraphDiagram',
     panelTitle,
     vscode.ViewColumn.One,
     {
@@ -694,7 +694,7 @@ async function openRuntimeAnalysis(context, workspaceRoot, item) {
 
   if (!runtimeAnalysisPanel) {
     runtimeAnalysisPanel = vscode.window.createWebviewPanel(
-      'coldKodeRuntimeAnalysis',
+      'graphKodaRuntimeAnalysis',
       'Runtime Analysis',
       vscode.ViewColumn.Beside,
       { enableScripts: true, retainContextWhenHidden: true },
@@ -1907,9 +1907,9 @@ function resolveOrchestratorBaseUrl(workspaceRoot) {
 }
 
 function resolveSourceRoot(workspaceRoot) {
-  const configPath = process.env.COLDKODE_PROJECT_CONFIG || path.join(workspaceRoot, 'coldkode.local.json');
+  const configPath = process.env.graphKoda_PROJECT_CONFIG || path.join(workspaceRoot, 'graphKoda.local.json');
   const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
-  return path.resolve(workspaceRoot, process.env.COLDKODE_SOURCE_ROOT || config.sourceRoot || '.');
+  return path.resolve(workspaceRoot, process.env.graphKoda_SOURCE_ROOT || config.sourceRoot || '.');
 }
 
 function readGraphEnv(workspaceRoot) {

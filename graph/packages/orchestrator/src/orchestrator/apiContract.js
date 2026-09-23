@@ -299,7 +299,7 @@ export function buildOpenApiDocument(baseUrl = 'http://127.0.0.1:8791/') {
   return {
     openapi: '3.1.0',
     info: {
-      title: 'ColdKode Graph Orchestrator API',
+      title: 'graphKoda Graph Orchestrator API',
       version: '1.0.0',
       description: 'Local HTTP control plane for graph extraction, annotation workflows, diagrams, runtime repros and managed development services.',
     },
@@ -336,7 +336,7 @@ export function renderSwaggerUi(baseUrl = 'http://127.0.0.1:8791/') {
   const specUrl = new URL('/api/openapi.json', baseUrl).pathname;
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ColdKode Graph Orchestrator API</title>
+<title>graphKoda Graph Orchestrator API</title>
 <link rel="stylesheet" href="/api/docs/assets/swagger-ui.css">
 <style>body{margin:0;background:#fafafa}.topbar{display:none}</style></head>
 <body><div id="swagger-ui"></div>

@@ -7,7 +7,7 @@ import {repositoryIdentity} from './projectStatus.mjs';
 
 test('source and data roots can be selected independently of cwd', () => {
   const helper=path.join(projectPaths.toolRoot,'dev/projectPaths.cjs');
-  const env={...process.env,COLDKODE_SOURCE_ROOT:'../fixture-source',COLDKODE_DATA_ROOT:'../fixture-data'};
+  const env={...process.env,graphKoda_SOURCE_ROOT:'../fixture-source',graphKoda_DATA_ROOT:'../fixture-data'};
   const output=execFileSync(process.execPath,['-e',`console.log(JSON.stringify(require(${JSON.stringify(helper)})))`],{cwd:path.dirname(projectPaths.toolRoot),env,encoding:'utf8'});
   const roots=JSON.parse(output);
   assert.equal(roots.toolRoot,projectPaths.toolRoot);

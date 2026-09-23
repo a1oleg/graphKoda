@@ -22,7 +22,7 @@ const startScript = path.join(workspaceRoot, 'dev', 'startOrchestrator.mjs');
 const stdoutPath = path.join(DEVOPS_SERVICE_LOG_DIR, 'orchestrator.ensure.out.log');
 const stderrPath = path.join(DEVOPS_SERVICE_LOG_DIR, 'orchestrator.ensure.err.log');
 const windowsLauncherPath = path.join(DEVOPS_SERVICE_LOG_DIR, 'start-orchestrator.cmd');
-const scheduledTaskName = 'ColdKodeGraphOrchestrator';
+const scheduledTaskName = 'graphKodaGraphOrchestrator';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

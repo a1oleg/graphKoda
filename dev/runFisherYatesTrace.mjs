@@ -7,7 +7,7 @@ import ts from 'typescript';
 import { transformAsync } from '@babel/core';
 import instrumentation from './babelNodePassInstrumentationPlugin.mjs';
 
-process.env.COLDKODE_SOURCE_ROOT = process.cwd();
+process.env.graphKoda_SOURCE_ROOT = process.cwd();
 process.env.GRAPH_NODE_LOGGING = '1';
 process.env.GRAPH_NODE_LOGGING_DEBUG = '1';
 process.env.GRAPH_RUNTIME_SESSION_ID = `fisher-${randomUUID()}`;

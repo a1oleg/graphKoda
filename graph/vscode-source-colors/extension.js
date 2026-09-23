@@ -4,11 +4,11 @@ const {classify} = require('./classify');
 const palette = {call:'#569CD6',system:'#C586C0',systemError:'#FF0000',systemRoot:'#C586C0',systemMember:'#D7B5D8',valueRoot:'#CE9178',valueMember:'#E5BFAE',provider:'#258BEB',callableBinding:'#4EC9B0',true:'#008000',false:'#FF0000'};
 function activate(context) {
   const types = Object.fromEntries(Object.entries(palette).map(([role,color])=>[role,vscode.window.createTextEditorDecorationType({color})]));
-  const output = vscode.window.createOutputChannel('coldKode Source Colors');
+  const output = vscode.window.createOutputChannel('graphKoda Source Colors');
   context.subscriptions.push(output,...Object.values(types));
   const cache = new Map(); let timer;
   function update() {
-    if (!vscode.workspace.getConfiguration('coldKode').get('sourceColors.enabled',false)) {
+    if (!vscode.workspace.getConfiguration('graphKoda').get('sourceColors.enabled',false)) {
       for(const e of vscode.window.visibleTextEditors) for(const t of Object.values(types)) e.setDecorations(t,[]);
       return;
     }

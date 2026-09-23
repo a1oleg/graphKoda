@@ -276,7 +276,7 @@ function collectionTarget(target, stableId, role) {
 
 export function wrapCollectionCallback(target, callback) {
   const acceptedItemPreviews = [];
-  return function coldKodeCollectionCallback(...args) {
+  return function graphKodaCollectionCallback(...args) {
     const reduce = target.methodName === 'reduce';
     const accumulatorBefore = reduce ? args[0] : null;
     const item = reduce ? args[1] : args[0];
@@ -394,7 +394,7 @@ export function evaluateCollectionCall(target, evaluator) {
 
 export function wrapForOfIterable(target, iterable) {
   const ownerKey = target.ownerFnStableId || target.filePath || 'global';
-  return (function* coldKodeForOfIterable() {
+  return (function* graphKodaForOfIterable() {
     if (target.startsChain) latestEventIdByOwner.delete(ownerKey);
     void logNodePass(collectionTarget(target, target.stableId, 'collection-method'), {
       methodName: target.methodName || 'for-of',
@@ -489,15 +489,15 @@ function endFor(state) {
 
 export function installRuntimeNodePassReporter() {
   if (process.env.GRAPH_NODE_LOGGING !== '1') return false;
-  globalThis.__coldKodeLogNodePass = logNodePass;
-  globalThis.__coldKodeEvaluateNode = evaluateNode;
-  globalThis.__coldKodeEvaluateAsyncNode = evaluateAsyncNode;
-  globalThis.__coldKodeWrapCollectionCallback = wrapCollectionCallback;
-  globalThis.__coldKodeEvaluateCollectionCall = evaluateCollectionCall;
-  globalThis.__coldKodeWrapForOfIterable = wrapForOfIterable;
-  globalThis.__coldKodeBeginFor = beginFor;
-  globalThis.__coldKodeBeginForIteration = beginForIteration;
-  globalThis.__coldKodeEndForIteration = endForIteration;
-  globalThis.__coldKodeEndFor = endFor;
+  globalThis.__graphKodaLogNodePass = logNodePass;
+  globalThis.__graphKodaEvaluateNode = evaluateNode;
+  globalThis.__graphKodaEvaluateAsyncNode = evaluateAsyncNode;
+  globalThis.__graphKodaWrapCollectionCallback = wrapCollectionCallback;
+  globalThis.__graphKodaEvaluateCollectionCall = evaluateCollectionCall;
+  globalThis.__graphKodaWrapForOfIterable = wrapForOfIterable;
+  globalThis.__graphKodaBeginFor = beginFor;
+  globalThis.__graphKodaBeginForIteration = beginForIteration;
+  globalThis.__graphKodaEndForIteration = endForIteration;
+  globalThis.__graphKodaEndFor = endFor;
   return true;
 }

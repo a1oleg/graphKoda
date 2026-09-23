@@ -7686,8 +7686,8 @@ export function makeDrawio(nodes, edges, options = {}) {
         const parentGlobalY = parent?.globalY ?? 0;
         const metadata = flowBlockMetadata(block);
         const blockStyle = disableFoldingMechanics
-          ? 'shape=coldKodeFoldingFrame;html=1;container=1;collapsible=0;flowBlock=1;recursiveResize=0;rounded=0;fillColor=none;strokeColor=#878787;strokeWidth=1.5;'
-          : 'shape=coldKodeFoldingFrame;html=1;container=1;collapsible=1;foldingRow=1;flowBlock=1;foldingIconSize=28;foldingIconInset=14;foldingIconTopInset=0;recursiveResize=0;rounded=0;fillColor=none;strokeColor=#878787;strokeWidth=1.5;';
+          ? 'shape=graphKodaFoldingFrame;html=1;container=1;collapsible=0;flowBlock=1;recursiveResize=0;rounded=0;fillColor=none;strokeColor=#878787;strokeWidth=1.5;'
+          : 'shape=graphKodaFoldingFrame;html=1;container=1;collapsible=1;foldingRow=1;flowBlock=1;foldingIconSize=28;foldingIconInset=14;foldingIconTopInset=0;recursiveResize=0;rounded=0;fillColor=none;strokeColor=#878787;strokeWidth=1.5;';
         const alternateBounds = disableFoldingMechanics
           ? ''
           : `<mxRectangle x="${block.globalX - parentGlobalX}" y="${block.globalY - parentGlobalY}" width="${block.width}" height="${FOLDING_ROW_COLLAPSED_HEIGHT}" as="alternateBounds" />`;

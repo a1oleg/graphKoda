@@ -5,7 +5,7 @@ import ts from 'typescript';
 import { materializeMosaicVertices } from './mosaicVerticesV2.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-process.env.COLDKODE_SOURCE_ROOT = root;
+process.env.graphKoda_SOURCE_ROOT = root;
 const { extractFunctionFlowGraphs, payloadForTransport } = await import('../graph/static-extract/ts/fromASTtoPreGraphFlow.ts');
 const files = ['shuffle.ts'].map(name => path.join(root, 'examples/fisher-yates/src', name));
 const program = ts.createProgram(files, { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.NodeNext,

@@ -32,13 +32,13 @@ for (const [stableId, expectedOccurrences] of expectedOccurrencesByStableId) {
 if (!/feature\(['\"]PROACTIVE['\"]\)\s*\|\|\s*feature\(['\"]KAIROS['\"]\)/.test(transformed)) {
   throw new Error('Target condition changed during Babel instrumentation');
 }
-if (!transformed.includes('__coldKodeEvaluateCollectionCall') || !transformed.includes('__coldKodeWrapCollectionCallback')) {
+if (!transformed.includes('__graphKodaEvaluateCollectionCall') || !transformed.includes('__graphKodaWrapCollectionCallback')) {
   throw new Error('Collection iteration callback was not instrumented');
 }
-if (!transformed.includes('__coldKodeWrapForOfIterable')) {
+if (!transformed.includes('__graphKodaWrapForOfIterable')) {
   throw new Error('The for-of iterable was not instrumented');
 }
-if (!transformed.includes('__coldKodeWrapForOfIterable({') || !transformed.includes('pastedValues')) {
+if (!transformed.includes('__graphKodaWrapForOfIterable({') || !transformed.includes('pastedValues')) {
   throw new Error('The native pastedValues for-of loop was replaced instead of wrapping its iterable');
 }
 if (!transformed.includes('commands.find')) {

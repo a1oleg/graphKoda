@@ -4,7 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import ts from 'typescript';
 
-process.env.COLDKODE_SOURCE_ROOT = process.cwd();
+process.env.graphKoda_SOURCE_ROOT = process.cwd();
 const { extractFunctionFlowGraphs, payloadForTransport } = await import('../graph/static-extract/ts/fromASTtoPreGraphFlow.ts');
 const extract = files => payloadForTransport(extractFunctionFlowGraphs(ts.createProgram(files.map(f => path.resolve(f)), {
   target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext, types: [], strict: true,
@@ -141,6 +141,6 @@ test('extension tree replaces old actions with Fisher drawing from Aura', () => 
   const tree = source.slice(source.indexOf('async getChildren('), source.indexOf('async function activate('));
   assert(!tree.includes('Annotation: speculationAccept'));
   assert(!tree.includes('Draw helpers'));
-  assert(tree.includes('coldKodeGraphExplorer.openFisherYates'));
+  assert(tree.includes('graphKodaGraphExplorer.openFisherYates'));
   assert(source.includes('dev/exportFisherYatesDrawio.mjs'));
 });

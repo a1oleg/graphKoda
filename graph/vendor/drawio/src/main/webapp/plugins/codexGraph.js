@@ -3,7 +3,7 @@ Draw.loadPlugin(function(ui) {
   var pendingPostCallbacks = {};
 
   function hidePageTabsPermanently() {
-    // coldKode opens every diagram as an independent file. Page tabs therefore
+    // graphKoda opens every diagram as an independent file. Page tabs therefore
     // consume editor space without representing anything the workflow can use.
     ui.tabContainerVisible = false;
     ui.isTabContainerVisible = function() { return false; };
@@ -1705,13 +1705,13 @@ Draw.loadPlugin(function (ui) {
   var imageCache = {};
   var refreshTimer = null;
 
-  function ColdKodeFoldingFrameShape() {
+  function graphKodaFoldingFrameShape() {
     mxShape.call(this);
   }
 
-  mxUtils.extend(ColdKodeFoldingFrameShape, mxShape);
+  mxUtils.extend(graphKodaFoldingFrameShape, mxShape);
 
-  ColdKodeFoldingFrameShape.prototype.paintVertexShape = function (canvas, x, y, width, height) {
+  graphKodaFoldingFrameShape.prototype.paintVertexShape = function (canvas, x, y, width, height) {
     var flowBlock = getNumber(this.style || {}, 'flowBlock', 0) === 1;
     var stroke = mxUtils.getValue(this.style || {}, mxConstants.STYLE_STROKECOLOR, '#878787');
     var strokeWidth = getNumber(this.style || {}, mxConstants.STYLE_STROKEWIDTH, 1.5);
@@ -1755,7 +1755,7 @@ Draw.loadPlugin(function (ui) {
     canvas.setAlpha(1);
   };
 
-  mxCellRenderer.registerShape('coldKodeFoldingFrame', ColdKodeFoldingFrameShape);
+  mxCellRenderer.registerShape('graphKodaFoldingFrame', graphKodaFoldingFrameShape);
 
   function getNumber(style, key, fallback) {
     var value = parseFloat(mxUtils.getValue(style, key, fallback));
@@ -2097,7 +2097,7 @@ Draw.loadPlugin(function (ui) {
 
   graph.cellRenderer.installCellOverlayListeners = function (state, overlay, shape) {
     baseInstallCellOverlayListeners.apply(this, arguments);
-    if ((!overlay.coldKodeFoldingControl && !overlay.coldKodeStepDetailControl) ||
+    if ((!overlay.graphKodaFoldingControl && !overlay.graphKodaStepDetailControl) ||
         shape == null || shape.node == null) return;
     mxEvent.addListener(shape.node, 'contextmenu', function (evt) {
       graph.setSelectionCell(state.cell);
@@ -2132,14 +2132,14 @@ Draw.loadPlugin(function (ui) {
   function removeFoldingOverlay(cell) {
     var overlays = graph.getCellOverlays(cell) || [];
     overlays.slice().forEach(function (overlay) {
-      if (overlay.coldKodeFoldingControl) graph.removeCellOverlay(cell, overlay);
+      if (overlay.graphKodaFoldingControl) graph.removeCellOverlay(cell, overlay);
     });
   }
 
   function removeStepDetailOverlay(cell) {
     var overlays = graph.getCellOverlays(cell) || [];
     overlays.slice().forEach(function (overlay) {
-      if (overlay.coldKodeStepDetailControl) graph.removeCellOverlay(cell, overlay);
+      if (overlay.graphKodaStepDetailControl) graph.removeCellOverlay(cell, overlay);
     });
   }
 
@@ -2156,7 +2156,7 @@ Draw.loadPlugin(function (ui) {
       mxConstants.ALIGN_LEFT,
       mxConstants.ALIGN_TOP
     );
-    overlay.coldKodeFoldingControl = true;
+    overlay.graphKodaFoldingControl = true;
     overlay.cursor = 'pointer';
     overlay.getBounds = function (state) {
       var scale = state.view.scale;
@@ -2192,7 +2192,7 @@ Draw.loadPlugin(function (ui) {
       mxConstants.ALIGN_LEFT,
       mxConstants.ALIGN_TOP
     );
-    overlay.coldKodeStepDetailControl = true;
+    overlay.graphKodaStepDetailControl = true;
     overlay.cursor = 'pointer';
     overlay.getBounds = function (state) {
       var scale = state.view.scale;

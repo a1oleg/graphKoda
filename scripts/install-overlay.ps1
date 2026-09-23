@@ -51,6 +51,6 @@ if (-not $SkipPythonInstall) {
   if ($LASTEXITCODE -ne 0) { throw "pip install завершился с кодом $LASTEXITCODE" }
 }
 
-Write-Host "coldKode установлен поверх исходника: $targetRoot"
+Write-Host "graphKoda установлен поверх исходника: $targetRoot"
 Write-Host "Заполните $envPath и запускайте команды из корня исходника."
 

@@ -1,10 +1,10 @@
 {
   "folders": [{"path": "../.."}],
   "settings": {
-    "coldKode.presentationWindow": true,
+    "graphKoda.presentationWindow": true,
     "workbench.colorTheme": "Dark Modern",
     "editor.semanticHighlighting.enabled": true,
-    "coldKode.sourceColors.enabled": true,
+    "graphKoda.sourceColors.enabled": true,
     "editor.fontSize": 20,
     "editor.lineHeight": 28,
     "editor.stickyScroll.enabled": false,
@@ -40,48 +40,48 @@
     "editor.tokenColorCustomizations": {
       "textMateRules": [
         {
-          "name": "coldKode: system syntax",
+          "name": "graphKoda: system syntax",
           "scope": ["constant.language.null", "constant.language.undefined", "storage.type", "keyword.operator", "keyword.control", "punctuation.definition.template-expression"],
           "settings": {"foreground": "#C586C0"}
         },
         {
-          "name": "coldKode: variables and parameters",
+          "name": "graphKoda: variables and parameters",
           "scope": ["variable.other.readwrite", "variable.other.constant", "variable.parameter", "variable.other.property", "variable.other.object", "meta.object-literal.key"],
           "settings": {"foreground": "#CE9178"}
         },
         {
-          "name": "coldKode: calls",
+          "name": "graphKoda: calls",
           "scope": ["entity.name.function", "support.function"],
           "settings": {"foreground": "#569CD6"}
         },
         {
-          "name": "coldKode: language types and operators",
+          "name": "graphKoda: language types and operators",
           "scope": ["support.type.primitive", "keyword.operator", "storage.type", "storage.modifier", "keyword.control", "support.variable", "support.class.builtin"],
           "settings": {"foreground": "#C586C0"}
         },
         {
-          "name": "coldKode: literal strings",
+          "name": "graphKoda: literal strings",
           "scope": ["string.quoted", "string.template", "punctuation.definition.string"],
           "settings": {"foreground": "#D4D4D4"}
         },
         {
-          "name": "coldKode: call parentheses",
+          "name": "graphKoda: call parentheses",
           "scope": ["meta.function-call meta.brace.round"],
           "settings": {"foreground": "#569CD6"}
         },
         {
-          "name": "coldKode: block braces",
+          "name": "graphKoda: block braces",
           "scope": ["punctuation.definition.block"],
           "settings": {"foreground": "#C586C0"}
         },
         {
-          "name": "coldKode: object braces",
+          "name": "graphKoda: object braces",
           "scope": ["meta.objectliteral punctuation.definition.block", "meta.object.type punctuation.definition.block"],
           "settings": {"foreground": "#CE9178"}
         }
       ]
     },
-    "window.title": "coldKode PRESENTATION",
+    "window.title": "graphKoda PRESENTATION",
     "window.titleBarStyle": "custom",
     "workbench.startupEditor": "none",
     "workbench.activityBar.location": "hidden",

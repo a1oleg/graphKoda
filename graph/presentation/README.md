@@ -2,8 +2,8 @@
 
 ## Отдельное окно записи
 
-Запуск: `powershell -NoProfile -File dev/startPresenter.ps1` из coldKode.
-Окно `coldKode PRESENTATION` использует собственный user-data и пустой каталог
+Запуск: `powershell -NoProfile -File dev/startPresenter.ps1` из graphKoda.
+Окно `graphKoda PRESENTATION` использует собственный user-data и пустой каталог
 расширений в `tmp`. Graph Explorer запускается из исходников; draw.io открывается
 в его встроенной панели. Чат и настройки основного окна не копируются.
 
