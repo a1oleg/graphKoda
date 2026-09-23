@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import {DOMParser,XMLSerializer} from '@xmldom/xmldom';
+import {measureMosaicTile,mosaicTileImage,SIDE_WIDTH} from './mosaicTileGeometry.mjs';
 const file=process.argv[2],doc=new DOMParser().parseFromString(fs.readFileSync(file,'utf8'),'text/xml');
 const cells=Array.from(doc.getElementsByTagName('mxCell'));
 const byId=new Map(cells.map(c=>[c.getAttribute('id'),c]));
@@ -27,5 +28,29 @@ for(const edge of cells){
  }
  for(const c of [...a,call,edge])c.parentNode.removeChild(c);
  changed.push(ret.getAttribute('id'));
+}
+for(const c of Array.from(doc.getElementsByTagName('mxCell'))){
+ const id=c.getAttribute('id'),open=id.endsWith('-return-open'),close=id.endsWith('-return-close');
+ if(!open&&!close)continue;
+ const text=open?'return(':')';
+ const body='<svg xmlns="http://www.w3.org/2000/svg"><path fill="#E1D5E7" stroke="#9673A6"/></svg>';
+ const layout=measureMosaicTile(text,body);
+ layout.left=open?'round':'inward';layout.right=open?'inward':'round';
+ layout.spacingLeft+=SIDE_WIDTH[layout.left];layout.spacingRight+=SIDE_WIDTH[layout.right];
+ layout.width+=SIDE_WIDTH[layout.left]+SIDE_WIDTH[layout.right];
+ const delta=layout.width-Number(g(c).getAttribute('width'));
+ const parent=byId.get(c.getAttribute('parent'));
+ if(open){
+  // Preserve the expression's absolute position while making room for the text and caps.
+  g(parent).setAttribute('x',String(Number(g(parent).getAttribute('x'))-delta));
+  for(const sibling of Array.from(doc.getElementsByTagName('mxCell')).filter(n=>n!==c&&n.getAttribute('parent')===c.getAttribute('parent')&&n.getAttribute('vertex')==='1'))
+   g(sibling).setAttribute('x',String(Number(g(sibling).getAttribute('x')||0)+delta));
+ }
+ g(parent).setAttribute('width',String(Number(g(parent).getAttribute('width'))+delta));
+ g(c).setAttribute('width',String(layout.width));
+ const image=mosaicTileImage(body,layout,Number(g(c).getAttribute('height')),{system:true});
+ c.setAttribute('value',text);
+ c.setAttribute('style',`shape=image;imageAspect=0;image=${image};whiteSpace=nowrap;overflow=hidden;html=0;align=left;verticalAlign=middle;fontSize=12;fontColor=#000000;spacing=0;spacingLeft=${layout.spacingLeft};spacingRight=${layout.spacingRight};`);
+ changed.push(id);
 }
 fs.writeFileSync(file,new XMLSerializer().serializeToString(doc));console.log({changed});
