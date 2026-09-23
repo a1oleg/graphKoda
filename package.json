@@ -57,7 +57,7 @@
     "fisher:audit": "node dev/auditFisherYatesDrawio.mjs",
     "graph:mcp:neo4j": "python ./graph/mcp/neo4j_mcp_server.py",
     "graph:extension:test": "node --test graph/vscode-extension/*.test.js",
-    "graph:extension:package": "npx @vscode/vsce package --cwd graph/vscode-extension"
+    "graph:extension:package": "cd graph/vscode-extension && npx @vscode/vsce package"
   },
   "dependencies": {
     "@apollo/client": "^4.2.3",

@@ -23,8 +23,8 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
       if (typeof reloadWindow !== 'function') throw new Error('Window reload is unavailable');
       return reloadWindow();
     }
-    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath','placement','visible','includeAnnotations','includeStep','previousStableId','text','scale','bottomStableId','bottomCellId']
-      .filter(key => input && Object.prototype.hasOwnProperty.call(input, key)).map(key => [key, input[key]]));
+    input = Object.fromEntries(['surface', 'action', 'functionStableId', 'sessionId', 'cellId', 'stableId', 'label', 'index', 'id', 'xml', 'pointerId', 'pointer', 'durationMs','filePath','placement','visible','includeAnnotations','includeStep','previousStableId','text','scale','bottomStableId','bottomCellId','leftStableId','leftCellId','rightStableId','rightCellId']
+      .concat(['endStableId','editorAreaHeight','topPadding']).filter(key => input && Object.prototype.hasOwnProperty.call(input, key)).map(key => [key, input[key]]));
     if (!input || !allowed[input.surface]?.includes(input.action)) throw new Error('Unsupported demo surface/action');
     if(input.scale!=null&&(!Number.isFinite(input.scale)||input.scale<.1||input.scale>4))throw Error('Scale must be between 0.1 and 4');
     if (typeof input.functionStableId !== 'string' || !input.functionStableId) throw new Error('functionStableId is required');
@@ -41,7 +41,7 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
       if(!file.toLowerCase().startsWith(dir.toLowerCase())||path.extname(file)!=='.drawio')throw new Error('Only workspace draw.io documents can be opened');
       if(input.action==='openSource'){
         if(typeof openSource!=='function')throw new Error('Source opener unavailable');
-        return openSource({stableId:input.stableId,placement:input.placement,diagramFile:file,previousStableId:input.previousStableId});
+        return openSource({stableId:input.stableId,endStableId:input.endStableId,editorAreaHeight:input.editorAreaHeight,placement:input.placement,diagramFile:file,previousStableId:input.previousStableId});
       }
       await openDiagram(file,{diagramOnly:true});return {stage:'diagram-opened',file,diagramOnly:true};
     }

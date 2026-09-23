@@ -9,6 +9,7 @@
     "editor.lineHeight": 28,
     "editor.stickyScroll.enabled": false,
     "editor.smoothScrolling": true,
+    "editor.scrollBeyondLastLine": true,
     "editor.bracketPairColorization.enabled": false,
     "editor.semanticTokenColorCustomizations": {
       "rules": {

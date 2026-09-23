@@ -29,10 +29,12 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
     after: { contentIconPath: vscode.Uri.file(path.join(__dirname, 'media', 'presentation-code-pointer.svg')), width: '44px', height: '30px', margin: '0 4px' },
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
   });
-  const open = async ({ stableId, placement, diagramFile, previousStableId }) => {
+  const open = async ({ stableId, endStableId, editorAreaHeight, placement, diagramFile, previousStableId }) => {
     clearTimeout(scrollTimer);
     if (!['RIGHT', 'BELOW'].includes(placement)) throw Error('Choose RIGHT or BELOW');
     const target = resolvePresentationSource(stableId, roots);
+    const last = endStableId ? resolvePresentationSource(endStableId, roots) : null;
+    if(last && (last.file.toLowerCase()!==target.file.toLowerCase() || last.endLine<target.startLine))throw Error('Invalid end-of-code boundary');
     const document = await vscode.workspace.openTextDocument(vscode.Uri.file(target.file));
     if (target.endLine > document.lineCount || target.startColumn > document.lineAt(target.startLine - 1).text.length || target.endColumn > document.lineAt(target.endLine - 1).text.length) throw Error('Source range is stale');
     if (previousStableId) {
@@ -60,6 +62,18 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
     if (!(await vscode.commands.getCommands(true)).includes(command)) throw Error('Editor split command unavailable: ' + command);
     await openDiagram(diagramFile);
     const dedicated = vscode.workspace.getConfiguration('coldKode').get('presentationWindow', false);
+    let codeFraction=placement==='BELOW'?0.34:0.5, codeHeight=null;
+    if(placement==='BELOW'&&last){
+      if(!Number.isFinite(editorAreaHeight)||editorAreaHeight<200)throw Error('Measured editorAreaHeight required for bounded code pane');
+      const config=vscode.workspace.getConfiguration('editor',document.uri);
+      const configured=Number(config.get('lineHeight',0)),font=Number(config.get('fontSize',20));
+      const lineHeight=configured===0?Math.round(font*1.4):configured<8?Math.round(font*configured):configured;
+      // Visible source lines + tab/breadcrumb chrome + modest vertical breathing room.
+      codeHeight=(last.endLine-target.startLine+1)*lineHeight+64;
+      codeFraction=codeHeight/editorAreaHeight;
+      if(codeFraction>0.7)throw Error('Requested code range leaves insufficient diagram space');
+      codeFraction=Math.max(0.12,codeFraction);
+    }
     if (dedicated) {
       await vscode.commands.executeCommand('workbench.action.closeSidebar');
       await vscode.commands.executeCommand('workbench.action.closeAuxiliaryBar');
@@ -67,7 +81,7 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
       // Re-running a scene must reuse the two zones, not accumulate new splits.
       await vscode.commands.executeCommand('vscode.setEditorLayout', {
         orientation: placement === 'BELOW' ? 1 : 0,
-        groups: [{ size: placement === 'BELOW' ? 0.66 : 0.5 }, { size: placement === 'BELOW' ? 0.34 : 0.5 }],
+        groups: [{ size: 1-codeFraction }, { size: codeFraction }],
       });
     }
     const anchor = vscode.window.tabGroups.activeTabGroup;
@@ -86,8 +100,18 @@ function createPresentationSourceOpener({ vscode, roots, openDiagram }) {
     currentEditor = editor;
     currentStableId = stableId; currentPlacement = placement;
     editor.selection = new vscode.Selection(start, start);
-    editor.revealRange(range, vscode.TextEditorRevealType.AtTop);
-    return { stage: 'source-opened', stableId, placement, file: target.file, viewColumn: editor.viewColumn, range: target };
+    // Layout restoration/smooth scrolling can overwrite an immediate reveal.
+    // Wait for the new group to settle, then anchor the first line, not the
+    // whole function range (which may exceed the narrow panel).
+    await new Promise(resolve=>setTimeout(resolve,350));
+    const firstLine=new vscode.Range(target.startLine-1,0,target.startLine-1,0);
+    editor.revealRange(firstLine, vscode.TextEditorRevealType.AtTop);
+    await new Promise(resolve=>setTimeout(resolve,350));
+    editor.revealRange(firstLine, vscode.TextEditorRevealType.AtTop);
+    await new Promise(resolve=>setTimeout(resolve,350));
+    const visible=editor.visibleRanges;
+    if(last&&!visible.some(r=>r.start.line<=target.startLine-1&&r.end.line>=last.endLine-1))throw Error('Requested code range is not fully visible after layout');
+    return { stage: 'source-opened', stableId, endStableId, placement, file: target.file, viewColumn: editor.viewColumn, range: target, codeFraction, codeHeight, visibleRanges:visible.map(r=>({startLine:r.start.line+1,endLine:r.end.line+1})) };
   };
   // The code pointer uses the editor's own range layout, never screenshot coordinates.
   open.pointer = ({ stableId, visible = true }) => {

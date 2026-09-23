@@ -9,15 +9,23 @@ export async function frameSheetScene({functionStableId,file,row=12,spreadsheetI
   const prefix=/^!+$/.test(sheet)?sheet:`'${sheet.replaceAll("'","''")}'!`;
   const sheets=fileURLToPath(new URL('../../google-sheets-mcp/',import.meta.url));
   const client=new Client({name:'scene-framing',version:'1.0.0'});
-  let source;
+  let source,headers;
   try {
     await client.connect(new StdioClientTransport({command:path.join(sheets,'.venv/Scripts/python.exe'),args:[path.join(sheets,'server.py')]}));
     const result=await client.callTool({name:'get_sheet_data_by_notation',arguments:{spreadsheet_id:spreadsheetId,notation:`${prefix}A${row}:L${row}`}});
     if(result.isError)throw Error(JSON.stringify(result.content));
     source=JSON.parse(result.content.find(c=>c.type==='text').text);
+    const headerResult=await client.callTool({name:'get_sheet_data_by_notation',arguments:{spreadsheet_id:spreadsheetId,notation:`${prefix}A1:N1`}});
+    if(headerResult.isError)throw Error(JSON.stringify(headerResult.content));
+    headers=JSON.parse(headerResult.content.find(c=>c.type==='text').text).values[0];
   } finally {await client.close();}
-  const [,,,,,top,bottom]=source.values[0];
-  if(!top||!bottom)throw Error('Both upper and lower framing targets are required in F:G');
+  const value=(pattern,required=false)=>{
+    const i=headers.findIndex(h=>pattern.test(String(h).trim().toLowerCase()));
+    if(i<0&&required)throw Error('Missing framing column: '+pattern);
+    return String(source.values[0][i]||'').replace(/^stableId:\s*/i,'').trim();
+  };
+  const top=value(/^верхний/,true),bottom=value(/^нижний/,true);
+  if(!top||!bottom)throw Error('Both upper and lower framing targets are required');
   const index=await diagramIndex({file});
   const head=id=>{
     const matches=index.cells.filter(c=>c.stableId===id);
@@ -26,9 +34,12 @@ export async function frameSheetScene({functionStableId,file,row=12,spreadsheetI
     return heads[0];
   };
   const upper=head(top),lower=head(bottom);
-  const rightId=source.values[0][7];
+  const rightId=value(/^(?:крайний )?правый/),leftId=value(/^(?:крайний )?левый/);
   const rightmost=rightId&&rightId!=='нет'?head(rightId):null;
   const command={functionStableId,surface:'diagram',action:'presentFocus',stableId:top,cellId:upper.cellId,bottomStableId:bottom,bottomCellId:lower.cellId};
+  const leftmost=leftId&&leftId!=='нет'?head(leftId):null;
+  if(leftmost)Object.assign(command,{leftStableId:leftmost.stableId,leftCellId:leftmost.cellId});
+  if(rightmost)Object.assign(command,{rightStableId:rightmost.stableId,rightCellId:rightmost.cellId});
   const result=apply?await bridge(command):{};
-  return {source,upper,lower,rightmost,command,...result};
+  return {source,headers,upper,lower,leftmost,rightmost,command,...result};
 }

@@ -1370,7 +1370,8 @@ Draw.loadPlugin(function(ui) {
       var scale=Math.max(.1,Math.min(2,(graph.container.clientWidth-96)/width,(graph.container.clientHeight-96)/height));
       if(command.previousStableId)scale=Math.min(view.scale,scale);
       if(command.scale!=null){if(!Number.isFinite(command.scale)||command.scale<.1||command.scale>4)throw new Error('Invalid presentation scale');scale=command.scale;}
-      var topPadding=32;
+      if(command.topPadding!=null&&(!Number.isFinite(command.topPadding)||command.topPadding<0||command.topPadding>graph.container.clientHeight-64))throw new Error('Invalid top framing inset');
+      var topPadding=command.topPadding!=null?command.topPadding:32;
       if(command.bottomStableId){
         if(command.scale!=null)throw new Error('Explicit scale conflicts with vertical framing');
         var bottoms=allCells.filter(function(c){return c.vertex&&getAttribute(c,'stableId')===command.bottomStableId&&(!command.bottomCellId||c.id===command.bottomCellId);});
@@ -1383,10 +1384,30 @@ Draw.loadPlugin(function(ui) {
         if(!bottomState)throw new Error('Lower framing target is not rendered');
         var span=(bottomState.y+bottomState.height-state.y)/view.scale;
         if(span<=0)throw new Error('Lower framing target must be below the upper target');
-        topPadding=16;
-        scale=(graph.container.clientHeight-2*topPadding)/span;
+        topPadding=command.topPadding!=null?command.topPadding:16;
+        scale=(graph.container.clientHeight-topPadding-16)/span;
         if(scale<.1||scale>4)throw new Error('Vertical framing requires unsupported scale');
         included.push(bottomCell.id);
+      }
+      // Explicit horizontal endpoints describe the frame, not the upper node's
+      // x coordinate. Pan first; reduce the vertical-fit scale only if necessary.
+      var horizontalLeft=null,horizontalRight=null;
+      ['left','right'].forEach(function(side){
+        var id=command[side+'StableId'];if(!id)return;
+        var targets=allCells.filter(function(c){return c.vertex&&getAttribute(c,'stableId')===id&&(!command[side+'CellId']||c.id===command[side+'CellId']);});
+        if(targets.length!==1)throw new Error('Missing/ambiguous '+side+' framing target');
+        var target=targets[0];
+        for(var p=target.parent;p;p=p.parent)if(p.collapsed)graph.foldCells(false,false,[p]);
+        view.validate();var targetState=view.getState(target);
+        if(!targetState)throw new Error(side+' framing target is not rendered');
+        var x=targetState.x/view.scale-view.translate.x;
+        if(side==='left')horizontalLeft=x;else horizontalRight=x+targetState.width/view.scale;
+        included.push(target.id);
+      });
+      if(horizontalLeft!=null&&horizontalRight!=null){
+        if(horizontalRight<=horizontalLeft)throw new Error('Reversed horizontal framing');
+        scale=Math.min(scale,(graph.container.clientWidth-64)/(horizontalRight-horizontalLeft));
+        if(scale<.1)throw new Error('Horizontal framing requires unsupported scale');
       }
       var initialScale=view.scale,initialX=(graph.container.scrollLeft+graph.container.clientWidth/2)/view.scale-view.translate.x,initialY=(graph.container.scrollTop+graph.container.clientHeight/2)/view.scale-view.translate.y;
       var finalX=logical.x+logical.width/2,finalY=logical.y+logical.height/2;
@@ -1396,6 +1417,8 @@ Draw.loadPlugin(function(ui) {
         finalX=state.x/view.scale-view.translate.x+(graph.container.clientWidth/2-32)/scale;
       }
       if(command.previousStableId){var half=(graph.container.clientWidth/2-48)/scale;finalX=Math.max(logical.x+logical.width-half,Math.min(initialX,logical.x+half));}
+      if(horizontalLeft!=null)finalX=horizontalLeft+(graph.container.clientWidth/2-32)/scale;
+      else if(horizontalRight!=null)finalX=Math.max(finalX,horizontalRight-(graph.container.clientWidth/2-32)/scale);
       var duration=Math.max(0,Math.min(5000,Number(command.durationMs)||0)),started=performance.now(),samples=[];
       clearPresentationPointers();
       do {
