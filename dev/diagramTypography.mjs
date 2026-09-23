@@ -9,13 +9,42 @@ export function updateDiagramTypography(xml,{compactReturns=false}={}) {
   const cells=Array.from(doc.getElementsByTagName('mxCell'));
   const changed=[];
   for(const c of cells) {
+    if(c.getAttribute('edge')==='1'&&c.getAttribute('edgeType')==='ARG'
+      &&/^arg\s+\d+$/i.test(c.getAttribute('value')||'')
+      &&!c.getAttribute('argumentName')&&!c.getAttribute('fieldName')) {
+      c.setAttribute('value','');changed.push(c.getAttribute('id'));
+    }
     if(c.getAttribute('vertex')!=='1'||c.getAttribute('graphKind')==='Annotation')continue;
     const before=c.toString();
     const s=new Map((c.getAttribute('style')||'').split(';').filter(Boolean).map(p=>{const i=p.indexOf('=');return i<0?[p,'']:[p.slice(0,i),p.slice(i+1)];}));
     const image=s.get('image')||'';
-    const svg=image.startsWith('data:image/svg+xml,')?decodeURIComponent(image.slice('data:image/svg+xml,'.length)):'';
+    let svg=image.startsWith('data:image/svg+xml,')?decodeURIComponent(image.slice('data:image/svg+xml,'.length)):'';
+    if(svg.includes('clip-path')) {
+      const shape=new DOMParser().parseFromString(svg,'image/svg+xml');
+      for(const p of Array.from(shape.getElementsByTagName('path'))) {
+        if(!p.hasAttribute('clip-path')||!p.hasAttribute('stroke'))continue;
+        p.setAttribute('fill','none');p.setAttribute('stroke-width','4');p.removeAttribute('opacity');p.removeAttribute('stroke-opacity');
+      }
+      svg=new XMLSerializer().serializeToString(shape);
+      s.set('image','data:image/svg+xml,'+encodeURIComponent(svg));
+    }
+    // Method outlines stay one pixel even when their SVG tile is resized.
+    // Hatching is a separate stroke: never thin the clipped hatch paths.
+    if(svg) {
+      const shape=new DOMParser().parseFromString(svg,'image/svg+xml');
+      let normalized=false;
+      for(const p of Array.from(shape.getElementsByTagName('path'))) {
+        if(p.hasAttribute('clip-path'))continue;
+        const color=(p.getAttribute('stroke')||'').toLowerCase();
+        if(!['#007fff','#0088ff','#99ccff','#6c8ebf','#9673a6','#b85450','#ff0000'].includes(color))continue;
+        if(color==='#99ccff')p.setAttribute('stroke','#007FFF');
+        p.setAttribute('stroke-width','1');
+        p.setAttribute('vector-effect','non-scaling-stroke');normalized=true;
+      }
+      if(normalized){svg=new XMLSerializer().serializeToString(shape);s.set('image','data:image/svg+xml,'+encodeURIComponent(svg));}
+    }
     const box=svg.includes('M5 32 L27 17 L115 25 L93 40 Z');
-    const hatch=svg.includes('sketch-fill')||/clip-path=['"]url\(#c\)['"]/.test(svg);
+    const hatch=svg.includes('sketch-fill')||/clip-path=['"]url\(#[^)]+\)['"]/.test(svg);
     const stack=/viewBox=['"]0 0 137 65['"]/.test(svg);
     const backingLabel=s.get('part')==='1'&&s.has('text')&&(s.get('spacingTop')==='9'||s.get('spacingTop')==='7');
     const bold=box||hatch||stack||backingLabel;
