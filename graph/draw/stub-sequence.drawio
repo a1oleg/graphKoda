@@ -1,0 +1,94 @@
+<mxfile host="65bd71144e">
+    <diagram id="model-without-stub" name="Без заглушки">
+        <mxGraphModel dx="1664" dy="1082" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1430" pageHeight="1380" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="c7" value="" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="150" y="375" as="sourcePoint"/>
+                        <mxPoint x="150" y="1275" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c8" value="queryModelWithStreaming()" style="shape=image;imageAspect=0;image=data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20210%2055%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M%2010%201%20H%20200%20C%20206%209%20209%2018%20209%2027.5%20C%20209%2037%20206%2046%20200%2054%20H%2010%20C%204%2046%201%2037%201%2027.5%20C%201%2018%204%209%2010%201%20Z%27%20fill%3D%27%23DAE8FC%27%20stroke%3D%27%23007FFF%27%20stroke-width%3D%271%27%20vector-effect%3D%27non-scaling-stroke%27%2F%3E%3C%2Fsvg%3E;whiteSpace=wrap;html=0;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=16;fontColor=#000000;spacingLeft=12;spacingRight=12;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="320" width="260" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="c9" value="" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="c10" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="440" y="375" as="sourcePoint"/>
+                        <mxPoint x="440" y="1275" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c10" value="queryModel()" style="shape=image;imageAspect=0;image=data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20210%2055%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M%2010%201%20H%20200%20C%20206%209%20209%2018%20209%2027.5%20C%20209%2037%20206%2046%20200%2054%20H%2010%20C%204%2046%201%2037%201%2027.5%20C%201%2018%204%209%2010%201%20Z%27%20fill%3D%27%23DAE8FC%27%20stroke%3D%27%23007FFF%27%20stroke-width%3D%271%27%20vector-effect%3D%27non-scaling-stroke%27%2F%3E%3C%2Fsvg%3E;whiteSpace=wrap;html=0;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=16;fontColor=#000000;spacingLeft=12;spacingRight=12;" parent="1" vertex="1">
+                    <mxGeometry x="310" y="320" width="260" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="c13" value="" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="c14" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="1015" y="375" as="sourcePoint"/>
+                        <mxPoint x="1015" y="1275" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c14" value="anthropic.beta.messages&#xa;.create()" style="shape=image;imageAspect=0;image=data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20210%2055%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M%2010%201%20H%20200%20C%20206%209%20209%2018%20209%2027.5%20C%20209%2037%20206%2046%20200%2054%20H%2010%20C%204%2046%201%2037%201%2027.5%20C%201%2018%204%209%2010%201%20Z%27%20fill%3D%27%23DAE8FC%27%20stroke%3D%27%23007FFF%27%20stroke-width%3D%271%27%20vector-effect%3D%27non-scaling-stroke%27%2F%3E%3C%2Fsvg%3E;whiteSpace=wrap;html=0;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=16;fontColor=#000000;spacingLeft=12;spacingRight=12;" parent="1" vertex="1">
+                    <mxGeometry x="885" y="320" width="260" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="c15" value="" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#b8bec5;strokeColor=#b8bec5;strokeWidth=2;endArrow=none;endFill=1;dashed=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="c16" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="1290" y="375" as="sourcePoint"/>
+                        <mxPoint x="1290" y="1275" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c16" value="globalThis.fetch()" style="shape=image;imageAspect=0;image=data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20210%2055%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M%2010%201%20H%20200%20C%20206%209%20209%2018%20209%2027.5%20C%20209%2037%20206%2046%20200%2054%20H%2010%20C%204%2046%201%2037%201%2027.5%20C%201%2018%204%209%2010%201%20Z%27%20fill%3D%27%23DAE8FC%27%20stroke%3D%27%23007FFF%27%20stroke-width%3D%271%27%20vector-effect%3D%27non-scaling-stroke%27%2F%3E%3C%2Fsvg%3E;whiteSpace=wrap;html=0;align=center;verticalAlign=middle;fontFamily=Arial;fontSize=16;fontColor=#000000;spacingLeft=12;spacingRight=12;" parent="1" vertex="1">
+                    <mxGeometry x="1160" y="320" width="260" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="c27" value="через withStreamingVCR" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="150" y="437" as="sourcePoint"/>
+                        <mxPoint x="440" y="437" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c29" value="create({ ...params, stream: true })" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="440" y="535" as="sourcePoint"/>
+                        <mxPoint x="1015" y="535" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c30" value="fetch(...) через транспорт SDK" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="1015" y="580" as="sourcePoint"/>
+                        <mxPoint x="1290" y="580" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c31" value="Response / поток HTTP" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="1290" y="625" as="sourcePoint"/>
+                        <mxPoint x="1015" y="625" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c32" value="Поток событий API" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="1015" y="649" as="sourcePoint"/>
+                        <mxPoint x="440" y="649" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c33" value="yield события и сообщения" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="440" y="674" as="sourcePoint"/>
+                        <mxPoint x="150" y="674" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="annotation-c8" value="Передаёт историю диалога, системный промпт, инструменты и настройки в queryModel. Возвращает его события по мере поступления, через обёртку withStreamingVCR." style="rounded=0;whiteSpace=wrap;html=0;fillColor=#F2F2F2;strokeColor=#CCCCCC;fontFamily=Arial;fontSize=16;align=left;verticalAlign=top;spacing=12;" parent="1" vertex="1" annotationFor="c8" evidence="services/api/claude.ts:757">
+                    <mxGeometry x="20" y="30" width="260" height="270" as="geometry"/>
+                </mxCell>
+                <mxCell id="annotation-c10" value="Готовит запрос модели и запускает его с повторными попытками. Собирает из потока текст и вызовы инструментов, учитывает расход токенов и выдаёт сообщения, события и ошибки вызывающему коду." style="rounded=0;whiteSpace=wrap;html=0;fillColor=#F2F2F2;strokeColor=#CCCCCC;fontFamily=Arial;fontSize=16;align=left;verticalAlign=top;spacing=12;" parent="1" vertex="1" annotationFor="c10" evidence="services/api/claude.ts:1022">
+                    <mxGeometry x="310" y="30" width="260" height="270" as="geometry"/>
+                </mxCell>
+                <mxCell id="annotation-c14" value="Метод Anthropic SDK. Передаёт сообщения и параметры в POST /v1/messages. Здесь включён stream: true, поэтому результат поступает как поток событий API, а не готовый ответ целиком." style="rounded=0;whiteSpace=wrap;html=0;fillColor=#F2F2F2;strokeColor=#CCCCCC;fontFamily=Arial;fontSize=16;align=left;verticalAlign=top;spacing=12;" parent="1" vertex="1" annotationFor="c14" evidence="@anthropic-ai/sdk/resources/beta/messages/messages.mjs:44">
+                    <mxGeometry x="885" y="30" width="260" height="270" as="geometry"/>
+                </mxCell>
+                <mxCell id="annotation-c16" value="HTTP-транспорт среды выполнения. Отправляет запрос серверу и возвращает Response с заголовками и потоком тела. Не собирает сообщения Claude: это делают SDK и queryModel. Используется, если fetchOverride не задан." style="rounded=0;whiteSpace=wrap;html=0;fillColor=#F2F2F2;strokeColor=#CCCCCC;fontFamily=Arial;fontSize=16;align=left;verticalAlign=top;spacing=12;" parent="1" vertex="1" annotationFor="c16" evidence="services/api/client.ts:359">
+                    <mxGeometry x="1160" y="30" width="260" height="270" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
