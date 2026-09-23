@@ -1,4 +1,4 @@
-# coldKode
+# graphKoda
 
 For independent tool/source checkouts, use [Separate Repositories](SEPARATE-REPOSITORIES.md).
 The overlay instructions below describe the legacy installation mode.
@@ -51,14 +51,14 @@ VS Code / web explorer <─ orchestrator API ─> draw.io renderer
 
 ```powershell
 git clone https://gitverse.ru/anarchic/claude-code C:\work\claude-code
-git clone https://github.com/a1oleg/coldKode C:\work\coldKode-tools
+git clone https://github.com/a1oleg/graphKoda C:\work\graphKoda-tools
 ```
 
 Наложите только инструментарий на рабочую копию исходника:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-C:\work\coldKode-tools\scripts\install-overlay.ps1 `
+C:\work\graphKoda-tools\scripts\install-overlay.ps1 `
   -TargetPath C:\work\claude-code
 ```
 
@@ -67,10 +67,10 @@ C:\work\coldKode-tools\scripts\install-overlay.ps1 `
 создаёт `.venv` и ставит Python-зависимости. Повторный запуск обновляет overlay.
 
 Загрузите официальный draw.io и наложите наш plugin (upstream не хранится в
-`coldKode`, чтобы не переносить встроенные сторонние OAuth identifiers):
+`graphKoda`, чтобы не переносить встроенные сторонние OAuth identifiers):
 
 ```powershell
-C:\work\coldKode-tools\scripts\setup-drawio.ps1 `
+C:\work\graphKoda-tools\scripts\setup-drawio.ps1 `
   -TargetPath C:\work\claude-code
 ```
 
@@ -176,7 +176,7 @@ Orchestrator управляет импортом, рендерингом, анн
 ```powershell
 cd C:\work\claude-code
 npx @vscode/vsce package --cwd graph/vscode-extension
-code --install-extension graph/vscode-extension/coldkode-graph-explorer-*.vsix --force
+code --install-extension graph/vscode-extension/graphKoda-graph-explorer-*.vsix --force
 ```
 
 После перезапуска VS Code в Activity Bar появится **Graph Explorer**. Расширение
