@@ -843,6 +843,20 @@ Draw.loadPlugin(function(ui) {
       clearRuntimeHighlight();
       return;
     }
+    var bakedCell = Object.keys(model.cells || {}).map(function(id) { return model.cells[id]; })
+      .find(function(candidate) { return getAttribute(candidate, 'embeddedRuntimeTrace'); });
+    if (bakedCell) {
+      try {
+        var baked = JSON.parse(getAttribute(bakedCell, 'embeddedRuntimeTrace'));
+        if (baked.version !== 1 || !Array.isArray(baked.edgePairs)) throw new Error('Invalid embedded trace');
+        baked.edgePairs.forEach(function(pair) {
+          if (!model.getCell(pair.cellId)) throw new Error('Embedded trace cell is missing: ' + pair.cellId);
+        });
+        runtimeHighlight(baked);
+        runtimeTraceActive = true;
+      } catch (error) { ui.handleError(error); }
+      return;
+    }
     var stableId = diagramFunctionStableId(cell);
     if (!stableId) {
       ui.handleError(new Error('The current diagram has no function stableID (codexGraph root-v2).'));
@@ -1197,6 +1211,7 @@ Draw.loadPlugin(function(ui) {
         runtimeStableIdKey(getAttribute(target, 'sourceCallStableId')),
       ];
       var pair = edgePairs.find(function(candidate) {
+        if (candidate.cellId) return candidate.cellId === cell.id;
         return sourceStableIds.indexOf(runtimeStableIdKey(candidate.sourceStableId)) >= 0
           && targetStableIds.indexOf(runtimeStableIdKey(candidate.targetStableId)) >= 0
           && (!candidate.edgeType
