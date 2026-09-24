@@ -3,7 +3,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagram, openSource, tokenFilePath, reloadWindow }) {
+function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagram, openSource, tokenFilePath, reloadWindow, terminal }) {
   const token = crypto.randomBytes(32).toString('hex');
   const pending = new Map();
   const tokenFile = tokenFilePath || path.join(workspaceRoot, 'tmp', 'graph-demo-token.local');
@@ -18,6 +18,10 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
     return true;
   }
   async function step(input) {
+    if (input?.surface === 'terminal') {
+      if (!terminal) throw Error('Presentation terminal is unavailable');
+      return terminal.step({ action: input.action, sessionId: input.sessionId, text: input.text });
+    }
     if (input?.surface === 'window' && input.action === 'reload') {
       if (pending.size) throw new Error('Wait for the active demo action before reloading');
       if (typeof reloadWindow !== 'function') throw new Error('Window reload is unavailable');
@@ -101,6 +105,7 @@ function createDemoControl({ workspaceRoot, runtimeSend, runtimeState, openDiagr
     return true;
   }
   return { step, finish, handle, dispose() {
+    terminal?.dispose();
     openSource?.dispose?.();
     for (const id of [...pending.keys()]) finish(id, { error: 'Extension stopped' });
     try { if (fs.readFileSync(tokenFile, 'utf8') === token) fs.unlinkSync(tokenFile); } catch {}

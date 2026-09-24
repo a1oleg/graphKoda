@@ -1,5 +1,5 @@
 {
-  "name": "graphKoda-graph-explorer",
+  "name": "graphkoda-graph-explorer",
   "displayName": "graphKoda Graph Explorer",
   "description": "VS Code graph explorer for function diagrams.",
   "version": "0.0.437",
@@ -24,6 +24,17 @@
   ],
   "main": "./extension.js",
   "contributes": {
+    "configuration": {
+      "title": "graphKoda",
+      "properties": {
+        "graphKoda.presentationWindow": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "description": "Use the dedicated presentation API port and terminal. Reload the window after changing this setting."
+        }
+      }
+    },
     "commands": [
       {
         "command": "graphKodaGraphExplorer.openFisherGraphScene",

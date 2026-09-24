@@ -123,6 +123,8 @@ async function activate(context) {
   presentationContext = context;
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || context.extensionPath;
   demoControl = createDemoControl({ workspaceRoot,
+    terminal: require('./presentationTerminal').createPresentationTerminal({
+      vscode, workspaceRoot, presentationWindow: PRESENTATION_WINDOW }),
     reloadWindow: () => {
       if (!PRESENTATION_WINDOW) throw new Error('Reload is restricted to the presentation window');
       if (vscode.workspace.textDocuments.some(document => document.isDirty)
