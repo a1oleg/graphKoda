@@ -162,10 +162,11 @@ export default function nodePassInstrumentationPlugin({ types: t }) {
     name: 'graphKoda-node-pass-instrumentation',
     pre(file) {
       const filename = normalizePath(file.opts.filename || '');
-      const root = normalizePath(process.cwd()).replace(/\/$/, '');
+      const sourceRoot = this.opts.sourceRoot || process.cwd();
+      const root = normalizePath(sourceRoot).replace(/\/$/, '');
       this.repoRelativePath = filename.startsWith(`${root}/`)
         ? filename.slice(root.length + 1)
-        : normalizePath(path.relative(process.cwd(), filename));
+        : normalizePath(path.relative(sourceRoot, filename));
       this.instrumentedStableIds = [];
     },
     visitor: {

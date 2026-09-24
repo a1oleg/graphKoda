@@ -56,6 +56,14 @@ Module._load = function loadWithDevVirtualModules(request, parent, isMain) {
 };
 
 globalThis.require = specifier => {
+  if (typeof specifier === 'string' && !specifier.startsWith('.') && !specifier.startsWith('src/') && !path.isAbsolute(specifier)) {
+    // Resolve application dependencies from its checkout, not the tooling repo.
+    let resolved;
+    try { resolved = rootRequire.resolve(specifier); } catch (error) {
+      if (error.code !== 'MODULE_NOT_FOUND') throw error;
+    }
+    if (resolved) return rootRequire(resolved);
+  }
   try {
     return localRequire(specifier);
   } catch (error) {
@@ -70,8 +78,8 @@ globalThis.require = specifier => {
           if (!existsSync(path.join(root, candidate))) continue;
           try {
             return rootRequire(candidate);
-          } catch {
-            // Keep trying; surface the original error if no candidate works.
+          } catch (loadError) {
+            throw loadError;
           }
         }
       }
@@ -87,8 +95,8 @@ globalThis.require = specifier => {
           if (!existsSync(path.join(root, candidate))) continue;
           try {
             return rootRequire(candidate);
-          } catch {
-            // Keep trying; surface the original error if no candidate works.
+          } catch (loadError) {
+            throw loadError;
           }
         }
       }

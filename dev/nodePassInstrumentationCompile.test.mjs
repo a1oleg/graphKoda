@@ -1,31 +1,20 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import test from 'node:test';
 import path from 'node:path';
+import {transform} from 'esbuild';
 import projectPaths from './projectPaths.cjs';
-
-import { transform } from 'esbuild';
-
-import { instrumentNodePassSource } from './instrumentNodePassSource.mjs';
-
-test('instrumented REPL compiles when a logged binding awaits its value', async () => {
-  const filePath = 'screens/REPL.tsx';
-  const source = await readFile(path.join(projectPaths.sourceRoot, filePath), 'utf8');
-  const instrumented = await instrumentNodePassSource(source, filePath);
-
-  assert.match(instrumented, /await globalThis\.__graphKodaEvaluateAsyncNode/);
-  assert.equal((instrumented.match(/role:\s*"parameter-value"/g) || []).length, 4);
-  assert.ok(
-    instrumented.lastIndexOf('role:"parameter-value"')
-      < instrumented.indexOf('stableId:"screens/REPL.tsx:3151:4:3151:17"'),
-    'received parameters must be logged before the onSubmit body executes',
-  );
-  await transform(instrumented, {
-    sourcefile: filePath,
-    format: 'esm',
-    platform: 'node',
-    target: 'node22',
-    loader: 'tsx',
-    jsx: 'automatic',
-  });
+import {instrumentNodePassSource,getNodePassTargetsForFile} from './instrumentNodePassSource.mjs';
+test('onSubmit is excluded from the active profile',async()=>{
+  assert.deepEqual(getNodePassTargetsForFile('screens/REPL.tsx'),[]);
+  assert.equal(await instrumentNodePassSource('unchanged','screens/REPL.tsx'),'unchanged');
+});
+test('only queryModel entry and stub decision are instrumented',async()=>{
+  const file=path.join(projectPaths.sourceRoot,'services/api/claude.ts');
+  const source=await readFile(file,'utf8');
+  assert.deepEqual(getNodePassTargetsForFile(file,source).map(t=>t.role),['function','predicate']);
+  const output=await instrumentNodePassSource(source,file);
+  assert.match(output,/__graphKodaLogNodePass/);
+  assert.match(output,/__graphKodaEvaluateNode/);
+  await transform(output,{loader:'ts',format:'esm',target:'node22'});
 });

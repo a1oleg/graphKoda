@@ -59,6 +59,7 @@ const child = spawn(process.execPath, args, {
   cwd: root,
   env: {
     ...process.env,
+    TSX_TSCONFIG_PATH: path.join(projectPaths.sourceRoot, 'tsconfig.json'),
     CLAUDE_CODE_DEV_VERSION:
       process.env.CLAUDE_CODE_DEV_VERSION || '999.0.0',
     DISABLE_TELEMETRY: process.env.DISABLE_TELEMETRY || '1',

@@ -1,24 +1,24 @@
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import projectPaths from './projectPaths.cjs';
+import {modelStubTraceFile, modelStubTraceTargets} from './modelStubTraceTargets.mjs';
 
 import { transformAsync } from '@babel/core';
 
 import nodePassInstrumentationPlugin from './babelNodePassInstrumentationPlugin.mjs';
 
-const manifestPath = fileURLToPath(new URL('../graph/instrumentation/node-pass-targets.json', import.meta.url));
-const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-
 function normalizePath(value = '') {
   return String(value).replace(/\\/g, '/');
 }
 
-export function getNodePassTargetsForFile(filePath) {
+export function getNodePassTargetsForFile(filePath, source) {
   const normalizedFilePath = normalizePath(filePath);
-  return manifest.targets.filter((target) => normalizedFilePath.endsWith(normalizePath(target.filePath)));
+  if (normalizedFilePath !== modelStubTraceFile && normalizedFilePath !== normalizePath(path.join(projectPaths.sourceRoot,modelStubTraceFile))) return [];
+  return modelStubTraceTargets(source ?? readFileSync(path.resolve(projectPaths.sourceRoot,filePath),'utf8'));
 }
 
 export async function instrumentNodePassSource(source, filePath) {
-  const targets = getNodePassTargetsForFile(filePath);
+  const targets = getNodePassTargetsForFile(filePath, source);
   if (!targets.length) return source;
 
   const result = await transformAsync(source, {
@@ -36,7 +36,7 @@ export async function instrumentNodePassSource(source, filePath) {
     generatorOpts: {
       retainLines: true,
     },
-    plugins: [[nodePassInstrumentationPlugin, { targets }]],
+    plugins: [[nodePassInstrumentationPlugin, { targets, sourceRoot: projectPaths.sourceRoot }]],
   });
   const instrumentedStableIds = result?.metadata?.nodePassInstrumentation?.stableIds || [];
   const missingStableIds = targets
