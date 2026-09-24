@@ -459,6 +459,17 @@ Draw.loadPlugin(function(ui) {
     return annotationSavedTexts[cell.id];
   }
 
+  function initializeAnnotationTexts() {
+    annotationSavedTexts = {};
+    Object.keys(model.cells || {}).forEach(function(id) {
+      var cell = model.cells[id];
+      if (getAttribute(cell, 'graphKind') === 'Annotation') savedAnnotationText(cell);
+    });
+    refreshAnnotationControls();
+  }
+  ui.addListener('fileLoaded', initializeAnnotationTexts);
+  initializeAnnotationTexts();
+
   function positionAnnotationControls(cell) {
     var state = cell != null ? graph.view.getState(cell) : null;
     if (state == null) return;
@@ -506,6 +517,20 @@ Draw.loadPlugin(function(ui) {
       return;
     }
     var target = annotationTargetPayload(cell);
+    // Imported scene annotations belong to this document, not necessarily Neo4j.
+    // Keep the same controls, but do not send an ownerless database update.
+    if (!target.targetId && getAttribute(cell, 'annotationOwnerCellId')) {
+      var localSave = ui.actions && ui.actions.get('save');
+      if (!localSave || typeof localSave.funct !== 'function') {
+        ui.handleError(new Error('Document save action is unavailable.'));
+        return;
+      }
+      localSave.funct();
+      annotationSavedTexts[cell.id] = text;
+      cell.annotationSavedText = text;
+      refreshAnnotationControls();
+      return;
+    }
     annotationSavePending = true;
     refreshAnnotationControls();
     post({

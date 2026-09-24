@@ -129,6 +129,7 @@ function loadMenu(attributes, options = {}) {
   const graph = {
     popupMenuHandler: { factoryMethod: null },
     getModel: () => model,
+    getView() { return this.view; },
     getLinkForCell: () => '',
     container: { appendChild() {}, addEventListener() {} },
     view: {
@@ -145,6 +146,7 @@ function loadMenu(attributes, options = {}) {
   let uiRefreshCount = 0;
   const tabContainer = { style: { display: '' } };
   const ui = {
+    addListener() {},
     editor: { graph },
     shapesVisible: true,
     toggleShapesPanel(visible) { this.shapesVisible = visible; },
@@ -230,6 +232,29 @@ function loadMenu(attributes, options = {}) {
     dispatchWindowMessage: (data) => windowMessageListeners.forEach((listener) => listener({ data })),
   };
 }
+
+test('FY-sequence imported annotation saves locally and cancel restores its text', () => {
+  const { DOMParser } = require('@xmldom/xmldom');
+  const doc = new DOMParser().parseFromString(fs.readFileSync(path.resolve(__dirname, '../draw/FY-sequence.drawio'), 'utf8'), 'text/xml');
+  const node = Array.from(doc.getElementsByTagName('mxCell')).find(n => n.getAttribute('id') === 'annotation-shuffle');
+  assert.ok(node);
+  const original = node.getAttribute('value');
+  const result = loadMenu({ graphKind: node.getAttribute('graphKind'), graphLabel: original,
+    annotationSavedText: original, annotationOwnerCellId: node.getAttribute('annotationOwnerCellId') });
+  let saves = 0;
+  result.ui.actions = { get(name) { assert.equal(name, 'save'); return { funct() { saves++; } }; } };
+  result.cell.value = original + ' ';
+  result.notifyModelChange();
+  assert.equal(result.annotationControls.style.display, 'flex');
+  result.buttons.find(b => b.textContent === 'Отменить').dispatch('click');
+  assert.equal(result.cell.value, original);
+  result.cell.value = original + '\nПравка.';
+  result.notifyModelChange();
+  result.buttons.find(b => b.textContent === 'Сохранить').dispatch('click');
+  assert.equal(saves, 1);
+  assert.equal(result.posted.some(entry => entry.payload?.action === 'saveAnnotation'), false);
+  assert.equal(result.annotationControls.style.display, 'none');
+});
 
 test('Shapes starts hidden for graph documents but remains available to reopen', () => {
   const result = loadMenu({}, { rootFunctionStableId: 'example.ts:1:0:8:1' });
