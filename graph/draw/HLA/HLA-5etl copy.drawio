@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram id="hla" name="HLA-4">
-        <mxGraphModel dx="1454" dy="1082" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1000" math="0" shadow="0">
+        <mxGraphModel dx="1828" dy="1140" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1000" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -192,10 +192,10 @@
                 <mxCell id="etl-sketch-3-title" value="3. Звенья" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=14;fontColor=#425563;strokeColor=none;fillColor=none;fontSize=18;" vertex="1" parent="etl-sketch-3">
                     <mxGeometry x="10" y="161" width="280" height="35" as="geometry"/>
                 </mxCell>
-                <mxCell id="etl-sketch-3-row-1" value="shuffle -&gt; getRandom" style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=12;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;" vertex="1" parent="etl-sketch-3">
+                <mxCell id="etl-sketch-3-row-1" value="shuffle -&gt; getRandom" style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=14;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;fontStyle=1" vertex="1" parent="etl-sketch-3">
                     <mxGeometry x="17" y="281" width="165" height="32" as="geometry"/>
                 </mxCell>
-                <mxCell id="etl-sketch-3-row-2" value="shuffle -&gt; swap" style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=12;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;" vertex="1" parent="etl-sketch-3">
+                <mxCell id="etl-sketch-3-row-2" value="shuffle -&gt; swap" style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=14;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;fontStyle=1" vertex="1" parent="etl-sketch-3">
                     <mxGeometry x="17" y="324" width="165" height="32" as="geometry"/>
                 </mxCell>
                 <mxCell id="etl-sketch-4" value="" style="group;container=1;collapsible=0;recursiveResize=0;" vertex="1" etlStage="4" parent="1">
@@ -207,22 +207,22 @@
                 <mxCell id="etl-sketch-4-nodes-title" value="УЗЛЫ · nodes" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=14;fontColor=#425563;strokeColor=none;fillColor=none;fontColor=#004C54;" vertex="1" parent="etl-sketch-4">
                     <mxGeometry x="17" y="214" width="266" height="25" as="geometry"/>
                 </mxCell>
-                <mxCell id="etl-sketch-4-node-0" value="id1 shuffle" style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=12;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;" vertex="1" parent="etl-sketch-4">
+                <mxCell id="etl-sketch-4-node-0" value="id1 shuffle" style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=14;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;fontStyle=1" vertex="1" parent="etl-sketch-4">
                     <mxGeometry x="17" y="244" width="114" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="etl-sketch-4-node-1" value="id2 getRandom" style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=12;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;" vertex="1" parent="etl-sketch-4">
+                <mxCell id="etl-sketch-4-node-1" value="id2 getRandom" style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=14;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;fontStyle=1" vertex="1" parent="etl-sketch-4">
                     <mxGeometry x="17" y="274" width="114" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="etl-sketch-4-node-2" value="id3 swap" style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=12;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;" vertex="1" parent="etl-sketch-4">
+                <mxCell id="etl-sketch-4-node-2" value="id3 swap" style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=14;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;fontStyle=1" vertex="1" parent="etl-sketch-4">
                     <mxGeometry x="17" y="304" width="114" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="etl-sketch-4-edges-title" value="СВЯЗИ · edges" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=14;fontColor=#425563;strokeColor=none;fillColor=none;fontColor=#007FFF;" vertex="1" parent="etl-sketch-4">
                     <mxGeometry x="17" y="353" width="266" height="25" as="geometry"/>
                 </mxCell>
-                <mxCell id="etl-sketch-4-edge-0" value="id1 → id2 " style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=12;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;fillColor=#EAF3FF;strokeColor=#007FFF;" vertex="1" parent="etl-sketch-4">
+                <mxCell id="etl-sketch-4-edge-0" value="id1 → id2 " style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=14;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;fillColor=#EAF3FF;strokeColor=#007FFF;fontStyle=1" vertex="1" parent="etl-sketch-4">
                     <mxGeometry x="17" y="386" width="115" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="etl-sketch-4-edge-1" value="id1 → id3 " style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=12;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;fillColor=#EAF3FF;strokeColor=#007FFF;" vertex="1" parent="etl-sketch-4">
+                <mxCell id="etl-sketch-4-edge-1" value="id1 → id3 " style="rounded=0;html=0;whiteSpace=nowrap;align=left;spacingLeft=8;fontSize=14;fontFamily=Consolas;fontColor=#263238;fillColor=#FFF7E6;strokeColor=#C98A29;strokeWidth=1;fillColor=#EAF3FF;strokeColor=#007FFF;fontStyle=1" vertex="1" parent="etl-sketch-4">
                     <mxGeometry x="17" y="416" width="115" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="etl-sketch-6" value="" style="group;container=1;collapsible=0;recursiveResize=0;" vertex="1" etlStage="6" parent="1">
