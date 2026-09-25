@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram id="hla" name="HLA-1">
-        <mxGraphModel dx="2729" dy="1546" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1000" math="0" shadow="0">
+        <mxGraphModel dx="790" dy="1368" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1000" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -51,16 +51,16 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="332" value="Экстрактор&#xa;Модель узлов и связей" style="rounded=1;whiteSpace=wrap;html=0;fontSize=20;spacing=8;fillColor=#f3f7fa;strokeColor=#8294a3;fillColor=#dcecf9;" vertex="1" parent="1">
+                <mxCell id="332" value="Экстрактор&#xa;Модель узлов и связей" style="rounded=1;whiteSpace=wrap;html=0;fontSize=20;spacing=8;fillColor=#f3f7fa;strokeColor=#8294a3;fillColor=#dcecf9;" parent="1" vertex="1">
                     <mxGeometry x="566" y="214" width="210" height="145" as="geometry"/>
                 </mxCell>
-                <mxCell id="333" value="Импортёр&#xa;Проверка контракта" style="rounded=1;whiteSpace=wrap;html=0;fontSize=20;spacing=8;fillColor=#f3f7fa;strokeColor=#8294a3;" vertex="1" parent="1">
+                <mxCell id="333" value="Импортёр&#xa;" style="rounded=1;whiteSpace=wrap;html=0;fontSize=20;spacing=8;fillColor=#f3f7fa;strokeColor=#8294a3;" parent="1" vertex="1">
                     <mxGeometry x="926" y="214" width="230" height="145" as="geometry"/>
                 </mxCell>
-                <mxCell id="334" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;endArrow=block;strokeColor=#71869a;strokeWidth=2;" edge="1" parent="1" source="332" target="333">
+                <mxCell id="334" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;endArrow=block;strokeColor=#71869a;strokeWidth=2;" parent="1" source="332" target="333" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="335" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;endArrow=block;strokeColor=#71869a;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="333" target="228">
+                <mxCell id="335" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;endArrow=block;strokeColor=#71869a;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="333" target="228" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <mxPoint x="1206" y="287" as="targetPoint"/>
                     </mxGeometry>
