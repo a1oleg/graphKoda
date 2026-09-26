@@ -1,0 +1,70 @@
+<mxfile host="65bd71144e">
+    <diagram id="model-without-stub" name="Без заглушки">
+        <mxGraphModel dx="1771" dy="773" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1430" pageHeight="2220" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="c7" edge="1" parent="1" source="c8" style="strokeColor=#b8bec5;strokeWidth=2;dashed=1;endArrow=none;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="286" y="655" as="sourcePoint"/>
+                        <mxPoint x="286" y="1240" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c8" parent="1" style="shape=image;imageAspect=0;image=data:image/svg+xml,%3Csvg%20xmlns%3D&#39;http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg&#39;%20viewBox%3D&#39;0%200%2090%2050&#39;%20preserveAspectRatio%3D&#39;none&#39;%3E%3Cpath%20d%3D&#39;M%2010%201%20H%2080%20C%2083.26%205.179%2085.671%209.375%2087.232%2013.586%20C%2088.567%2017.216%2089.235%2021.012%2089.235%2024.975%20C%2089.235%2029.471%2088.338%2033.817%2086.543%2038.013%20C%2084.748%2042.208%2082.56700000000001%2045.87%2080%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z&#39;%20fill%3D&#39;%23DAE8FC&#39;%2F%3E%3Cpath%20d%3D&#39;M%2010%201%20H%2080%20C%2083.26%205.179%2085.671%209.375%2087.232%2013.586%20C%2088.567%2017.216%2089.235%2021.012%2089.235%2024.975%20C%2089.235%2029.471%2088.338%2033.817%2086.543%2038.013%20C%2084.748%2042.208%2082.56700000000001%2045.87%2080%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z&#39;%20fill%3D&#39;none&#39;%20stroke%3D&#39;%23007FFF&#39;%20stroke-width%3D&#39;1&#39;%20stroke-linejoin%3D&#39;miter&#39;%20vector-effect%3D&#39;non-scaling-stroke&#39;%2F%3E%3C%2Fsvg%3E;html=1;whiteSpace=nowrap;align=center;verticalAlign=middle;spacingLeft=12;spacingRight=10;fontSize=12;fontColor=#000000;" value="queryModel&amp;nbsp;" vertex="1">
+                    <mxGeometry height="34" width="90" x="241" y="621" as="geometry"/>
+                </mxCell>
+                <mxCell id="c9" edge="1" parent="1" source="c10" style="strokeColor=#b8bec5;strokeWidth=2;dashed=1;endArrow=none;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="706" y="804.244131455399" as="sourcePoint"/>
+                        <mxPoint x="706" y="1003" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c10" parent="1" style="shape=image;imageAspect=0;image=data:image/svg+xml,%3Csvg%20xmlns%3D&#39;http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg&#39;%20viewBox%3D&#39;0%200%20109%2050&#39;%20preserveAspectRatio%3D&#39;none&#39;%3E%3Cpath%20d%3D&#39;M%2010%201%20H%2099%20C%20102.26%205.179%20104.671%209.375%20106.232%2013.586%20C%20107.567%2017.216%20108.235%2021.012%20108.235%2024.975%20C%20108.235%2029.471%20107.338%2033.817%20105.543%2038.013%20C%20103.748%2042.208%20101.56700000000001%2045.87%2099%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z&#39;%20fill%3D&#39;%23DAE8FC&#39;%2F%3E%3Cpath%20d%3D&#39;M%2010%201%20H%2099%20C%20102.26%205.179%20104.671%209.375%20106.232%2013.586%20C%20107.567%2017.216%20108.235%2021.012%20108.235%2024.975%20C%20108.235%2029.471%20107.338%2033.817%20105.543%2038.013%20C%20103.748%2042.208%20101.56700000000001%2045.87%2099%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z&#39;%20fill%3D&#39;none&#39;%20stroke%3D&#39;%23007FFF&#39;%20stroke-width%3D&#39;1&#39;%20stroke-linejoin%3D&#39;miter&#39;%20vector-effect%3D&#39;non-scaling-stroke&#39;%2F%3E%3C%2Fsvg%3E;html=1;whiteSpace=nowrap;align=center;verticalAlign=middle;spacingLeft=12;spacingRight=10;fontSize=12;fontColor=#000000;" value="isOpusModel" vertex="1">
+                    <mxGeometry height="34" width="109" x="651.5" y="770.244131455399" as="geometry"/>
+                </mxCell>
+                <mxCell id="c13" edge="1" parent="1" source="c14" style="strokeColor=#b8bec5;strokeWidth=2;dashed=1;endArrow=none;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="874" y="1155.6456692913387" as="sourcePoint"/>
+                        <mxPoint x="850" y="1380" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c14" parent="1" style="shape=image;imageAspect=0;image=data:image/svg+xml,%3Csvg%20xmlns%3D&#39;http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg&#39;%20viewBox%3D&#39;0%200%2071%2050&#39;%20preserveAspectRatio%3D&#39;none&#39;%3E%3Cpath%20d%3D&#39;M%2010%201%20H%2061%20C%2064.26%205.179%2066.671%209.375%2068.232%2013.586%20C%2069.567%2017.216%2070.235%2021.012%2070.235%2024.975%20C%2070.235%2029.471%2069.338%2033.817%2067.543%2038.013%20C%2065.748%2042.208%2063.567%2045.87%2061%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z&#39;%20fill%3D&#39;%23DAE8FC&#39;%2F%3E%3Cpath%20d%3D&#39;M%2010%201%20H%2061%20C%2064.26%205.179%2066.671%209.375%2068.232%2013.586%20C%2069.567%2017.216%2070.235%2021.012%2070.235%2024.975%20C%2070.235%2029.471%2069.338%2033.817%2067.543%2038.013%20C%2065.748%2042.208%2063.567%2045.87%2061%2049%20H%2010%20C%207.433%2045.87%205.252%2042.208%203.457%2038.013%20C%201.662%2033.817%200.765%2029.471%200.765%2024.975%20C%200.765%2021.012%201.433%2017.216%202.768%2013.586%20C%204.329%209.375%206.74%205.179%2010%201%20Z&#39;%20fill%3D&#39;none&#39;%20stroke%3D&#39;%23007FFF&#39;%20stroke-width%3D&#39;1&#39;%20stroke-linejoin%3D&#39;miter&#39;%20vector-effect%3D&#39;non-scaling-stroke&#39;%2F%3E%3C%2Fsvg%3E;html=1;whiteSpace=nowrap;align=center;verticalAlign=middle;spacingLeft=12;spacingRight=10;fontSize=12;fontColor=#000000;" value="getDynamicConfig" vertex="1">
+                    <mxGeometry height="34" width="124.5" x="785" y="1031.65" as="geometry"/>
+                </mxCell>
+                <mxCell id="c27" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="286" y="938" as="sourcePoint"/>
+                        <mxPoint x="706" y="938" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c29" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=0;labelBackgroundColor=#ffffff;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="c14" value="">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="286" y="1048.6456692913387" as="sourcePoint"/>
+                        <mxPoint x="874" y="1048.6456692913387" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="2" edge="1" parent="1" style="html=0;fontFamily=Arial;fontSize=14;fontColor=#1963a6;strokeColor=#1963a6;strokeWidth=2;endArrow=block;endFill=1;dashed=1;labelBackgroundColor=#ffffff;" value="">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="706" y="1003" as="sourcePoint"/>
+                        <mxPoint x="286" y="1003" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="annotation-shuffle" annotationOwnerCellId="c8" annotationSavedText="Перемешивает алфавит, проходя его с конца. На каждом шаге getRandom выбирает индекс в оставшейся части, а swap меняет выбранный элемент с текущим. Обработанная часть растёт; функция возвращает перемешанный массив." annotationSource="scene-row022-1789542834324742500/stage3/source.drawio#snippet-shuffle" graphKind="Annotation" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;fontSize=14;fontStyle=0;align=left;verticalAlign=middle;spacing=10;fillColor=#f5f5f5;strokeColor=#b3b3b3;fontColor=#000000;" value="...&#xa;проверяет какая модель выбрана и доступна ли она&#xa;..." vertex="1">
+                    <mxGeometry height="105" width="460" x="355" y="621" as="geometry"/>
+                </mxCell>
+                <mxCell id="annotation-random" annotationOwnerCellId="c10" annotationSource="scene-row022-1789542834324742500/stage3/source.drawio#snippet-random" graphKind="Annotation" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;fontSize=14;fontStyle=0;align=left;verticalAlign=middle;spacing=10;fillColor=#f5f5f5;strokeColor=#b3b3b3;fontColor=#000000;" value="Проверяет выбрана ли чувствительная модель " vertex="1">
+                    <mxGeometry height="95" width="335" x="785" y="770.24" as="geometry"/>
+                </mxCell>
+                <mxCell id="annotation-swap" annotationOwnerCellId="c14" annotationSource="scene-row022-1789542834324742500/stage3/source.drawio#snippet-swap" graphKind="Annotation" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;fontSize=14;fontStyle=0;align=left;verticalAlign=middle;spacing=10;fillColor=#f5f5f5;strokeColor=#b3b3b3;fontColor=#000000;" value="Проверяет доступность модели" vertex="1">
+                    <mxGeometry height="68.35" width="226" x="934" y="1031.65" as="geometry"/>
+                </mxCell>
+                <mxCell id="glq0ArJH1pO5GhM0OeaM-2" annotationOwnerCellId="c10" annotationSource="scene-row022-1789542834324742500/stage3/source.drawio#snippet-random" graphKind="Annotation" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;fontSize=14;fontStyle=0;align=left;verticalAlign=middle;spacing=10;fillColor=#f5f5f5;strokeColor=#b3b3b3;fontColor=#000000;" value="Шаг 1" vertex="1">
+                    <mxGeometry height="60" width="159" x="331" y="770.24" as="geometry"/>
+                </mxCell>
+                <mxCell id="glq0ArJH1pO5GhM0OeaM-4" annotationOwnerCellId="c10" annotationSource="scene-row022-1789542834324742500/stage3/source.drawio#snippet-random" graphKind="Annotation" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;fontSize=14;fontStyle=0;align=left;verticalAlign=middle;spacing=10;fillColor=#f5f5f5;strokeColor=#b3b3b3;fontColor=#000000;" value="Шаг 2" vertex="1">
+                    <mxGeometry height="60" width="159" x="331" y="860" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
