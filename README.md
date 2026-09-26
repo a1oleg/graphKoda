@@ -1,11 +1,8 @@
 # graphKoda
 
-For independent tool/source checkouts, use [Separate Repositories](SEPARATE-REPOSITORIES.md).
-The overlay instructions below describe the legacy installation mode.
-
-Приватный набор инструментов для извлечения, хранения, анализа и визуализации
+ набор инструментов для извлечения, хранения, анализа и визуализации
 графа TypeScript/React-приложения. Репозиторий **не содержит исходники Claude
-Code, трассы пользовательских сессий, базы, токены или пароли**.
+Code**.
 
 Исходник, для которого разрабатывался инструментарий:
 [anarchic/claude-code на GitVerse](https://gitverse.ru/anarchic/claude-code).
@@ -258,5 +255,3 @@ Runtime Swagger: http://127.0.0.1:8787/api/docs (отдельно от Swagger �
   аутентификации и TLS;
 - перед push запускайте secret scan (`gitleaks detect --source .` либо
   `trufflehog filesystem . --no-update`);
-- этот репозиторий должен оставаться private: он содержит внутреннюю модель
-  инструментария, хотя не содержит исходник анализируемого приложения.
