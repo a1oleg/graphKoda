@@ -207,7 +207,12 @@ def main():
     db.register("levels", result)
     destination = str(args.output / "levels.parquet").replace("'", "''")
     db.execute(f"""COPY (SELECT stable_id, labels, component, structural_level,
-        in_cycle, unknown_dependency_semantics FROM numbered JOIN levels USING(idx)
+        in_cycle, unknown_dependency_semantics,
+        CASE WHEN in_cycle THEN 'cyclic-dependency'
+             WHEN structural_level<0 THEN 'depends-on-cycle'
+             ELSE 'acyclic' END AS dependency_status,
+        false AS code_recursion_confirmed
+        FROM numbered JOIN levels USING(idx)
         ORDER BY idx) TO '{destination}' (FORMAT PARQUET, COMPRESSION ZSTD)""")
     largest = sorted((i for i in range(len(sizes)) if cyclic[i]), key=lambda i: -sizes[i])[:10]
     samples = {}
@@ -236,7 +241,7 @@ def main():
               "ignored": sorted(IGNORED), "ownership": "parent -> direct child",
               "unknown": "both endpoints and their consumers are uncertain"}
     report = {
-        "mode": "global-materialized-dependency-inventory", "version": 1,
+        "mode": "global-materialized-dependency-inventory", "version": 2,
         "annotationProfilesCertified": False, "generatesAnnotations": False,
         "writesDatabase": False, "source": str(args.parquet.resolve()),
         "provenanceIds": [r[0] for r in db.execute("SELECT DISTINCT provenance_id FROM nodes").fetchall()],

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 
 import neo4j from 'neo4j-driver';
+import { annotationDependencyCycle } from './annotationDependencyCycle.js';
 
 import {
   getAnnotationProfile,
@@ -212,6 +213,8 @@ export async function resolveAnnotation(driver, database, {
   const generationOrder = [];
   const memo = new Map();
   const visiting = new Set();
+  const loadedDependencies = new Map();
+  const canonicalIds = new Map();
   const timings = [];
   const startedAt = performance.now();
 
@@ -360,6 +363,14 @@ export async function resolveAnnotation(driver, database, {
           )
           : new Map();
         for (const subject of profileSubjects) {
+          canonicalIds.set(subject.requestedStableId, subject.stableId);
+          const rawDependencies = [
+            ...(dependencyMap.get(subject.stableId) || []),
+            ...(compositionDependencyMap.get(subject.stableId) || []),
+          ];
+          loadedDependencies.set(subject.stableId, rawDependencies
+            .filter(dependency => dependency.recurse)
+            .map(dependency => dependency.stableId));
           const requestPointContext = profile.id === 'callable-summary'
             ? {}
             : { requestPoint: subject.requestPoint };
@@ -401,6 +412,9 @@ export async function resolveAnnotation(driver, database, {
 
       const pendingRows = [];
       for (const entry of prepared) {
+        const cycle = annotationDependencyCycle(entry.subject.stableId, loadedDependencies,
+          id => canonicalIds.get(id) || id);
+        if (cycle) entry.context.dependencyCycle = cycle;
         const childItems = entry.dependencies.map((dependency) => {
           const child = shouldRecurse(entry, dependency) ? memo.get(dependency.stableId) : null;
           return {
@@ -643,7 +657,12 @@ export function buildAnnotationTask(item, rootStableId, options = {}) {
     annotationKind: item.annotationKind,
     labels: item.labels,
     objective: annotationObjective(item),
-    requirements: annotationRequirements(item),
+    requirements: [
+      ...annotationRequirements(item),
+      ...(item.context?.dependencyCycle ? [
+        'Explicitly state that the available context contains a cyclic dependency. Describe supported external inputs, if present. Do not call this code recursion or an infinite runtime loop without separate source evidence. Do not present the dependency as fully resolved.',
+      ] : []),
+    ],
     synthesis: isFunctionalEntity(item) ? {
       mode: 'bottom-up-functional-accumulation',
       evidence: ['functional-descendant-annotations', 'terminal-system-effects', 'operation-syntax'],

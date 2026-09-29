@@ -13,7 +13,9 @@ The input is the same canonical Parquet graph imported into Neo4j. No source
 compilation or extraction is repeated. The output contains:
 
 - `levels.parquet`: stable ID, labels, SCC identifier, structural level,
-  cycle membership, and unresolved dependency-semantics flag for every node.
+  cycle membership, unresolved dependency-semantics flag, `dependency_status`
+  (`cyclic-dependency`, `depends-on-cycle`, `acyclic`), and
+  `code_recursion_confirmed=false` for every node.
 - `summary.json`: provenance, explicit directional policy, its hash, relation
   coverage, waves, cycle samples, a reciprocal-cycle witness when available,
   timings, and verification results.
@@ -31,6 +33,14 @@ composition and direct ownership, not all profile-specific context rules.
 Combining ownership, calls and inverse parameter binding may create large SCCs
 without implying defects in source extraction. Existing annotations are ignored.
 Do not use this report alone to dispatch annotation generation.
+
+The annotation resolver separately detects witnessed cycles in its actual loaded
+recursive dependencies. It persists `context.dependencyCycle` with a closed
+stable-ID path and passes it to generation tasks with an explicit requirement
+to disclose the unresolved cyclic dependency. A queued sibling is not cycle
+evidence. Detection is limited to the loaded depth; absence of a witness is not
+proof that deeper dependencies are acyclic. No runtime ordering or code recursion
+is inferred from a dependency cycle. This does not implement fixed-point solving.
 
 The next integration must make the dependency policy shared with the annotator,
 classify unresolved relation roles, and distinguish task/context facets where
