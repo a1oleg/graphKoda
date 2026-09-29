@@ -1,33 +1,13 @@
 ﻿import { runReadQuery } from '../../../runtime-relay/src/runtimeEvents.js';
 import { buildStableIdDescriptorFromRecord, buildStableIdLocation } from '../../../../stableIdModel.js';
+import path from 'node:path';
+import projectPaths from '../../../../../dev/projectPaths.cjs';
 
 const FUNCTION_FLOW_SOURCE = 'semantic/functionFlowGraph';
 const FUNCTION_FLOW_RELATIONSHIP_PATTERN = ':NEXT|TRUE|FALSE|OPTION_CASE|OPTION_DEFAULT|REJOINS|MERGES_TO|CALL|REQUEST|SUBSCRIBE|CALLBACK|EXPECT_UPDATE|APPLY_UPDATE|PRODUCE|RETURN|READ|TEST|CREATE|UPDATE|DELETE|CLEAR|EMIT|WAIT|SIGNAL|START|CANCEL|DERIVE|FEED|PART';
 const LOCAL_CONTROL_FLOW_RELATIONSHIP_PATTERN = ':NEXT|TRUE|FALSE|OPTION_CASE|OPTION_DEFAULT|REJOINS|MERGES_TO';
 const FEATURE_BACKBONE_DEPTH_STEPS = [20, 60, 120, 200];
 const FEATURE_SIDE_BRANCH_DEPTH_STEPS = [4, 8, 12, 20, 40];
-const FEATURE_CONTEXT_BRANCH_CALLEE_NAMES = new Set([
-  'addTool',
-  'addToolResult',
-  'buildQueryConfig',
-  'checkPermissionsAndCallTool',
-  'findToolByName',
-  'generateToolUseSummary',
-  'getAllBaseTools',
-  'getMcpServerBaseUrlFromToolName',
-  'getMcpServerType',
-  'isConcurrencySafe',
-  'partitionToolCalls',
-  'processQueue',
-  'queryModelWithStreaming',
-  'resolveHookPermissionDecision',
-  'runPostToolUseFailureHooks',
-  'runPostToolUseHooks',
-  'runPreToolUseHooks',
-  'runToolsConcurrently',
-  'streamedCheckPermissionsAndCallTool',
-  'yieldMissingToolResultBlocks',
-]);
 
 export function normalizeGraphNode(node) {
   const stable = buildStableIdDescriptorFromRecord(node.properties || {});
@@ -259,7 +239,7 @@ function parseCoordinateStableId(stableId) {
   }
 
   return {
-    repoRelativePath: match[1].replace(/\\/g, '/').replace(/^.*[A-Za-z]:\/GitHub\/claude-code\//, ''),
+    repoRelativePath: (path.isAbsolute(match[1]) ? path.relative(projectPaths.sourceRoot, match[1]) : match[1]).replace(/\\/g, '/'),
     startLine: Number(match[2]),
     startColumn: Number(match[3]),
     endLine: Number(match[4]),
@@ -508,13 +488,11 @@ async function queryDirectContextCallBranches(driver, database, parentStableIds)
       MATCH (step:Step {parentFnStableId: parent.stableId})-[callRel]->(callee:Fn)
       WHERE callRel.source = $source
         AND type(callRel) IN ['CALL', 'REQUEST']
-        AND callee.name IN $calleeNames
       RETURN parent, step, callRel, callee
       ORDER BY parent.stableId, step.operation_index, step.start_line, step.start_column
     `,
     {
       parentStableIds: uniqueParentStableIds,
-      calleeNames: [...FEATURE_CONTEXT_BRANCH_CALLEE_NAMES],
       source: FUNCTION_FLOW_SOURCE,
     },
   );

@@ -803,7 +803,7 @@ function splitCallHasArguments(node) {
 
 function renderPartsForNode(node) {
   if (node.labels.includes('HybridExhausted')) return [];
-  const raw = node.props?.render_parts_json || node.props?.renderPartsJson;
+  const raw = node.mosaicParts || node.props?.render_parts_json || node.props?.renderPartsJson;
   if (!raw) {
     // Cached graphs produced before literal writes became set mosaics still
     // carry the complete assignment text and ValueWrite semantics. Recover
@@ -1726,7 +1726,7 @@ function structuredVerticalPartStyle(node, part, index, count) {
 
 function structuredObjectMethodVisual(node) {
   const layout = node.props?.render_parts_layout || node.props?.renderPartsLayout;
-  const raw = node.props?.render_parts_json || node.props?.renderPartsJson;
+  const raw = node.mosaicParts || node.props?.render_parts_json || node.props?.renderPartsJson;
   if (layout !== 'diagonal' || !raw) return null;
   let parts;
   try {
@@ -8300,6 +8300,7 @@ function buildRenderableEdges(edges, nodes, positions, scale) {
   edges = edges.map(edge => {
     if (edge.type !== 'ASSIGNS_VALUE' || edge.props?.sourceRenderPartStableId || edge.props?.source_render_part_stable_id) return edge;
     const source = sources.get(edge.start);
+    if (source?.mosaicParts) return edge;
     const closing = source && renderPartsForNode(source).findLast(part =>
       part.text === ')' && (part.labels || []).some(label => ['Method', 'CallBoundary'].includes(label)));
     return closing ? { ...edge, props: { ...edge.props, sourceRenderPartStableId: closing.stableId } } : edge;

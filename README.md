@@ -1,11 +1,9 @@
 # graphKoda
 
- набор инструментов для извлечения, хранения, анализа и визуализации
-графа TypeScript/React-приложения. Репозиторий **не содержит исходники Claude
-Code**.
-
-Исходник, для которого разрабатывался инструментарий:
-[anarchic/claude-code на GitVerse](https://gitverse.ru/anarchic/claude-code).
+Набор инструментов для извлечения, хранения, анализа и визуализации
+графа TypeScript/JavaScript-приложений. Анализируемый проект находится в отдельном
+репозитории и выбирается через `sourceRoot`, без привязки к Claude Code.
+Поддержку семантики конкретных библиотек нужно проверять отдельно от синтаксиса языка.
 
 ## Что входит
 
@@ -21,7 +19,7 @@ Code**.
 - renderer диаграмм и наш fork draw.io.
 
 ```text
-Claude Code source
+Selected application source
   ├─ TypeScript AST/checker ─┐
   ├─ CodeQL facts ──────────┼─> DuckDB/Parquet ─> Neo4j
   └─ runtime instrumentation ─> relay ─> Redis
@@ -47,34 +45,37 @@ VS Code / web explorer <─ orchestrator API ─> draw.io renderer
 Клонируйте исходник и инструментарий в разные каталоги:
 
 ```powershell
-git clone https://gitverse.ru/anarchic/claude-code C:\work\claude-code
+git clone https://github.com/a1oleg/telegram-tt C:\work\telegram-tt
 git clone https://github.com/a1oleg/graphKoda C:\work\graphKoda-tools
 ```
 
-Наложите только инструментарий на рабочую копию исходника:
+Установите зависимости инструментария в его собственном каталоге:
 
 ```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-C:\work\graphKoda-tools\scripts\install-overlay.ps1 `
-  -TargetPath C:\work\claude-code
+cd C:\work\graphKoda-tools
+npm ci
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r graph\static-extract\requirements.txt
+Copy-Item graphKoda.example.json graphKoda.local.json
 ```
 
-Скрипт копирует `graph/`, graph-ориентированные файлы `dev/` и Compose Redis,
-ставит Node-зависимости без изменения `package.json/package-lock.json` исходника,
-создаёт `.venv` и ставит Python-зависимости. Повторный запуск обновляет overlay.
+В `graphKoda.local.json` задайте `sourceRoot: "../telegram-tt"` и отдельный
+`dataRoot: "../graphKoda-data/telegram-tt"`. Зависимости приложения устанавливаются
+в его checkout по его README и требованиям Node/npm. Overlay не используется:
+не копируйте `graph/`, `dev/`, диаграммы и учётные данные в исходник.
 
 Загрузите официальный draw.io и наложите наш plugin (upstream не хранится в
 `graphKoda`, чтобы не переносить встроенные сторонние OAuth identifiers):
 
 ```powershell
 C:\work\graphKoda-tools\scripts\setup-drawio.ps1 `
-  -TargetPath C:\work\claude-code
+  -TargetPath C:\work\graphKoda-tools
 ```
 
-Перейдите в исходник и создайте локальную конфигурацию:
+В каталоге инструментария создайте конфигурацию подключений:
 
 ```powershell
-cd C:\work\claude-code
+cd C:\work\graphKoda-tools
 Copy-Item graph\.env.example graph\.env -ErrorAction SilentlyContinue
 ```
 
@@ -118,7 +119,7 @@ Invoke-RestMethod http://127.0.0.1:8787/stats
 node dev/runGraphExtract.mjs func
 ```
 
-Промежуточные данные создаются в `graph/.runtime/cache/`:
+Промежуточные данные создаются в `dataRoot/cache/`:
 
 - `function-flow.duckdb` — staging и статистика;
 - `function-flow-parquet/` — канонические entities/relationships в Parquet.
@@ -130,7 +131,7 @@ node dev/runGraphExtract.mjs func
 Scoped-импорт функции запускается через orchestrator API по координатному ID:
 
 ```powershell
-$body = @{ fnStableId = 'screens/REPL.tsx:3142:31:3533:3' } | ConvertTo-Json
+$body = @{ fnStableId = '<stableId выбранной функции>' } | ConvertTo-Json
 Invoke-RestMethod http://127.0.0.1:8791/api/actions/import-functions `
   -Method Post -ContentType application/json -Body $body
 ```

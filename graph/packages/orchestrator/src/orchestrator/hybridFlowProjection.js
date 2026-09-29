@@ -126,6 +126,7 @@ function semanticNodeAsRendered(node, x, y, extraLabels = [], extraProps = {}) {
   return {
     id: node.key,
     labels: [...new Set([...(node.labels || []), ...extraLabels])],
+    mosaicParts: terminalMarker ? undefined : node.mosaicParts,
     props: {
       ...(node.props || {}),
       ...extraProps,

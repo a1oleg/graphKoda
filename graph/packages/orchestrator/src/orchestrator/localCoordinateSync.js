@@ -6,7 +6,6 @@ import neo4j from 'neo4j-driver';
 import { isFunctionFlowTraversalRelationship } from './relationshipSemantics.js';
 import {projectSignatureLayout} from './signatureLayout.js';
 
-const DEFAULT_FN_STABLE_ID = 'screens/REPL.tsx:3142:31:3533:3';
 const SOURCE = 'semantic/functionFlowGraph';
 
 function readEnvFile(envPath) {
@@ -2024,6 +2023,7 @@ export function hydrateSyntaxCompositions(nodes, compositionNodes, compositionEd
     edgesByOwner.get(edge.start).push(edge);
   }
   return nodes.map((node) => {
+    if (node.mosaicParts) return node;
     const edges = edgesByOwner.get(node.key) || edgesByOwner.get(canonicalSourceKey(node.key));
     if (!edges?.length) return node;
     const primaryOrder = Number(
@@ -2290,6 +2290,8 @@ async function loadFunctionDiagramSubgraph(localDriver, database, fnStableId) {
       for (const node of toPlain(stepResult.records[0]?.get('nodes') || [])) {
         if (node?.elementId) rawNodesByElementId.set(node.elementId, node);
       }
+      await traverseFrom(toPlain(stepResult.records[0]?.get('nodes') || [])
+        .filter(node => node?.props?.mosaicContractVersion).map(node => node.elementId));
     }
 
     const referencedBlockStableIds = [...new Set([...rawNodesByElementId.values()]
@@ -2308,6 +2310,8 @@ async function loadFunctionDiagramSubgraph(localDriver, database, fnStableId) {
       for (const node of toPlain(blockResult.records[0]?.get('nodes') || [])) {
         if (node?.elementId) rawNodesByElementId.set(node.elementId, node);
       }
+      await traverseFrom(toPlain(blockResult.records[0]?.get('nodes') || [])
+        .filter(node => node?.props?.mosaicContractVersion).map(node => node.elementId));
     }
 
     let nodes = [...rawNodesByElementId.values()]
@@ -2323,7 +2327,7 @@ async function loadFunctionDiagramSubgraph(localDriver, database, fnStableId) {
       .filter((node) => node.key);
     const keyByElementId = new Map(nodes.map((node) => [node.elementId, node.key]));
     const nodeKeySet = new Set(nodes.map((node) => node.key));
-    const semanticEdges = uniqueGraphRecordsByElementId([...rawEdgesByElementId.values()])
+    let semanticEdges = uniqueGraphRecordsByElementId([...rawEdgesByElementId.values()])
       .map((edge) => ({
         id: edge.elementId,
         start: keyByElementId.get(edge.startElementId),
@@ -2332,6 +2336,12 @@ async function loadFunctionDiagramSubgraph(localDriver, database, fnStableId) {
         props: toPlain(edge.props),
       }))
       .filter((edge) => edge.start && edge.end && nodeKeySet.has(edge.start) && nodeKeySet.has(edge.end));
+    if (nodes.some(node => node.props?.mosaicContractVersion)) {
+      const { projectMosaicGraph } = await import('./mosaicGraph.js');
+      const grouped = projectMosaicGraph(nodes, semanticEdges);
+      nodes = grouped.nodes;
+      semanticEdges = grouped.edges;
+    }
     const nodeByKey = new Map(nodes.map((node) => [node.key, node]));
     const edges = semanticEdges.filter((edge) => (
       isFunctionFlowTraversalRelationship(edge.type)
@@ -2565,7 +2575,6 @@ function targetPositionForEdge(edge, positions) {
 }
 
 export {
-  DEFAULT_FN_STABLE_ID,
   SOURCE,
   coordinateLocalGraph,
   isProjectionOnlySemanticEdge,

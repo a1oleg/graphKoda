@@ -42,6 +42,8 @@ try {
         n.parentFlowBlockStableId = row.props.parentFlowBlockStableId,
         n.parentStepStableId = row.props.parentStepStableId,
         n.render_parts_json = row.props.render_parts_json,
+        n.renderPartsJson = null,
+        n.descriptorJson = null,
         n.producer_start_stable_id = row.props.producer_start_stable_id,
         n.producer_end_stable_ids = row.props.producer_end_stable_ids`, { rows });
     const aliases = new Map((payload.mergedMosaicNodeIds || []).map(row => [row.from, row.to]));

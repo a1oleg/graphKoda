@@ -1069,10 +1069,6 @@ function attachFiniteLiteralDomainsFromGraph(graph: FiniteLiteralDomainGraph, pa
   }
 }
 
-function attachFiniteLiteralDomains(program: ts.Program, payload: GraphExtractedPayload) {
-  attachFiniteLiteralDomainsFromGraph(collectFiniteLiteralDomainGraph(program), payload);
-}
-
 function annotationKindForNode(labels: string[]): FlowNodeRow['annotationKind'] {
   const labelSet = new Set(labels);
   if (labelSet.has('VisualProxy') || labelSet.has('PresentationOnly')) return undefined;
@@ -20031,19 +20027,30 @@ function validateExtractedGraph(payload: GraphExtractedPayload) {
 }
 
 export function createFunctionFlowExtractionContext(program: ts.Program, metadataOnly = false) {
-  const checker = program.getTypeChecker();
-  const stableIdByDeclaration = buildStableIdByDeclaration(program);
-  const uniqueApiMethodTargetsByName = buildUniqueApiMethodTargets(program, stableIdByDeclaration);
-  const uniqueActionTargetsByName = buildUniqueActionTargets(program, stableIdByDeclaration);
-  const uniqueFunctionTargetsByName = buildUniqueFunctionTargets(program, stableIdByDeclaration);
-  const reactStateProvenance = buildReactStateProvenance(program, checker);
-  const accessorIndex = buildAccessorIndex(program, stableIdByDeclaration, getRepoRelativePath);
+  const measure = <T>(name: string, run: () => T): T => {
+    if (process.env.GRAPH_EXTRACT_TIMINGS !== '1') return run();
+    const started = performance.now();
+    process.stderr.write(`[graph:context] start=${name}\n`);
+    try {
+      return run();
+    } finally {
+      process.stderr.write(`[graph:context] end=${name} ms=${Math.round(performance.now() - started)} rssMB=${Math.round(process.memoryUsage().rss / 1048576)}\n`);
+    }
+  };
+  const checker = measure('checker', () => program.getTypeChecker());
+  const stableIdByDeclaration = measure('declarations', () => buildStableIdByDeclaration(program));
+  const uniqueApiMethodTargetsByName = measure('api-targets', () => buildUniqueApiMethodTargets(program, stableIdByDeclaration));
+  const uniqueActionTargetsByName = measure('action-targets', () => buildUniqueActionTargets(program, stableIdByDeclaration));
+  const uniqueFunctionTargetsByName = measure('function-targets', () => buildUniqueFunctionTargets(program, stableIdByDeclaration));
+  const reactStateProvenance = measure('state-provenance', () => buildReactStateProvenance(program, checker));
+  const accessorIndex = measure('accessors', () => buildAccessorIndex(program, stableIdByDeclaration, getRepoRelativePath));
   const parameterOriginFacts = metadataOnly
     ? []
-    : collectParameterOriginFacts(program, stableIdByDeclaration);
+    : measure('parameter-origins', () => collectParameterOriginFacts(program, stableIdByDeclaration));
   const completeCanonicalReferenceGraph = metadataOnly
     ? undefined
-    : collectCanonicalReferenceGraph(program);
+    : measure('canonical-references', () => collectCanonicalReferenceGraph(program));
+  let finiteLiteralGraph: FiniteLiteralDomainGraph | undefined;
   return {
     program,
     checker,
@@ -20055,6 +20062,9 @@ export function createFunctionFlowExtractionContext(program: ts.Program, metadat
     accessorIndex,
     parameterOriginFacts,
     completeCanonicalReferenceGraph,
+    get finiteLiteralGraph() {
+      return finiteLiteralGraph ??= measure('literal-domains', () => collectFiniteLiteralDomainGraph(program));
+    },
     metadataOnly,
   };
 }
@@ -20227,7 +20237,7 @@ function collectFunctionFlowArtifacts(
   finalPayload.resources = storageGraph.storages;
   finalPayload.resourceEdges = storageGraph.storageEdges;
   finalPayload.resourceLinks = storageGraph.storageLinks;
-  if (!metadataOnly) attachFiniteLiteralDomains(program, finalPayload);
+  if (!metadataOnly) attachFiniteLiteralDomainsFromGraph(context.finiteLiteralGraph, finalPayload);
   if (!metadataOnly) {
     if (!completeCanonicalReferenceGraph) {
       throw new Error('Canonical reference graph is missing from the extraction context.');

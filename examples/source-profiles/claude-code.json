@@ -1,0 +1,17 @@
+{
+  "sourceRoot": "../claude-code",
+  "dataRoot": "../coldKode-data",
+  "enableModelStub": true,
+  "functionDiagrams": [
+    {
+      "name": "onSubmit",
+      "sourceFile": "REPL.tsx",
+      "sourceLine": 3142,
+      "stableId": "screens/REPL.tsx:3142:31:3533:3"
+    }
+  ],
+  "functionalSegment": {
+    "stableId": "screens/REPL.tsx:3142:53:3142:80",
+    "label": "helpers"
+  }
+}

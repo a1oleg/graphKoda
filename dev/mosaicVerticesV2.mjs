@@ -1,4 +1,6 @@
 export const MOSAIC_VERSION = 'mosaic-vertices/v2';
+export { projectMosaicGraph } from '../graph/packages/orchestrator/src/orchestrator/mosaicGraph.js';
+import { mosaicPart, validateMosaicChains } from '../graph/packages/orchestrator/src/orchestrator/mosaicGraph.js';
 
 // This transport-stage contract is opt-in; ordinary extraction remains v1.
 export function materializeMosaicVertices(payload) {
@@ -8,11 +10,12 @@ export function materializeMosaicVertices(payload) {
   const usedLiterals = new Set();
   const merges = new Map();
   const inlineInitializers = new Map();
+  const aliases = new Map();
   for (const owner of payload.nodes) {
     const raw = owner.props?.render_parts_json;
     if (!raw) continue;
     const parts = JSON.parse(raw);
-    if (parts.length < 2) continue;
+    if (!parts.length) continue;
     const declaration = entities.get(parts[1]?.sourceStableId);
     const assignment = parts.length === 4 && owner.props.container_method_kind === 'set'
       && parts[2].kind === 'literal' && declaration?.labels.includes('ValueDeclaration');
@@ -40,15 +43,31 @@ export function materializeMosaicVertices(payload) {
         sourceStableId: part.sourceStableId,
         canonicalStableId: part.canonicalStableId,
         name: part.text, partKind: part.kind, partOrder: index,
-        descriptorJson: JSON.stringify({ ...part, graphStableId: stableId }),
+        stableId,
+        parentFnStableId: owner.props.parentFnStableId,
+        parentStepStableId: owner.props.parentStepStableId,
+        tileFields: Object.keys(part).filter(key => part[key] !== undefined && !['stableId', 'graphStableId'].includes(key)),
       };
+      for (const key of props.tileFields) {
+        const value = part[key];
+        if (value !== null && typeof value === 'object'
+          && !(Array.isArray(value) && value.every(x => ['string', 'number', 'boolean'].includes(typeof x)))) {
+          throw new Error(`Non-scalar mosaic property: ${owner.stableId}.${key}`);
+        }
+        props[`tile_${key}`] = value;
+      }
+      if (part.stableId) {
+        const candidates = aliases.get(part.stableId) || [];
+        candidates.push({ owner: owner.stableId, id: stableId });
+        aliases.set(part.stableId, candidates);
+      }
       if (existing) {
         existing.labels = [...new Set([...(existing.labels || []), 'MosaicPart'])];
         Object.assign(existing.props, props);
-      } else payload.semanticEntities.push({ stableId, labels: ['MosaicPart'], props });
+      } else payload.semanticEntities.push({ stableId, labels: [...new Set(['MosaicPart', ...(part.labels || [])])], props });
       if (previous) payload.semanticRelationships.push({ fromId: previous, toId: stableId,
         type: assignment ? ['WRITE', 'ARGUMENT', 'CLOSES'][index - 1] : 'MOSAIC_NEXT',
-        props: { ownerStableId: owner.stableId, order: index,
+        props: { ownerStableId: owner.stableId, order: index, source: owner.props.source,
           layout: 'mosaic', mosaicContractVersion: MOSAIC_VERSION, renderHidden: true,
           ...(assignment && index === 1 ? { operation: 'assign', virtual: true } : {}),
           ...(assignment && index === 2 ? { index: 0, role: 'value' } : {}),
@@ -71,6 +90,7 @@ export function materializeMosaicVertices(payload) {
     }
     delete owner.props.render_parts_json;
     delete owner.props.renderPartsJson;
+    delete owner.renderPartsJson;
   }
   payload.nodes = payload.nodes.filter(n => !obsolete.has(n.stableId));
   payload.edges = payload.edges.filter(e => !obsolete.has(e.fromId) && !obsolete.has(e.toId));
@@ -91,14 +111,41 @@ export function materializeMosaicVertices(payload) {
     for (const [key, item] of Object.entries(value)) {
       if (/^(canonicalStableId|bindingStableId|value_slot_stableId)$/.test(key) && merges.has(item)) value[key] = merges.get(item);
       else if (typeof item === 'object') rewriteReferences(item);
-      else if (key === 'descriptorJson') {
-        const descriptor = JSON.parse(item);
-        rewriteReferences(descriptor);
-        value[key] = JSON.stringify(descriptor);
-      }
+      else if (/^tile_(canonicalStableId|bindingStableId)$/.test(key) && merges.has(item)) value[key] = merges.get(item);
     }
   };
   rewriteReferences(payload);
+  const graphParts = [...payload.nodes, ...payload.semanticEntities].filter(n => n.props?.mosaicContractVersion);
+  for (const edge of payload.edges) {
+    edge.props ||= {};
+    if (edge.type === 'ASSIGNS_VALUE' && !edge.sourceRenderPartStableId
+      && !edge.props.sourceRenderPartStableId && !edge.props.source_render_part_stable_id) {
+      const closing = graphParts.filter(n => n.props.ownerStableId === edge.fromId
+        && n.props.tile_text === ')' && (n.props.tile_labels || []).some(label => ['Method', 'CallBoundary'].includes(label)))
+        .sort((a, b) => b.props.partOrder - a.props.partOrder)[0];
+      if (closing) {
+        edge.props.sourceLayoutOwnerStableId = edge.fromId;
+        edge.fromId = closing.stableId;
+      }
+    }
+    for (const [side, endpoint] of [['source', 'fromId'], ['target', 'toId']]) {
+      const camel = `${side}RenderPartStableId`;
+      const snake = `${side}_render_part_stable_id`;
+      const alias = edge.props[snake] || edge.props[camel] || edge[camel];
+      if (!alias) continue;
+      const candidates = aliases.get(alias) || [];
+      const local = candidates.filter(p => p.owner === edge[endpoint]);
+      const resolved = local.length ? local : candidates;
+      if (resolved.length !== 1) throw new Error(`Unresolved mosaic endpoint ${edge.type} ${side}: ${alias} (${resolved.length})`);
+      edge.props[`${side}LayoutOwnerStableId`] = edge[endpoint];
+      edge[endpoint] = resolved[0].id;
+      delete edge[camel];
+      delete edge.props[camel];
+      delete edge.props[snake];
+    }
+  }
+  validateMosaicChains([...payload.nodes, ...payload.semanticEntities].map(n => ({ key: n.stableId, props: n.props })),
+    payload.semanticRelationships.map(e => ({ start: e.fromId, end: e.toId, props: e.props })));
   payload.mergedMosaicNodeIds = [...merges].map(([from, to]) => ({ from, to }));
   payload.obsoleteMosaicNodeIds = [...obsolete];
   return payload;
@@ -117,8 +164,7 @@ export function applyMosaicVertices(nodes, records) {
     if (parts.length !== Number(node.props.mosaicPartCount)
       || parts.some((p, i) => Number(p.partOrder) !== i)) throw new Error(`Incomplete v2 mosaic: ${node.key}`);
     return { ...node, props: { ...node.props,
-      render_parts_json: JSON.stringify(parts.map(p => JSON.parse(p.descriptorJson))),
-    } };
+    }, mosaicParts: parts.map(mosaicPart) };
   });
 }
 

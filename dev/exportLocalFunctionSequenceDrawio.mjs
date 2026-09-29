@@ -3,7 +3,6 @@ import path from 'node:path';
 import neo4j from 'neo4j-driver';
 
 const DEFAULT_OUTPUT = 'tmp/graph-vscode-cache/local-function-sequence.drawio';
-const DEFAULT_FN_STABLE_ID = 'screens/REPL.tsx:3142:31:3533:3';
 const MAX_EVENTS = 1500;
 const PARTICIPANT_GAP = 230;
 const HEADER_Y = 40;
@@ -77,13 +76,14 @@ function localNeo4jConfig() {
 }
 
 function parseArgs(argv) {
-  const result = { outputPath: DEFAULT_OUTPUT, fnStableId: DEFAULT_FN_STABLE_ID };
+  const result = { outputPath: DEFAULT_OUTPUT, fnStableId: undefined };
   for (let index = 2; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--output') result.outputPath = argv[++index] || result.outputPath;
     else if (arg === '--fn-stable-id') result.fnStableId = argv[++index] || result.fnStableId;
     else if (!arg.startsWith('--')) result.outputPath = arg;
   }
+  if (!result.fnStableId) throw new Error('Specify --fn-stable-id for the active source project.');
   return result;
 }
 

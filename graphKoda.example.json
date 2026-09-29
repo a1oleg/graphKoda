@@ -1,0 +1,6 @@
+{
+  "sourceRoot": "../your-source-repository",
+  "dataRoot": "../graphKoda-data/your-source-repository",
+  "functionDiagrams": [],
+  "enableModelStub": false
+}

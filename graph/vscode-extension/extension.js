@@ -31,22 +31,6 @@ const PRESENTATION_WINDOW = vscode.workspace.getConfiguration('graphKoda').get('
 const GRAPH_COMMAND_PORT = PRESENTATION_WINDOW ? 17844 : 17843;
 
 const EXTENSION_VERSION = require('./package.json').version;
-const FUNCTION_DIAGRAMS = [
-  {
-    name: 'onSubmit',
-    sourceFile: 'REPL.tsx',
-    sourceLine: 3142,
-    stableId: 'screens/REPL.tsx:3142:31:3533:3',
-    rootStableId: 'screens/REPL.tsx:3142:31:3533:3',
-  },
-].map((diagram) => ({
-  ...diagram,
-  title: `${diagram.name}-${diagram.sourceFile}-${diagram.sourceLine}`,
-}));
-const HELPERS_FUNCTIONAL_SEGMENT = {
-  stableId: 'screens/REPL.tsx:3142:53:3142:80',
-  label: 'helpers',
-};
 
 class GraphNode {
   constructor(kind, payload) {
@@ -87,15 +71,21 @@ class GraphExplorerProvider {
 
   async getChildren(node) {
     if (node) return [];
+    const projectConfig = readProjectConfig(this.workspaceRoot);
+    const functionDiagrams = (projectConfig.functionDiagrams || []).map(diagram => ({
+      ...diagram,
+      rootStableId: diagram.rootStableId || diagram.stableId,
+      title: diagram.title || `${diagram.name}-${diagram.sourceFile}-${diagram.sourceLine}`,
+    }));
     return [
-      new GraphNode('action', {
+      ...(projectConfig.enableModelStub === true ? [new GraphNode('action', {
         label: 'Run app (stub)',
         description: 'response: заглушка',
         tooltip: 'Launch the interactive app without model API calls',
         icon: 'play',
         command: 'graphKodaGraphExplorer.runStubApp',
         commandTitle: 'Run App (Stub)',
-      }),
+      })] : []),
       new GraphNode('action', {
         label: 'Нарисовать Фишера',
         description: 'Aura → draw.io',
@@ -104,7 +94,7 @@ class GraphExplorerProvider {
         command: 'graphKodaGraphExplorer.openFisherYates',
         commandTitle: 'Нарисовать Фишера',
       }),
-      ...FUNCTION_DIAGRAMS.map((diagram) => new GraphNode('function', {
+      ...functionDiagrams.map((diagram) => new GraphNode('function', {
       ...diagram,
       label: diagram.title,
       renderer: 'drawio-function',
@@ -205,7 +195,9 @@ async function activate(context) {
     vscode.commands.registerCommand('graphKodaGraphExplorer.openRuntimeAnalysis', (item) => openRuntimeAnalysis(context, workspaceRoot, item || {})),
     vscode.commands.registerCommand('graphKodaGraphExplorer.openHelpersFunctionalSegment', async () => {
       try {
-        await openFunctionalSegmentDiagram(context, workspaceRoot, HELPERS_FUNCTIONAL_SEGMENT);
+        const segment = readProjectConfig(workspaceRoot).functionalSegment;
+        if (!segment?.stableId) throw new Error('Configure functionalSegment.stableId for the active source project.');
+        await openFunctionalSegmentDiagram(context, workspaceRoot, segment);
       } catch (error) {
         vscode.window.showErrorMessage(`Helpers functional segment failed: ${error?.message || error}`);
       }
@@ -216,6 +208,10 @@ async function activate(context) {
 
 
 function runStubApp(workspaceRoot) {
+  if (readProjectConfig(workspaceRoot).enableModelStub !== true) {
+    vscode.window.showErrorMessage('The model-stub launcher is not enabled for this source project.');
+    return;
+  }
   if (stubAppTerminal) {
     stubAppTerminal.dispose();
     stubAppTerminal = null;
@@ -1908,9 +1904,13 @@ function resolveOrchestratorBaseUrl(workspaceRoot) {
   return `http://${host}:${port}/`;
 }
 
-function resolveSourceRoot(workspaceRoot) {
+function readProjectConfig(workspaceRoot) {
   const configPath = process.env.graphKoda_PROJECT_CONFIG || path.join(workspaceRoot, 'graphKoda.local.json');
-  const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+  return fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+}
+
+function resolveSourceRoot(workspaceRoot) {
+  const config = readProjectConfig(workspaceRoot);
   return path.resolve(workspaceRoot, process.env.graphKoda_SOURCE_ROOT || config.sourceRoot || '.');
 }
 

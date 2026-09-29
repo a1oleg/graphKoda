@@ -69,9 +69,8 @@ const SKIP_PATH_FRAGMENTS = [
   '/build/',
   '/.venv/',
   '/site-packages/',
-  '/graph/',
-  '/src/lib/gramjs/tl/',
 ];
+const EXCLUDED_SOURCE_ROOTS = projectPaths.sourceExcludePaths.map((entry: string) => toPosix(path.resolve(workspaceRoot, entry)));
 
 function resolveTrackedSourceRoots() {
   const rawSourceRoots = process.env.GRAPH_EXTRACT_SOURCE_ROOTS;
@@ -234,7 +233,8 @@ export function isTrackedSourceFile(sourceFile: ts.SourceFile) {
     return false;
   }
 
-  return !SKIP_PATH_FRAGMENTS.some((fragment) => normalized.includes(fragment));
+  return !SKIP_PATH_FRAGMENTS.some((fragment) => normalized.includes(fragment))
+    && !EXCLUDED_SOURCE_ROOTS.some((root: string) => normalized === root || normalized.startsWith(`${root}/`));
 }
 
 export function getLineAndColumn(sourceFile: ts.SourceFile, position: number) {

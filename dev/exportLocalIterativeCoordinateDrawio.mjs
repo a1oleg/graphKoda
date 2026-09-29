@@ -8,7 +8,6 @@ import {
   structuredHorizontalSize,
 } from './localCoordinateDrawio.mjs';
 import {
-  DEFAULT_FN_STABLE_ID,
   loadFunctionDiagramSubgraph,
 } from '../graph/packages/orchestrator/src/orchestrator/localCoordinateSync.js';
 import {
@@ -21,7 +20,7 @@ import {
   isFunctionFlowTraversalRelationship,
 } from '../graph/packages/orchestrator/src/orchestrator/relationshipSemantics.js';
 
-const OUTPUT_DEFAULT = 'tmp/graph-vscode-cache/local-onsubmit-steps.drawio';
+const OUTPUT_DEFAULT = 'tmp/graph-vscode-cache/local-function.drawio';
 const DRAWIO_GRID_X = 260;
 const DRAWIO_GRID_Y = 130;
 const SLOT_BRANCH_HEIGHT = 60;
@@ -210,7 +209,7 @@ async function verifyLocalNeo4jConnectivity(driver, config, { attempts = 8, dela
 function parseArgs(argv) {
   const result = {
     outputPath: OUTPUT_DEFAULT,
-    fnStableId: DEFAULT_FN_STABLE_ID,
+    fnStableId: undefined,
     stepStableId: undefined,
     localFunctionStableId: undefined,
     checksOutputPath: undefined,
@@ -229,6 +228,9 @@ function parseArgs(argv) {
     else if (arg === '--legacy-projection') result.projection = 'legacy';
     else if (!arg.startsWith('--')) result.outputPath = arg;
     else throw new Error(`Unknown option: ${arg}`);
+  }
+  if (!result.fnStableId && !result.stepStableId && !result.localFunctionStableId) {
+    throw new Error('Specify --fn-stable-id, --step-stable-id or --local-function-stable-id for the active source project.');
   }
   result.checksOutputPath ||= defaultChecksOutputPath(result.outputPath);
   if (!['hybrid', 'legacy'].includes(result.projection)) {
@@ -643,7 +645,7 @@ async function resolveImplicitLocalFunctionScope(driver, database, fnStableId) {
 
 function opensObjectFamilyFromMosaic(node) {
   if (node?.props?.opensObjectFieldFamily || node?.props?.opens_object_field_family) return true;
-  const raw = node?.props?.render_parts_json || node?.props?.renderPartsJson;
+  const raw = node?.mosaicParts || node?.props?.render_parts_json || node?.props?.renderPartsJson;
   if (!raw) return false;
   try {
     const parts = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -3624,7 +3626,7 @@ function newStraightDrawio(nodes, edges, fnStableId, options = {}) {
     const id = edge.props?.sourceRenderPartStableId || edge.props?.source_render_part_stable_id;
     if (!id) return null;
     const owner = [...nodeByKey.values()].find(node => {
-      const raw = node.props?.render_parts_json || node.props?.renderPartsJson;
+      const raw = node.mosaicParts || node.props?.render_parts_json || node.props?.renderPartsJson;
       return raw && (typeof raw === 'string' ? JSON.parse(raw) : raw).some(part => part.stableId === id);
     });
     return owner ? positions.get(owner.key) : null;
@@ -8121,6 +8123,7 @@ function newStraightDrawio(nodes, edges, fnStableId, options = {}) {
       return {
         id: node.key,
         labels: node.labels || [],
+        mosaicParts: node.mosaicParts,
         props: {
           ...node.props,
           ...(pos.props || {}),
@@ -8433,7 +8436,6 @@ async function main() {
         },
       };
     });
-    nodes = await (await import('./mosaicVerticesV2.mjs')).loadMosaicVertices(driver, config.database, nodes);
     let edges = loadedGraph.edges;
     let semanticEdges = loadedGraph.semanticEdges || loadedGraph.edges;
     if (!nodes.length) throw new Error(`No local nodes found for ${fnStableId}`);

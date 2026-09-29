@@ -5,9 +5,9 @@ checkout; do not install the overlay for this workflow.
 
 ## Ownership
 
-`sourceRoot` means the application being analyzed: Claude Code's TypeScript,
-JavaScript, components, services and their dependencies. It does not mean every
-file historically located in the claude-code checkout.
+`sourceRoot` means the selected application being analyzed: its TypeScript,
+JavaScript, components, services and dependencies. It is not tied to a particular
+repository or framework, and never means the graphKoda tooling checkout.
 
 The extractor, annotator, renderer, extension and their diagrams belong to the
 tool checkout. All diagram documents, including hand-edited generated diagrams,
@@ -20,10 +20,28 @@ from these diagram documents.
 
 ## Local Setup
 
+The active source is configured in ignored `graphKoda.local.json`. As of
+2026-09-29 it is `C:\GitHub\telegram-tt`, forked at
+`https://github.com/a1oleg/telegram-tt` from `https://github.com/Ajaxy/telegram-tt`.
+`origin` is the fork; `upstream` is the original. Its data directory is
+`C:\GitHub\graphKoda-data\telegram-tt`, separate from previous source caches.
+The tool checkout remains `C:\GitHub\coldKode`; open `coldKode.code-workspace`.
+Switching sources does not clear or import Neo4j automatically.
+
+Function exporters require an explicit stable ID; there is no default onSubmit.
+Optional extension shortcuts are configured with `functionDiagrams` in the
+project JSON. The old model-stub launcher is opt-in with `enableModelStub: true`;
+it is specific to the old application, not a generic application launcher.
+Historical examples and their diagrams are retained, not used as project defaults.
+`examples/source-profiles/claude-code.json` retains the old optional shortcuts.
+Select it explicitly through `graphKoda_PROJECT_CONFIG` when working on that source.
+`sourceExcludePaths` optionally excludes source-relative directories from flow
+extraction; no application-specific directory is silently excluded in the core.
+
 The Fisher-Yates source and tests live in `graphKoda/examples/fisher-yates`.
 Its extraction and draw.io export belong to graphKoda (`npm run fisher:import`
 and `npm run fisher:draw`). This scoped example overrides the source root only
-inside its extractor process; the Claude Code source root is unchanged.
+inside its extractor process; the configured application source root is unchanged.
 Fisher uses the parameterized `expanded-functions` diagram view defined in
 `dev/expandedFunctionView.mjs`: developer calls expand into nested blocks;
 only the root function shows entry parameters. Secondary parameter families
@@ -37,11 +55,11 @@ The retired standalone annotation UI and Bloom demo are no longer part of the
 workspace. Fisher source, extraction, annotations and draw.io remain in graphKoda.
 
 - Tool repository: `https://github.com/a1oleg/graphKoda`.
-- Source repository: `https://github.com/a1oleg/claude-code`.
-- Both existing GitHub repositories are private (verified through authenticated
+- Previous source repository: `https://github.com/a1oleg/claude-code`.
+- The previous two GitHub repositories were private (verified through authenticated
   GitHub repository metadata on 2026-09-09). No repository rename is required.
-- Local tool checkout: `C:\GitHub\graphKoda`.
-- Local source checkout: the existing `C:\GitHub\claude-code`.
+- Local tool checkout: `C:\GitHub\coldKode`.
+- Previous source checkout, retained unchanged: `C:\GitHub\claude-code`.
 - Use these two checkouts for Claude Code analysis. Do not create `claude-code-source`, detach the
   existing source at STUB, or change its revision as part of this migration.
 - Migration input: tool files from `claude-code` commit
@@ -61,7 +79,7 @@ Run from graphKoda:
 
 ```powershell
 node dev/projectStatus.mjs
-node --import tsx graph/static-extract/ts/fromASTtoPreGraphFlow.ts --fn-stable-id screens/REPL.tsx:3142:31:3533:3
+node --import tsx graph/static-extract/ts/fromASTtoPreGraphFlow.ts --fn-stable-id <selected-function-stable-id>
 ```
 
 The second command extracts without writing to Neo4j. Full importer defaults put
@@ -74,7 +92,7 @@ with clean, Git-versioned historical tool files. No third archive was created.
 Existing external dataRoot catalogs were not moved or reimported. Legacy runtime
 utilities retain their tool-local output paths in graphKoda.
 
-Open `graphKoda.code-workspace` to keep the tool folder first for Graph Explorer.
+Open `coldKode.code-workspace` to keep the tool folder first for Graph Explorer.
 Source navigation in the extension reads the same project configuration.
 The gateway status includes `projectRoots`, so the active checkout can be verified
 through `/api/status/gateway`. Extension 0.0.413 supports the separate source root.
@@ -88,8 +106,8 @@ absolute source paths remain available as location metadata.
 The source checkout stays at its current revision; application `.ts` and `.tsx`
 files are unchanged. Tool npm commands and tool-only dependencies were removed
 from its package manifest. Commands, VS Code MCP settings and draw.io plugin
-settings now belong to graphKoda. The local configuration uses the existing
-`claude-code` checkout, not `claude-code-source`.
+settings now belong to graphKoda. The old configuration used the existing
+`claude-code` checkout, not `claude-code-source`; the current selection is above.
 
 Python dependencies from the old environment are installed in `graphKoda/.venv`;
 `pip check` passes. The old `claude-code/.venv` is still present: command execution
