@@ -1,0 +1,40 @@
+{
+  "contractVersion": 2,
+  "implementationStatus": "specified-not-implemented",
+  "scope": "typescript-javascript-step-semantics",
+  "statuses": ["pass", "fail", "unknown"],
+  "aggregation": ["fail", "unknown", "pass"],
+  "requiredLevels": ["language-coverage", "graph-correctness"],
+  "checksByLevel": {
+    "language-coverage": ["syntax-support"],
+    "graph-correctness": ["coverage", "connectivity", "ownership", "execution", "data", "boundaries"]
+  },
+  "compilerAstGraphRequired": false,
+  "coverageScopes": ["encountered-project-syntax", "compiler-version-language-catalog"],
+  "syntaxRuleKey": ["syntaxKind", "operatorOrVariant", "syntacticRole"],
+  "syntaxDispositions": ["handler-registered", "explicitly-excluded", "unsupported"],
+  "evidence": {
+    "source": ["sourceRevision", "sourceContentHash", "parserVersion", "compilerOptionsHash", "ruleSetVersion"],
+    "astOccurrence": ["occurrenceId", "filePath", "startOffset", "endOffset", "syntaxKind", "semanticRole", "lexicalOwnerId"],
+    "graphMapping": ["occurrenceId", "semanticRole", "graphEntityIds", "graphRelationshipIds", "mappingRuleId"],
+    "finding": ["ruleId", "status", "stepId", "occurrenceIds", "graphEntityIds", "evidence", "reason"]
+  },
+  "coverageDispositions": ["represented", "absorbed", "non-runtime", "unsupported"],
+  "boundaryKinds": ["entry", "normal-exit", "return", "throw", "break", "continue", "suspend", "resume", "external-read", "external-write", "call", "callback-definition"],
+  "rules": [
+    {"id":"SRC-001","level":"coverage","requirement":"Source content and graph provenance match; otherwise unknown, not pass."},
+    {"id":"AST-001","level":"syntax-support","requirement":"Every AST occurrence has an explicit applicable extraction handler or justified exclusion. Registration does not prove correct graph output. Unrecognized kinds or variants are unsupported."},
+    {"id":"COV-001","level":"coverage","requirement":"Every expected runtime semantic role maps to graph evidence; an unmatched supported role fails."},
+    {"id":"COV-002","level":"coverage","requirement":"Absorption into a composite entity requires an occurrence-and-role mapping, not text or range containment alone."},
+    {"id":"COV-003","level":"coverage","requirement":"Every expected executable source region maps to a Step or an explicit structural owner, including regions for which extraction emitted no Step."},
+    {"id":"CON-001","level":"connectivity","requirement":"Every required operation participates in a role-appropriate execution or data component connected to its declared boundary. Ownership edges alone cannot establish connectivity; intentionally separate callback bodies remain separate regions."},
+    {"id":"OWN-001","level":"ownership","requirement":"Each execution occurrence has one direct semantic owner. Shared canonical declarations are not execution occurrences."},
+    {"id":"OWN-002","level":"ownership","requirement":"Owners exist and ownership is acyclic. Contextual duplicates require separate expansion identities and retain lexical origin."},
+    {"id":"EXE-001","level":"execution","requirement":"Required evaluation-order constraints have execution-path evidence. Arbitrary semantic or data paths do not count."},
+    {"id":"EXE-002","level":"execution","requirement":"Conditional evaluation, loops and abrupt completion preserve guarded alternatives and do not invent unconditional execution."},
+    {"id":"DATA-001","level":"data","requirement":"Each required argument, operand, result and write has role-specific producer-consumer evidence; endpoint existence alone is insufficient."},
+    {"id":"BND-001","level":"boundaries","requirement":"Every crossing of direct Step ownership has an explicit boundary role; ordinary NEXT, EVAL and value edges may legally cross boundaries."},
+    {"id":"BND-002","level":"boundaries","requirement":"Callback definition and callback invocation are distinct. Declaration or argument passing alone does not prove immediate execution."},
+    {"id":"REP-001","level":"coverage","requirement":"Unsupported syntax, unavailable evidence and unresolved semantics remain unknown; they cannot disappear from the denominator."}
+  ]
+}

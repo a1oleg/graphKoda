@@ -133,6 +133,38 @@ export class FunctionFlowDuckdbStage {
     });
   }
 
+  static async resume(databasePath: string, parquetDir: string, confirmedProvenanceId: string) {
+    if (!fs.existsSync(databasePath)) throw new Error('Staging database does not exist.');
+    const instance = await DuckDBInstance.create(path.resolve(databasePath), {
+      memory_limit: '4GB', threads: '2', preserve_insertion_order: 'false',
+    });
+    const connection = await instance.connect();
+    try {
+      const rows = (await connection.runAndReadAll('SELECT metadata_json FROM extraction_provenance')).getRows();
+      if (rows.length !== 1) throw new Error('Expected one extraction provenance record.');
+      const provenance = JSON.parse(String(rows[0][0]));
+      if (provenance.id !== confirmedProvenanceId) throw new Error('Confirmed provenance ID does not match staging.');
+      const current = captureExtractionProvenance();
+      if (current.source_revision !== provenance.source_revision || current.source_dirty_fingerprint !== provenance.source_dirty_fingerprint) {
+        throw new Error('Source changed since extraction.');
+      }
+      fs.mkdirSync(parquetDir, { recursive: true });
+      const counts = (await connection.runAndReadAll('SELECT (SELECT count(*) FROM raw_entities), (SELECT count(*) FROM raw_relationships)')).getRows()[0];
+      await connection.run('CREATE TABLE IF NOT EXISTS extraction_resumptions (metadata_json VARCHAR)');
+      const audit = await connection.createAppender('extraction_resumptions');
+      audit.appendVarchar(JSON.stringify({ confirmedProvenanceId, resumedAt: new Date().toISOString(), current, contentEquivalence: 'user-confirmed-commit-only' }));
+      audit.endRow(); audit.closeSync();
+      const stage = new FunctionFlowDuckdbStage(path.resolve(databasePath), path.resolve(parquetDir), instance, connection,
+        await connection.createAppender('raw_entities'), await connection.createAppender('raw_relationships'),
+        progress => process.stderr.write(`${JSON.stringify(progress)}\n`), provenance);
+      stage.rawEntities = Number(counts[0]);
+      stage.rawRelationships = Number(counts[1]);
+      return stage;
+    } catch (error) {
+      connection.closeSync(); instance.closeSync(); throw error;
+    }
+  }
+
   addEntity(sourceKind: string, row: CanonicalEntity) {
     this.ordinal += 1n;
     this.entityAppender.appendBigInt(this.ordinal);
