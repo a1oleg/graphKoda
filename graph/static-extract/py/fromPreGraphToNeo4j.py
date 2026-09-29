@@ -119,7 +119,7 @@ def extractor_command(extra_args: list[str] | None = None) -> list[str]:
 
 def run_scoped_extractor_cli(fn_stable_id: str) -> dict[str, Any]:
     completed = subprocess.run(
-        extractor_command(['--fn-stable-id', fn_stable_id]),
+        extractor_command(['--fn-stable-id', fn_stable_id, '--include-parameter-origins']),
         cwd=WORKSPACE_DIR,
         check=True,
         capture_output=True,
@@ -210,7 +210,7 @@ def run_scoped_extractor(fn_stable_id: str) -> dict[str, Any]:
         health = ensure_scoped_extractor_server()
         payload, headers = scoped_extractor_request(
             '/extract',
-            {'fnStableId': fn_stable_id},
+            {'fnStableId': fn_stable_id, 'includeParameterOrigins': True},
             timeout=600.0,
         )
         elapsed_ms = headers.get('X-Graph-Extractor-Elapsed-Ms', '?')

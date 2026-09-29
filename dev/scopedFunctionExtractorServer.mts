@@ -147,7 +147,12 @@ const server = http.createServer(async (request, response) => {
     if (contextProvenanceId !== provenance.id) sourceDirty = true;
     const reuse = await ensureContext();
     contextProvenanceId = provenance.id;
-    const payload = extractFunctionFlowGraphs(program!, fnStableId, context);
+    if (body.includeParameterOrigins !== undefined && typeof body.includeParameterOrigins !== 'boolean') {
+      throw new Error('includeParameterOrigins must be a boolean.');
+    }
+    const payload = extractFunctionFlowGraphs(program!, fnStableId, context, {
+      includeParameterOrigins: body.includeParameterOrigins === true,
+    });
     requestCount += 1;
     response.setHeader('X-Graph-Extractor-Elapsed-Ms', String(Math.round(performance.now() - started)));
     response.setHeader('X-Graph-Extractor-Reused-Program', String(reuse.reusedProgram));

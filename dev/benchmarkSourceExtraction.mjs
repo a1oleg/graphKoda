@@ -62,7 +62,8 @@ if (!child) {
       let previousHash;
       for (let repeat = 0; repeat < (full ? 1 : 2); repeat++) {
         report('request', { id: id ?? '*', repeat });
-        const result = timed('extract', () => extractFunctionFlowGraphs(program, id, context));
+        const result = timed('extract', () => extractFunctionFlowGraphs(program, id, context,
+          args.includes('--include-parameter-origins') ? { includeParameterOrigins: true } : {}));
         report('counts', Object.fromEntries(Object.entries(result).filter(([, value]) => Array.isArray(value)).map(([key, value]) => [key, value.length])));
         if (!full) {
           const hash = createHash('sha256').update(JSON.stringify(result)).digest('hex');
@@ -70,6 +71,11 @@ if (!child) {
           if (previousHash && previousHash !== hash) throw new Error('Repeated extraction differs for the same Program');
           previousHash = hash;
         }
+      }
+      if (args.includes('--compare-origins') && id) {
+        const result = timed('extract-with-origins', () => extractFunctionFlowGraphs(program, id, context, { includeParameterOrigins: true }));
+        report('origin-counts', Object.fromEntries(Object.entries(result).filter(([, value]) => Array.isArray(value)).map(([key, value]) => [key, value.length])));
+        report('origin-hash', { hash: createHash('sha256').update(JSON.stringify(result)).digest('hex') });
       }
     }
   } catch (error) {

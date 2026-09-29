@@ -771,6 +771,7 @@ function renderPartsForLiteral(node: FlowNodeRow, occurrence: FiniteLiteralOccur
 export function scopeCanonicalReferenceGraph(
   graph: { entities: CanonicalEntity[]; relationships: CanonicalRelationship[] },
   fnStableId: string,
+  includeParameterOrigins = true,
 ) {
   const ranges = [fnStableId].flatMap((stableId) => {
     const match = /^(.*):(\d+):(\d+):(\d+):(\d+)$/.exec(stableId);
@@ -807,6 +808,12 @@ export function scopeCanonicalReferenceGraph(
         ));
     })
     .map((entity) => entity.stableId));
+  const owned = new Set(included);
+  if (!includeParameterOrigins) {
+    const relationships = graph.relationships.filter((edge) => owned.has(edge.fromId));
+    for (const edge of relationships) included.add(edge.toId);
+    return { entities: graph.entities.filter((entity) => included.has(entity.stableId)), relationships };
+  }
   const entityById = new Map(graph.entities.map((entity) => [entity.stableId, entity]));
   const outgoing = new Map<string, CanonicalRelationship[]>();
   const incoming = new Map<string, CanonicalRelationship[]>();
@@ -819,7 +826,6 @@ export function scopeCanonicalReferenceGraph(
     incoming.set(relationship.toId, reverseRows);
   }
 
-  const owned = new Set(included);
   const selectedRelationships = new Set<CanonicalRelationship>();
   const includeRelationship = (relationship: CanonicalRelationship) => {
     selectedRelationships.add(relationship);
@@ -18367,11 +18373,10 @@ class FunctionFlowGraphBuilder {
       const { left, right } = statement.expression;
       const declaration = this.checker.getSymbolAtLocation(left)?.valueDeclaration;
       if (declaration && ts.isVariableDeclaration(declaration)) {
-        const id = getExtendedStableId(this.sourceFile, statement.expression);
-        this.createNode('Value', 'assign object', statement.expression, {
+        const id = this.createNode('Value', 'assign object', statement.expression, {
           labels: ['Value', 'Variable', 'ValueWrite'], diaName: left.text,
           operationSubjectText: left.text, operationValueText: right.getText(this.sourceFile),
-        }, id);
+        }, getExtendedStableId(this.sourceFile, statement.expression));
         this.connectPendingToNode(incomingExits, id);
         const assignment = this.createAssignmentPrimitive(declaration, id, right, left);
         this.materializeConstInitializerValue(declaration, id, right, assignment);
@@ -20044,9 +20049,7 @@ export function createFunctionFlowExtractionContext(program: ts.Program, metadat
   const uniqueFunctionTargetsByName = measure('function-targets', () => buildUniqueFunctionTargets(program, stableIdByDeclaration));
   const reactStateProvenance = measure('state-provenance', () => buildReactStateProvenance(program, checker));
   const accessorIndex = measure('accessors', () => buildAccessorIndex(program, stableIdByDeclaration, getRepoRelativePath));
-  const parameterOriginFacts = metadataOnly
-    ? []
-    : measure('parameter-origins', () => collectParameterOriginFacts(program, stableIdByDeclaration));
+  let parameterOriginFacts: ParameterOriginFact[] | undefined;
   const completeCanonicalReferenceGraph = metadataOnly
     ? undefined
     : measure('canonical-references', () => collectCanonicalReferenceGraph(program));
@@ -20060,7 +20063,10 @@ export function createFunctionFlowExtractionContext(program: ts.Program, metadat
     uniqueFunctionTargetsByName,
     reactStateProvenance,
     accessorIndex,
-    parameterOriginFacts,
+    get parameterOriginFacts() {
+      return parameterOriginFacts ??= metadataOnly ? []
+        : measure('parameter-origins', () => collectParameterOriginFacts(program, stableIdByDeclaration));
+    },
     completeCanonicalReferenceGraph,
     get finiteLiteralGraph() {
       return finiteLiteralGraph ??= measure('literal-domains', () => collectFiniteLiteralDomainGraph(program));
@@ -20077,6 +20083,7 @@ function collectFunctionFlowArtifacts(
   fnNameFilter?: string,
   metadataOnly = false,
   preparedContext?: FunctionFlowExtractionContext,
+  options: { includeParameterOrigins?: boolean } = {},
 ): GraphExtractedPayload {
   if (preparedContext && preparedContext.program !== program) {
     throw new Error('Function-flow extraction context belongs to a different TypeScript program.');
@@ -20093,7 +20100,6 @@ function collectFunctionFlowArtifacts(
     uniqueFunctionTargetsByName,
     reactStateProvenance,
     accessorIndex,
-    parameterOriginFacts,
     completeCanonicalReferenceGraph,
   } = context;
   const payload: GraphExtractedPayload = {
@@ -20171,7 +20177,8 @@ function collectFunctionFlowArtifacts(
     visit(sourceFile);
   }
 
-  attachParameterOrigins(payload, parameterOriginFacts, accessorIndex);
+  const includeParameterOrigins = options.includeParameterOrigins ?? !fnStableIdFilter;
+  if (includeParameterOrigins) attachParameterOrigins(payload, context.parameterOriginFacts, accessorIndex);
 
   const emittedFunctionIds = new Set(payload.functions.map((row) => getStableIdKey(row.stableId)));
   for (const edge of payload.edges) {
@@ -20243,7 +20250,7 @@ function collectFunctionFlowArtifacts(
       throw new Error('Canonical reference graph is missing from the extraction context.');
     }
     const canonicalReferenceGraph = fnStableIdFilter
-      ? scopeCanonicalReferenceGraph(completeCanonicalReferenceGraph, fnStableIdFilter)
+      ? scopeCanonicalReferenceGraph(completeCanonicalReferenceGraph, fnStableIdFilter, includeParameterOrigins)
       : completeCanonicalReferenceGraph;
     finalPayload.semanticEntities = [
       ...(finalPayload.semanticEntities || []),
@@ -20286,6 +20293,7 @@ export function extractFunctionFlowGraphs(
   program: ts.Program,
   fnStableIdFilter?: string,
   preparedContext?: FunctionFlowExtractionContext,
+  options: { includeParameterOrigins?: boolean } = {},
 ): GraphExtractedPayload {
   const {
     functions,
@@ -20296,7 +20304,7 @@ export function extractFunctionFlowGraphs(
     resourceLinks,
     semanticEntities,
     semanticRelationships,
-  } = collectFunctionFlowArtifacts(program, fnStableIdFilter, undefined, false, preparedContext);
+  } = collectFunctionFlowArtifacts(program, fnStableIdFilter, undefined, false, preparedContext, options);
 
   return {
     functions,
@@ -21167,6 +21175,7 @@ async function main() {
     auditIdentities,
     stagingPath,
     parquetDir,
+    includeParameterOrigins,
   } = parseFnStableIdArgs();
   const program = createProgram();
   if (outputFormat === 'duckdb') {
@@ -21186,7 +21195,7 @@ async function main() {
     return;
   }
 
-  const payload = collectFunctionFlowArtifacts(program, fnStableId, fnName, metadataOnly);
+  const payload = collectFunctionFlowArtifacts(program, fnStableId, fnName, metadataOnly, undefined, { includeParameterOrigins });
 
   if (outputPath) {
     assertExtractionUnchanged(provenance);

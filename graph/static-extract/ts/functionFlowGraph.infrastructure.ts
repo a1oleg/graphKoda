@@ -347,6 +347,7 @@ export function parseFnStableIdArgs(args = process.argv.slice(2)) {
     fnStableId?: string;
     fnName?: string;
     metadataOnly?: boolean;
+    includeParameterOrigins?: boolean;
     outputPath?: string;
     outputFormat?: string;
     auditIdentities?: boolean;
@@ -355,6 +356,10 @@ export function parseFnStableIdArgs(args = process.argv.slice(2)) {
   } = {};
 
   for (let index = 0; index < args.length; index += 1) {
+    if (args[index] === '--include-parameter-origins') {
+      result.includeParameterOrigins = true;
+      continue;
+    }
     if (args[index] === '--fn-stable-id') {
       result.fnStableId = args[index + 1];
       index += 1;

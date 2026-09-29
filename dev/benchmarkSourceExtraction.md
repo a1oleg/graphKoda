@@ -22,6 +22,36 @@ graph counts, repeated-result checks and termination status. RSS samples are
 not a continuous peak-memory measurement. `GRAPH_EXTRACT_TIMINGS=1` also enables
 context-stage diagnostics in other extractor entry points.
 
+## Scoped response contract
+
+`extractFunctionFlowGraphs(program, stableId, context)` returns the lexical flow
+and outgoing semantic references with boundary entities. It does not expand
+incoming callers, parameter sources or their provenance frames.
+
+Explicit expansion is available as the fourth argument
+`{ includeParameterOrigins: true }`, the HTTP `/extract` request field
+`includeParameterOrigins: true`, or CLI `--include-parameter-origins`.
+The scoped database importer requests this explicitly on both HTTP and CLI paths,
+so reimport continues to preserve parameter provenance. Full extraction retains
+its complete graph. The Program context calculates parameter-origin facts lazily
+and reuses them once requested; canonical reference collection remains global.
+
+To compare body-only and expanded responses against real source:
+
+```powershell
+node dev/benchmarkSourceExtraction.mjs --fn src/util/buildClassName.ts:7:15:9:1 --compare-origins
+```
+
+Use `--include-parameter-origins` to benchmark repeated expanded responses.
+
+Verified on Telegram `buildClassName`: body response has 1 function, 6 flow nodes,
+5 flow edges, 22 semantic entities and 43 semantic relationships. Repeated body
+responses have identical hashes. Explicit expansion restores the previous 683
+function records and 4324 flow nodes; its hash matches the pre-change report
+(`37655d04833848f9cfcc671d060b84a3e928372fa9ec3eebc92aa30e682f4a7d`).
+Warm body extraction measured 3.73s; cold context still took 72.6s.
+Report: `<dataRoot>/checks/scoped-body-vs-origins.jsonl`.
+
 ## Telegram baseline, 2026-09-29
 
 Source: telegram-tt, commit `28ffcf710b15571e5a2f7bb3bdce3fc90fc8ec80`.
@@ -49,3 +79,15 @@ Tool runtime: Node 22.20.0 (separate from the source application's Node 26).
 Reports: `<dataRoot>/checks/{full-extraction,scoped-extraction,timeout-check}.jsonl`.
 No database writes were performed. Next blockers: assignment materialization,
 cold context cost, and the scope/size of parameter-origin expansion.
+
+## Callback assignment fix
+
+`createNode` contextualizes IDs inside horizontal callback compositions. Object
+assignment now uses its returned ID instead of looking up the raw source ID.
+`node --import tsx --test dev/telegramAssignment.integration.test.mjs` passes
+against real Telegram `setupOverlay`, checking the contextual write and its edges.
+
+The subsequent full in-memory run passed the former assignment failure but
+exhausted the default Node heap (about 4 GiB) after about 146 seconds. This is not
+a successful full extraction; the streaming DuckDB path was not exercised by
+this run. Report: `<dataRoot>/checks/full-extraction-assignment-fix.jsonl`.
