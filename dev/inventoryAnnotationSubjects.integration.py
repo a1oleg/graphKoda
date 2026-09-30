@@ -7,6 +7,7 @@ import duckdb
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--report', type=Path, required=True)
+parser.add_argument('--previous-report', type=Path)
 args = parser.parse_args()
 summary = json.loads((args.report / 'summary.json').read_text(encoding='utf-8'))
 db = duckdb.connect()
@@ -55,6 +56,10 @@ assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' A
 assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' AND immediate_owner_evidence IS NULL").fetchone()[0] == 0
 assert db.execute("SELECT decision FROM plan WHERE stable_id='src/lib/gramjs/Utils.ts:10:0:12:1'").fetchone()[0] == 'blocked-missing-step-target'
 for stable_id, owner in [
+    ('C:/GitHub/telegram-tt/src/api/gramjs/ChatAbortController.ts:11:5:11:5',
+     'src/api/gramjs/ChatAbortController.ts:6:2:13:3'),
+    ('C:/GitHub/telegram-tt/src/lib/vibecalls/sdp/buildSdp.ts:150:7:150:12:horizontal-owner-src/lib/vibecalls/sdp/buildSdp.ts-28-15-188-1',
+     'flow-block:alternative:false:src/lib/vibecalls/sdp/buildSdp.ts:140:11:151:5'),
     ('src/components/App.tsx:258:14:258:25','src/components/App.tsx:258:4:258:46:jsx-props'),
     ('src/components/App.tsx:258:4:258:46:jsx-props','src/components/App.tsx:258:4:258:46'),
     ('src/components/right/management/ManageChatRemovedUsers.tsx:86:9:86:31',
@@ -85,7 +90,7 @@ for stable_id in [
 assert db.execute("SELECT owner_status FROM plan WHERE stable_id='flow-block:alternative:false:src/components/modals/gift/craft/GiftCraftModal.tsx:790:15:793:9'").fetchone()[0] == 'conflicting-direct-owners'
 assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' AND owner_status<>'unique-direct-owner'").fetchone()[0] == 0
 plan_summary = json.loads((args.report/'annotation-plan.json').read_text(encoding='utf-8'))
-assert plan_summary['version'] == 9
+assert plan_summary['version'] == 10
 for captured, predecessor, original in [
     ('src/api/gramjs/ChatAbortController.ts:20:15:20:30:captured-in:src/api/gramjs/ChatAbortController.ts:22:25:22:65',
      'src/api/gramjs/ChatAbortController.ts:20:15:20:30', 'src/api/gramjs/ChatAbortController.ts:20:15:20:30'),
@@ -97,6 +102,22 @@ for captured, predecessor, original in [
     assert actual == ('follow-original',[predecessor],original),actual
 db.read_parquet(str(Path(summary['input'])/'nodes.parquet')).create_view('raw_nodes')
 db.read_parquet(str(Path(summary['input'])/'relationships.parquet')).create_view('raw_rels')
+if args.previous_report:
+    previous_summary = json.loads((args.previous_report/'annotation-plan.json').read_text(encoding='utf-8'))
+    assert previous_summary['version'] == 9
+    assert previous_summary['provenanceIds'] == plan_summary['provenanceIds']
+    db.read_parquet(str(args.previous_report/'annotation-plan.parquet')).create_view('previous_plan')
+    assert db.execute('''SELECT count(*) FROM previous_plan old FULL JOIN plan p USING(stable_id)
+        WHERE old.stable_id IS NULL OR p.stable_id IS NULL''').fetchone()[0] == 0
+    assert db.execute('''SELECT count(*) FROM previous_plan old JOIN plan p USING(stable_id)
+        JOIN raw_nodes n USING(stable_id)
+        WHERE (old.decision IS DISTINCT FROM p.decision
+          OR old.context_targets IS DISTINCT FROM p.context_targets)
+        AND NOT coalesce(list_contains(n.labels,'Join')
+          AND json_extract_string(n.props_json,'$.operation_code')='FLOW_JOIN'
+          AND json_extract_string(n.props_json,'$.join_kind')='flow'
+          AND json_extract_string(n.props_json,'$.synthetic')='true',false)''').fetchone()[0] == 0
+    print('Verified v9/v10 comparison: only explicit synthetic FLOW_JOIN decisions/targets changed.')
 assert db.execute('''SELECT count(*) FROM plan p, unnest(p.immediate_owner_evidence) e(item)
     WHERE item.field='argument-object-property' AND NOT EXISTS (
       SELECT 1 FROM raw_rels direct JOIN raw_rels argument ON argument.to_id=direct.from_id

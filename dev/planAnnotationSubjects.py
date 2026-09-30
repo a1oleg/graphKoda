@@ -16,8 +16,20 @@ db.execute('SET preserve_insertion_order=false')
 db.read_parquet(str(args.report/'subjects.parquet')).create_view('subjects')
 db.read_parquet(str(Path(summary['input'])/'relationships.parquet')).create_view('rels')
 db.read_parquet(str(Path(summary['input'])/'nodes.parquet')).create_view('raw_nodes')
+db.execute('''CREATE TABLE technical_flow_joins AS SELECT stable_id FROM raw_nodes
+    WHERE list_contains(labels,'Join') AND json_extract_string(props_json,'$.operation_code')='FLOW_JOIN'
+      AND json_extract_string(props_json,'$.join_kind')='flow'
+      AND json_extract_string(props_json,'$.synthetic')='true' ''')
+db.execute('''CREATE TABLE structural_owner_props AS SELECT stable_id,
+    json_extract_string(props_json,'$.parentFlowBlockStableId') AS block_id,
+    json_extract_string(props_json,'$.parentLocalFunctionStableId') AS local_id,
+    json_extract_string(props_json,'$.parentFnStableId') AS fn_id
+    FROM raw_nodes WHERE list_has_any(labels,['Step','Block'])
+      OR stable_id IN (SELECT stable_id FROM technical_flow_joins)''')
 # Field-bearing AST edges describe direct containment. Projection edges only
 # describe an ancestor and must not compete with an immediate owner.
+# Insert evidence sources separately to bound peak join memory. Deduplicate
+# after selecting the nearest tier, before aggregating owner evidence.
 db.execute('''CREATE TABLE owner_candidates AS
     SELECT r.to_id AS stable_id,r.from_id AS target,r.rel_type AS relation,
       json_extract_string(r.props_json,'$.field') AS field,
@@ -29,7 +41,8 @@ db.execute('''CREATE TABLE owner_candidates AS
         AND json_extract_string(r.props_json,'$.projection') IS NULL)
       OR (r.rel_type='HAS_OPERATION' AND json_extract_string(r.props_json,'$.ownership')='immediate-step')
       OR (r.rel_type IN ('HAS_MEMBER','HAS_PROPERTY') AND json_extract_string(r.props_json,'$.ownership')='direct'))
-    UNION
+    ''')
+db.execute('''INSERT INTO owner_candidates
     SELECT property.to_id,property.from_id,'HAS_PROPERTY','argument-object-property',-1
     FROM rels property JOIN subjects member ON member.stable_id=property.to_id
     JOIN subjects object_owner ON object_owner.stable_id=property.from_id
@@ -40,45 +53,53 @@ db.execute('''CREATE TABLE owner_candidates AS
         ON ancestor.from_id=argument.from_id AND ancestor.to_id=property.to_id
           AND ancestor.rel_type='HAS_PROPERTY'
         WHERE argument.rel_type='HAS_ARGUMENT' AND argument.to_id=property.from_id)
-    UNION
+    ''')
+db.execute('''INSERT INTO owner_candidates
     SELECT r.to_id,r.from_id,'HAS_ARGUMENT','object-argument',0
     FROM rels r JOIN subjects child ON child.stable_id=r.to_id
     JOIN subjects caller ON caller.stable_id=r.from_id
     WHERE r.rel_type='HAS_ARGUMENT' AND r.from_id<>r.to_id
       AND list_has_all(child.labels,['ObjectConstruction','ArgumentValue'])
       AND list_contains(caller.labels,'Call')
-    UNION
+    ''')
+db.execute('''INSERT INTO owner_candidates
     SELECT n.stable_id,o.stable_id,'parentStepStableId',NULL,1
     FROM raw_nodes n JOIN subjects o
       ON o.stable_id=json_extract_string(n.props_json,'$.parentStepStableId')
     WHERE n.stable_id<>o.stable_id AND list_contains(o.labels,'Step')
-    UNION
+    ''')
+db.execute('''INSERT INTO owner_candidates
     SELECT n.stable_id,v.target,v.relation,NULL,v.tier
-    FROM raw_nodes n, LATERAL (VALUES
-      (json_extract_string(n.props_json,'$.parentFlowBlockStableId'),'parentFlowBlockStableId',2),
-      (json_extract_string(n.props_json,'$.parentLocalFunctionStableId'),'parentLocalFunctionStableId',3),
-      (json_extract_string(n.props_json,'$.parentFnStableId'),'parentFnStableId',4)
+    FROM structural_owner_props n, LATERAL (VALUES
+      (n.block_id,'parentFlowBlockStableId',2),
+      (n.local_id,'parentLocalFunctionStableId',3),
+      (n.fn_id,'parentFnStableId',4)
     ) v(target,relation,tier)
-    WHERE list_has_any(n.labels,['Step','Block']) AND nullif(v.target,'') IS NOT NULL
-    UNION
+    WHERE nullif(v.target,'') IS NOT NULL
+    ''')
+db.execute('''INSERT INTO owner_candidates
     SELECT n.stable_id,v.target,v.relation,NULL,v.tier
     FROM raw_nodes n, LATERAL (VALUES
       (json_extract_string(n.props_json,'$.parentLocalFunctionStableId'),'parentLocalFunctionStableId',3),
       (json_extract_string(n.props_json,'$.parentFnStableId'),'parentFnStableId',4)
     ) v(target,relation,tier)
     WHERE list_has_any(n.labels,['FunctionStart','FunctionEnd']) AND nullif(v.target,'') IS NOT NULL
-    UNION
+    ''')
+db.execute('''INSERT INTO owner_candidates
     SELECT r.from_id,r.to_id,r.rel_type,NULL,2
     FROM rels r JOIN subjects s ON s.stable_id=r.from_id
-    WHERE list_has_any(s.labels,['Step','Block']) AND r.rel_type='NESTED_IN'
+    WHERE (list_has_any(s.labels,['Step','Block']) OR s.stable_id IN (SELECT stable_id FROM technical_flow_joins))
+      AND r.rel_type='NESTED_IN'
       AND json_extract_string(r.props_json,'$.structure_kind')='containment'
     ''')
 # A syntax parent is nearer than its enclosing step. Equal-tier disagreement
 # remains a conflict; sorting stable IDs must never resolve ownership.
 db.execute('''CREATE TABLE direct_evidence AS
-    SELECT e.*, (t.stable_id IS NOT NULL AND e.target<>e.stable_id
+    SELECT DISTINCT e.*, (t.stable_id IS NOT NULL AND e.target<>e.stable_id
       AND (e.tier<>2 OR list_has_any(t.labels,['Step','Block']))
       AND (NOT list_has_any(s.labels,['FunctionStart','FunctionEnd']) OR e.tier<3
+        OR list_has_any(t.labels,['Fn','FnDeclaration','CallableDeclaration']))
+      AND (e.stable_id NOT IN (SELECT stable_id FROM technical_flow_joins) OR e.tier<3
         OR list_has_any(t.labels,['Fn','FnDeclaration','CallableDeclaration']))) AS target_valid
     FROM (SELECT * FROM owner_candidates
       QUALIFY tier=min(tier) OVER (PARTITION BY stable_id)) e
@@ -208,7 +229,7 @@ for status, reason, count in db.execute('''SELECT owner_status,s.reason,count(*)
         ORDER BY p.stable_id LIMIT 3''', [status,reason]).fetchall()
     owner_review.append({'status':status,'reason':reason,'count':count,
         'examples':[{'stableId':i,'candidateOwners':t,'evidence':e} for i,t,e in examples]})
-report = {'version':9,'nodes':summary['nodes'],
+report = {'version':10,'nodes':summary['nodes'],
     'counts':dict(db.execute('SELECT decision,count(*) FROM plan GROUP BY decision ORDER BY decision').fetchall()),
     'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds'],
     'generatesAnnotations':False,'scheduledTasks':0,'requiredGenerationCount':None,

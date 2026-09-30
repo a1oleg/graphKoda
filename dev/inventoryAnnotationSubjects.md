@@ -101,7 +101,7 @@ annotations preserved. `python dev/verifyLiveBindingPatternOwnership.py` checks
 their unique declaration/pattern/binding chains, provenance and retained READS_FROM
 in live Neo4j; this is separate from the unchanged extraction snapshot inventory.
 
-Annotation plan v9 distinguishes immediate containment from ancestor evidence.
+Annotation plan v10 distinguishes immediate containment from ancestor evidence.
 Field-bearing, non-projected `AST_CHILD` and member/property edges marked
 `ownership=direct` establish syntax/member owners. `HAS_OPERATION` marked
 `ownership=immediate-step` and `parentStepStableId` pointing to an existing Step
@@ -121,6 +121,11 @@ local or root function. Local ownership takes priority; the target must exist an
 carry Fn, FnDeclaration or CallableDeclaration. Missing or invalid local owners do
 not fall back to a root owner. This allocates technical boundary context without
 creating standalone annotation jobs and does not infer ownership from names.
+Synthetic Join nodes explicitly marked operation_code=FLOW_JOIN and join_kind=flow
+use the same enclosing block/local function/root function chain as structural nodes.
+Existing closer AST/Step evidence still takes precedence. Missing or contradictory
+nearest owners remain review; function targets must be callable. ARG_JOIN, operand
+and value merges are not classified through this rule. Control edges are retained.
 
 CapturedBinding occurrences reuse an original through incoming CAPTURES_VALUE.
 Each hop must have exactly one predecessor, the original must exist, and nested
@@ -181,4 +186,5 @@ coordinate, when the loop is expanded in another function's context.
 ```
 python dev/inventoryAnnotationSubjects.py --parquet <snapshot> --output <report>
 python dev/inventoryAnnotationSubjects.integration.py --report <report>
+python dev/inventoryAnnotationSubjects.integration.py --report <v10-report> --previous-report <v9-report>
 ```
