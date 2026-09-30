@@ -43,4 +43,27 @@ missing = by_id['src/lib/gramjs/Utils.ts:10:0:12:1']
 assert missing['auditCategory'] == 'body-confirmed-through-entry'
 assert any(not step['entryExists'] for step in missing['ownedSteps'])
 assert by_id['src/util/forceReflow.ts:2:15:5:1']['auditCategory'] == 'body-confirmed-through-entry'
+db.read_parquet(str(args.report/'annotation-plan.parquet')).create_view('plan')
+assert db.execute('SELECT count(*),count(DISTINCT stable_id) FROM plan').fetchone() == (summary['nodes'],summary['nodes'])
+assert db.execute("SELECT count(*) FROM plan WHERE scheduled OR NOT retain_context").fetchone()[0] == 0
+assert db.execute("SELECT decision FROM plan WHERE stable_id='src/components/calls/phone/PhoneCallButton.tsx:24:6:47:1'").fetchone()[0] == 'follow-original'
+callback = db.execute("SELECT decision,context_targets,required_body_context FROM plan WHERE stable_id='src/api/gramjs/ChatAbortController.ts:22:25:22:65'").fetchone()
+assert callback == ('compose-in-owner', ['src/api/gramjs/ChatAbortController.ts:22:4:22:66'],
+    ['src/api/gramjs/ChatAbortController.ts:22:41:22:65']), callback
+assert db.execute("SELECT decision FROM plan WHERE stable_id='src/api/gramjs/apiBuilders/chats.ts:404:28:409:4'").fetchone()[0] == 'review-callback'
+assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' AND len(context_targets)<>1").fetchone()[0] == 0
+assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' AND immediate_owner_evidence IS NULL").fetchone()[0] == 0
+assert db.execute("SELECT decision FROM plan WHERE stable_id='src/lib/gramjs/Utils.ts:10:0:12:1'").fetchone()[0] == 'blocked-missing-step-target'
+for stable_id, owner in [
+    ('C:/GitHub/telegram-tt/src/api/gramjs/ChatAbortController.ts:10:23:10:31:arg0:horizontal-owner-src/api/gramjs/ChatAbortController.ts-6-2-13-3',
+     'flow-step:execution:src/api/gramjs/ChatAbortController.ts:10:6:10:45'),
+    ('src/components/common/helpers/gifts.ts:19:2:19:36', 'src/components/common/helpers/gifts.ts:18:0:23:2'),
+    ('src/api/gramjs/apiBuilders/appConfig.ts:152:26:165:8', 'src/api/gramjs/apiBuilders/appConfig.ts:152:9:165:13'),
+]:
+    actual = db.execute('SELECT decision,context_targets FROM plan WHERE stable_id=?', [stable_id]).fetchone()
+    assert actual == ('compose-in-owner', [owner]), (stable_id, actual)
+assert db.execute("SELECT decision FROM plan WHERE stable_id='flow-step:statement:src/util/notifications.tsx:335:2:335:45'").fetchone()[0] == 'review-owner'
+assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' AND owner_status<>'unique-direct-owner'").fetchone()[0] == 0
+plan_summary = json.loads((args.report/'annotation-plan.json').read_text(encoding='utf-8'))
+assert sum(group['count'] for group in plan_summary['ownerReview']) == plan_summary['counts']['review-owner']
 print('Verified actual Telegram class, methods, alias, system type, global totals and inline ownership.')

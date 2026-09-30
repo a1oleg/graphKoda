@@ -119,7 +119,7 @@ def extractor_command(extra_args: list[str] | None = None) -> list[str]:
 
 def run_scoped_extractor_cli(fn_stable_id: str) -> dict[str, Any]:
     completed = subprocess.run(
-        extractor_command(['--fn-stable-id', fn_stable_id, '--include-parameter-origins']),
+        extractor_command(['--fn-stable-id', fn_stable_id]),
         cwd=WORKSPACE_DIR,
         check=True,
         capture_output=True,
@@ -210,7 +210,7 @@ def run_scoped_extractor(fn_stable_id: str) -> dict[str, Any]:
         health = ensure_scoped_extractor_server()
         payload, headers = scoped_extractor_request(
             '/extract',
-            {'fnStableId': fn_stable_id, 'includeParameterOrigins': True},
+            {'fnStableId': fn_stable_id, 'includeParameterOrigins': False},
             timeout=600.0,
         )
         elapsed_ms = headers.get('X-Graph-Extractor-Elapsed-Ms', '?')
@@ -426,7 +426,6 @@ def clear_scoped_flow(
         MATCH (n {source: $source})
         WHERE n.parentFnStableId = $fnStableId
            OR n.parent_fn_stable_id = $fnStableId
-           OR n.parameter_origin_target_fn_stable_id = $fnStableId
            OR ($scopePath IS NOT NULL
              AND n.repoRelativePath = $scopePath
              AND n.startLine IS NOT NULL
@@ -455,10 +454,11 @@ def clear_replaced_semantic_relationships(
     payload: dict[str, Any],
 ) -> None:
     relationship_types_by_source: dict[str, set[str]] = defaultdict(set)
+    scope = payload.get('_scopedReplacement', {}).get('scopeIds')
     for row in payload.get('semanticRelationships', []):
         from_id = row.get('fromId')
         relationship_type = row.get('type')
-        if isinstance(from_id, str) and isinstance(relationship_type, str):
+        if isinstance(from_id, str) and isinstance(relationship_type, str) and (scope is None or from_id in scope):
             relationship_types_by_source[from_id].add(relationship_type)
     serialized_types = {
         stable_id: sorted(relationship_types)
@@ -478,9 +478,11 @@ def clear_replaced_semantic_relationships(
     session.run(
         '''
         MATCH (node:Declaration {source: $source, declarationKind: 'ShorthandPropertyAssignment'})
+        WHERE $scope IS NULL OR node.stableId IN $scope
         DETACH DELETE node
         ''',
         source=SOURCE,
+        scope=scope,
     ).consume()
 
 
@@ -857,41 +859,43 @@ def record_import(session: Any, *, fn_stable_id: str | None, counts: dict[str, i
     ).consume()
 
 
+def replace_scoped_payload(session, payload, args, started):
+    provenance = check_scoped_provenance(session, payload, fn_stable_id=args.fn_stable_id if not args.append else None)
+    scope = payload.get('_scopedReplacement', {}).get('scopeIds', [])
+    boundary = [dict(row) for row in session.run('''MATCH (a)-[r]->(b)
+        WHERE b.stableId IN $scope AND NOT a.stableId IN $scope
+          AND a.stableId IS NOT NULL AND type(r)<>'HAS_ANNOTATION'
+        RETURN a.stableId AS fromId,b.stableId AS toId,type(r) AS type,properties(r) AS props''', scope=scope)]
+    annotations_deleted = 0
+    if not args.append:
+        annotations_deleted = clear_scoped_flow(session, args.fn_stable_id, preserve_annotations=args.preserve_annotations)
+        clear_replaced_semantic_relationships(session, payload)
+    writer = GraphWriter(session, args.batch_size, bulk=False)
+    register_provenance(session, [provenance])
+    import_payload(writer, payload)
+    writer.finish()
+    if boundary:
+        write_edges(session, boundary, bulk=False)
+    annotations_restored = restore_scoped_annotations(session, args.fn_stable_id) if args.preserve_annotations else 0
+    elapsed = time.perf_counter() - started
+    record_import(session, fn_stable_id=args.fn_stable_id, counts=dict(writer.counts), elapsed=elapsed, provenance_ids=[provenance['id']])
+    return {'ok': True, 'provenancePolicy': payload.get('_scopedReplacement'),
+        'boundaryRelationshipsRestored': len(boundary), 'counts': writer.counts,
+        'elapsedSeconds': round(elapsed, 3),
+        'writeSeconds': {key: round(value, 3) for key, value in writer.write_seconds.items()},
+        'writeBatches': writer.write_batches, 'preserveAnnotations': args.preserve_annotations,
+        'annotationsDeleted': annotations_deleted, 'annotationsRestored': annotations_restored}
+
+
 def run_scoped_import(args: argparse.Namespace, settings: dict[str, str], started: float) -> dict[str, Any]:
+    payload = run_scoped_extractor(args.fn_stable_id)
     driver = GraphDatabase.driver(settings['uri'], auth=(settings['username'], settings['password']))
     try:
         with driver.session(database=settings['database']) as session:
-            payload = run_scoped_extractor(args.fn_stable_id)
-            provenance = check_scoped_provenance(session, payload)
-            annotations_deleted = 0
-            if not args.append:
-                annotations_deleted = clear_scoped_flow(
-                    session,
-                    args.fn_stable_id,
-                    preserve_annotations=args.preserve_annotations,
-                )
-                clear_replaced_semantic_relationships(session, payload)
-            writer = GraphWriter(session, args.batch_size, bulk=False)
-            register_provenance(session, [provenance])
-            import_payload(writer, payload)
-            writer.finish()
-            annotations_restored = (
-                restore_scoped_annotations(session, args.fn_stable_id)
-                if args.preserve_annotations
-                else 0
-            )
-            elapsed = time.perf_counter() - started
-            record_import(session, fn_stable_id=args.fn_stable_id, counts=dict(writer.counts), elapsed=elapsed, provenance_ids=[provenance['id']])
-            return {
-                'ok': True,
-                'counts': writer.counts,
-                'elapsedSeconds': round(elapsed, 3),
-                'writeSeconds': {key: round(value, 3) for key, value in writer.write_seconds.items()},
-                'writeBatches': writer.write_batches,
-                'preserveAnnotations': args.preserve_annotations,
-                'annotationsDeleted': annotations_deleted,
-                'annotationsRestored': annotations_restored,
-            }
+            with session.begin_transaction() as transaction:
+                result = replace_scoped_payload(transaction, payload, args, started)
+                transaction.commit()
+                return result
     finally:
         driver.close()
 

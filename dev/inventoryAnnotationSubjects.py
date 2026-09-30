@@ -168,6 +168,9 @@ def main():
         '--report', str(args.output)], check=True)
     body_audit = json.loads((args.output/'body-audit.json').read_text(encoding='utf-8'))
     report['bodyAudit'] = {k:v for k,v in body_audit.items() if k!='subjects'}
+    subprocess.run([sys.executable, str(Path(__file__).with_name('planAnnotationSubjects.py')),
+        '--report', str(args.output)], check=True)
+    report['annotationPlan'] = json.loads((args.output/'annotation-plan.json').read_text(encoding='utf-8'))
     report['elapsedSeconds'] = round(time.perf_counter()-start,3)
     (args.output/'summary.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps({k:v for k,v in report.items() if k!='reasons'},ensure_ascii=False),flush=True)

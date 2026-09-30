@@ -38,11 +38,18 @@ try {
   } while (run.status === 'running');
   assert.equal(run.status, 'complete', run.error);
   assert.equal(run.summary.version, 4);
+  assert.equal(run.summary.annotationPlan.scheduledTasks, 0);
   assert.equal((await request(`${base}/status`)).body.run.runId, runId);
   const node = (await request(`${base}/subjects?runId=${runId}&stableId=${encodeURIComponent('src/api/gramjs/ChatAbortController.ts:15:2:18:3')}`)).body;
   assert.equal(node.total, 1);
   assert.equal(node.subjects[0].reason, 'callable-with-body');
+  assert.equal(node.subjects[0].annotationPlan.decision, 'generation-candidate');
   assert.ok(node.subjects[0].body_evidence.includes('ENCLOSED_BY:lexical-function-owner'));
+  const callback = (await request(`${base}/subjects?runId=${runId}&stableId=${encodeURIComponent('src/api/gramjs/ChatAbortController.ts:22:25:22:65')}`)).body.subjects[0].annotationPlan;
+  assert.equal(callback.decision, 'compose-in-owner');
+  assert.deepEqual(callback.context_targets, ['src/api/gramjs/ChatAbortController.ts:22:4:22:66']);
+  assert.ok(callback.required_body_context.length > 0);
+  assert.ok(callback.immediate_owner_evidence.length > 0);
   const page = (await request(`${base}/subjects?runId=${runId}&mode=unresolved&limit=2`)).body;
   assert.equal(page.subjects.length, 2);
   assert.ok(page.subjects.every(subject => subject.mode === 'unresolved'));

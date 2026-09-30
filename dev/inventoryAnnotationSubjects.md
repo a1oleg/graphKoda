@@ -1,5 +1,28 @@
 # Annotation subject inventory
 
+## Annotation selection
+
+`planAnnotationSubjects.py` runs after the body audit and writes
+`annotation-plan.parquet` and `annotation-plan.json`. Status includes the counts;
+subject responses include `annotationPlan` with its decision, evidence reason
+and context targets. Nothing is scheduled or generated.
+
+- `generation-candidate`: confirmed definition, still subject to task demand and freshness.
+- `contract-candidate`: signature without implementation; do not invent a body.
+- `review-callback`: callback implementation; do not assume a separate annotation is needed.
+- `compose-in-owner`: one explicit owner, retain context there.
+- `review-owner`: several owner candidates; do not pick an arbitrary one.
+- `follow-original`: reuse the original, including bindings to initializer functions.
+- `external-boundary`: context from the external contract/catalog, not a missing local body.
+- `syntax-summary`: compiler-confirmed empty body; retain signature context without LLM prose.
+- `blocked-*`: retain evidence and surface the missing context rather than discard it.
+
+These are allocation decisions, not proof of a complete annotation DAG. The plan
+uses the recorded extraction snapshot, not live Neo4j. Scoped imports do not
+silently alter its evidence. `verifyScopedBodyRepairs.py --report <report>` checks
+previously missing Step targets in Neo4j and writes a separate timestamped
+`live-body-repairs.json`.
+
 Uses the configured project's completed extraction Parquet, without re-extraction,
 LLM generation or changes to Neo4j. Candidate markings are stored in
 `checks/graph-ranking/<runId>/subjects.parquet`; summary and run state persist
@@ -63,6 +86,28 @@ because BODY_ENTRY does not originate directly at Start.
 regressions against fresh extraction, including step targets and reachability.
 
 ## Verification
+
+Annotation plan v3 distinguishes immediate containment from ancestor evidence.
+Field-bearing, non-projected `AST_CHILD` and member/property edges marked
+`ownership=direct` establish syntax/member owners. `HAS_OPERATION` marked
+`ownership=immediate-step` and `parentStepStableId` pointing to an existing Step
+establish step ownership when no syntax/member owner is present. This matches
+the extractor's `attachImmediateStepOperationGraph` contract. Conflicting targets stay
+under review; lexical function ownership alone does not establish direct nesting.
+The API returns target-associated `immediate_owner_evidence`, not just parallel
+lists of targets and relation names.
+`owner_status` distinguishes missing evidence from conflicting direct owners.
+`ownerReview` in the plan summary groups remaining cases by status and subject
+classification with real stable-ID examples. All counts refer to the extraction
+snapshot, not subsequent scoped updates in Neo4j.
+
+A callback can compose into its containing call when a unique direct argument
+parent is confirmed by both `AST_CHILD(field=arguments)` and `HAS_ARGUMENT`,
+with no other incoming functional relations beyond containment. Other callbacks
+remain under review. This does not imply synchronous execution or discard their
+bodies: `required_body_context` remains explicit. No LLM tasks are scheduled.
+These rules currently plan context allocation; they do not certify recursive
+annotation completeness, cache freshness, or minimal generation counts.
 
 `node dev/annotationInventoryApi.integration.mjs` exercises real HTTP routes and
 the configured Telegram extraction, checks operation conflicts and pagination,

@@ -28,6 +28,15 @@ result = db.execute('SELECT * FROM subjects' + condition + ' ORDER BY stable_id 
                     params + [args.limit, args.offset])
 columns = [item[0] for item in result.description]
 subjects = [dict(zip(columns, row)) for row in result.fetchall()]
+plan_path = args.report/'annotation-plan.parquet'
+if plan_path.exists() and subjects:
+    db.read_parquet(str(plan_path)).create_view('plan')
+    planned = db.execute('SELECT * FROM plan WHERE stable_id IN (SELECT unnest(?))',
+        [[row['stable_id'] for row in subjects]])
+    keys = [item[0] for item in planned.description]
+    plans = {row[0]:dict(zip(keys,row)) for row in planned.fetchall()}
+    for subject in subjects:
+        subject['annotationPlan'] = plans.get(subject['stable_id'])
 audit_path = args.report / 'body-audit.json'
 if audit_path.exists():
     audit = json.loads(audit_path.read_text(encoding='utf-8'))
@@ -35,6 +44,8 @@ if audit_path.exists():
     for subject in subjects:
         if subject['stable_id'] in details:
             subject['bodyAudit'] = details[subject['stable_id']]
+summary = json.loads((args.report/'summary.json').read_text(encoding='utf-8'))
 print(json.dumps({'total': total, 'limit': args.limit, 'offset': args.offset,
+    'snapshot': {'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds']},
     'subjects': subjects}, ensure_ascii=False))
 db.close()
