@@ -1377,6 +1377,20 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
 
     if (ts.isParameter(node)) emitDestructuredBinding(node);
 
+    if (ts.isObjectBindingPattern(node) || ts.isArrayBindingPattern(node)) {
+      const parentId = emitDeclaration(node.parent as ts.Declaration, 'ValueDeclaration');
+      const patternId = stableId(node);
+      // Untyped parameters may share their exact range with the pattern.
+      // Keep their declaration identity instead of marking it as system syntax.
+      if (patternId !== parentId) {
+        emitEntity({ stableId: patternId, labels: ['CodeEntity', 'SyntaxPart', 'BindingPattern', 'System'],
+          props: { ...sourceProps(node), syntaxKind: ts.SyntaxKind[node.kind] } });
+      }
+      for (const element of node.elements) {
+        if (ts.isBindingElement(element)) emitDeclaration(element, 'ValueDeclaration');
+      }
+    }
+
     if (ts.isTypeReferenceNode(node)) {
       emitReference(node.typeName, 'TypeReference');
       emitGenericUse(node);

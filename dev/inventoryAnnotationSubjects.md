@@ -87,6 +87,16 @@ regressions against fresh extraction, including step targets and reachability.
 
 ## Verification
 
+Destructuring ownership requires materialized binding patterns: declaration
+`AST_CHILD(field=name)` -> pattern `AST_CHILD(field=elements)` -> binding.
+The canonical extractor emits these for object/array and nested binding patterns.
+An untyped parameter whose coordinates equal its pattern retains its declaration
+identity and is not relabelled System. Source/value projection edges are retained.
+`node --import tsx dev/bindingPatternOwnership.integration.mts` checks all actual
+Telegram patterns against the compiler AST; `python dev/bindingPatternScoped.integration.py`
+checks the real scoped transport for object and array destructuring.
+This extractor repair requires re-extraction before old snapshot counts can change.
+
 Annotation plan v9 distinguishes immediate containment from ancestor evidence.
 Field-bearing, non-projected `AST_CHILD` and member/property edges marked
 `ownership=direct` establish syntax/member owners. `HAS_OPERATION` marked
