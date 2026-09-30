@@ -96,6 +96,10 @@ identity and is not relabelled System. Source/value projection edges are retaine
 Telegram patterns against the compiler AST; `python dev/bindingPatternScoped.integration.py`
 checks the real scoped transport for object and array destructuring.
 This extractor repair requires re-extraction before old snapshot counts can change.
+The bots.ts and statistics.ts regression functions were scoped-imported with
+annotations preserved. `python dev/verifyLiveBindingPatternOwnership.py` checks
+their unique declaration/pattern/binding chains, provenance and retained READS_FROM
+in live Neo4j; this is separate from the unchanged extraction snapshot inventory.
 
 Annotation plan v9 distinguishes immediate containment from ancestor evidence.
 Field-bearing, non-projected `AST_CHILD` and member/property edges marked
