@@ -87,7 +87,7 @@ regressions against fresh extraction, including step targets and reachability.
 
 ## Verification
 
-Annotation plan v5 distinguishes immediate containment from ancestor evidence.
+Annotation plan v9 distinguishes immediate containment from ancestor evidence.
 Field-bearing, non-projected `AST_CHILD` and member/property edges marked
 `ownership=direct` establish syntax/member owners. `HAS_OPERATION` marked
 `ownership=immediate-step` and `parentStepStableId` pointing to an existing Step
@@ -102,6 +102,32 @@ Missing or self-referencing nearest
 targets and non-block block targets remain `invalid-direct-owner-target`;
 they do not fall back to a more distant owner. This rule does not apply broadly
 to every operation merely carrying `parentFnStableId`.
+FunctionStart/FunctionEnd boundaries also compose into their explicitly recorded
+local or root function. Local ownership takes priority; the target must exist and
+carry Fn, FnDeclaration or CallableDeclaration. Missing or invalid local owners do
+not fall back to a root owner. This allocates technical boundary context without
+creating standalone annotation jobs and does not infer ownership from names.
+
+CapturedBinding occurrences reuse an original through incoming CAPTURES_VALUE.
+Each hop must have exactly one predecessor, the original must exist, and nested
+capture hops must agree on originalStableId. The entire chain must reach that
+original without cycles. The plan keeps the immediate predecessor in context_targets
+and records capture_original and capture_path; it does not guess from names or
+skip intermediate captures. Missing, contradictory, ambiguous or cyclic chains
+remain under review, not new generation jobs. The function's use-site context is
+not replaced by this reference classification.
+
+An ObjectConstruction/ArgumentValue belongs to its explicit HAS_ARGUMENT caller
+(Call). For a PropertyValue reachable both directly via caller HAS_PROPERTY and
+through that argument object's HAS_PROPERTY, the object is its immediate owner;
+the caller link is ancestor membership. Both paths must exist. This topology rule
+also takes precedence over the caller's AST attributes link when an attribute list
+and its only property share a source range. Object arguments previously marked as
+no-ownership-or-reference-evidence can now compose into a unique confirmed caller;
+ambiguous callers remain review-owner.
+This topology rule
+uses neither JSX names nor ID suffixes, does not follow SATISFIES_MEMBER as an owner,
+and retains competing immediate owners rather than choosing one arbitrarily.
 The API returns target-associated `immediate_owner_evidence`, not just parallel
 lists of targets and relation names.
 `owner_status` distinguishes missing evidence from conflicting direct owners.

@@ -55,6 +55,12 @@ assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' A
 assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' AND immediate_owner_evidence IS NULL").fetchone()[0] == 0
 assert db.execute("SELECT decision FROM plan WHERE stable_id='src/lib/gramjs/Utils.ts:10:0:12:1'").fetchone()[0] == 'blocked-missing-step-target'
 for stable_id, owner in [
+    ('src/components/App.tsx:258:14:258:25','src/components/App.tsx:258:4:258:46:jsx-props'),
+    ('src/components/App.tsx:258:4:258:46:jsx-props','src/components/App.tsx:258:4:258:46'),
+    ('src/components/right/management/ManageChatRemovedUsers.tsx:86:9:86:31',
+     'src/components/right/management/ManageChatRemovedUsers.tsx:86:4:86:32:jsx-props'),
+    ('C:/GitHub/telegram-tt/src/api/gramjs/ChatAbortController.ts:18:3:18:4:end',
+     'src/api/gramjs/ChatAbortController.ts:15:2:18:3'),
     ('C:/GitHub/telegram-tt/src/api/gramjs/ChatAbortController.ts:10:23:10:31:arg0:horizontal-owner-src/api/gramjs/ChatAbortController.ts-6-2-13-3',
      'flow-step:execution:src/api/gramjs/ChatAbortController.ts:10:6:10:45'),
     ('src/components/common/helpers/gifts.ts:19:2:19:36', 'src/components/common/helpers/gifts.ts:18:0:23:2'),
@@ -79,5 +85,39 @@ for stable_id in [
 assert db.execute("SELECT owner_status FROM plan WHERE stable_id='flow-block:alternative:false:src/components/modals/gift/craft/GiftCraftModal.tsx:790:15:793:9'").fetchone()[0] == 'conflicting-direct-owners'
 assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' AND owner_status<>'unique-direct-owner'").fetchone()[0] == 0
 plan_summary = json.loads((args.report/'annotation-plan.json').read_text(encoding='utf-8'))
+assert plan_summary['version'] == 9
+for captured, predecessor, original in [
+    ('src/api/gramjs/ChatAbortController.ts:20:15:20:30:captured-in:src/api/gramjs/ChatAbortController.ts:22:25:22:65',
+     'src/api/gramjs/ChatAbortController.ts:20:15:20:30', 'src/api/gramjs/ChatAbortController.ts:20:15:20:30'),
+    ('src/lib/vibecalls/group/groupCall.ts:254:8:254:17:captured-in:src/lib/vibecalls/group/groupCall.ts:272:27:287:5',
+     'src/lib/vibecalls/group/groupCall.ts:254:8:254:17:captured-in:src/lib/vibecalls/group/groupCall.ts:260:38:294:3',
+     'src/lib/vibecalls/group/groupCall.ts:254:8:254:17'),
+]:
+    actual = db.execute('SELECT decision,context_targets,capture_original FROM plan WHERE stable_id=?',[captured]).fetchone()
+    assert actual == ('follow-original',[predecessor],original),actual
+db.read_parquet(str(Path(summary['input'])/'nodes.parquet')).create_view('raw_nodes')
+db.read_parquet(str(Path(summary['input'])/'relationships.parquet')).create_view('raw_rels')
+assert db.execute('''SELECT count(*) FROM plan p, unnest(p.immediate_owner_evidence) e(item)
+    WHERE item.field='argument-object-property' AND NOT EXISTS (
+      SELECT 1 FROM raw_rels direct JOIN raw_rels argument ON argument.to_id=direct.from_id
+        AND argument.rel_type='HAS_ARGUMENT'
+      JOIN raw_rels ancestor ON ancestor.from_id=argument.from_id AND ancestor.to_id=direct.to_id
+        AND ancestor.rel_type='HAS_PROPERTY'
+      WHERE direct.rel_type='HAS_PROPERTY' AND direct.from_id=item.target AND direct.to_id=p.stable_id
+    )''').fetchone()[0] == 0
+capture_edges = set(db.execute("SELECT to_id,from_id FROM raw_rels WHERE rel_type='CAPTURES_VALUE'").fetchall())
+for stable_id, targets, original, path in db.execute('''SELECT stable_id,context_targets,capture_original,capture_path
+    FROM plan WHERE evidence_reason='explicit-capture-chain' ''').fetchall():
+    assert path[0]==stable_id and len(path)==len(set(path)) and original not in path
+    chain = path + [original]
+    assert targets==[chain[1]]
+    assert all((a,b) in capture_edges for a,b in zip(chain,chain[1:]))
+assert db.execute('''SELECT count(*) FROM plan p JOIN raw_nodes n USING(stable_id)
+    JOIN subjects owner ON owner.stable_id=p.context_targets[1]
+    WHERE p.decision='compose-in-owner' AND list_has_any(n.labels,['FunctionStart','FunctionEnd'])
+      AND EXISTS (SELECT 1 FROM unnest(p.immediate_owner_evidence) e(item) WHERE item.tier>=3)
+      AND (NOT list_has_any(owner.labels,['Fn','FnDeclaration','CallableDeclaration'])
+        OR owner.stable_id<>coalesce(nullif(json_extract_string(n.props_json,'$.parentLocalFunctionStableId'),''),
+          json_extract_string(n.props_json,'$.parentFnStableId')))''').fetchone()[0] == 0
 assert sum(group['count'] for group in plan_summary['ownerReview']) == plan_summary['counts']['review-owner']
 print('Verified actual Telegram class, methods, alias, system type, global totals and inline ownership.')
