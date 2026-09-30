@@ -14467,9 +14467,15 @@ class FunctionFlowGraphBuilder {
           node.parentFlowBlockStableId = stepStableId;
         }
       }
-      for (const edge of this.edges) {
+      for (let index = this.edges.length - 1; index >= 0; index -= 1) {
+        const edge = this.edges[index];
+        const touchesCollapsedBlock = edge.fromId === stableId || edge.toId === stableId;
         if (edge.fromId === stableId) edge.fromId = stepStableId;
         if (edge.toId === stableId) edge.toId = stepStableId;
+        // Containment internal to the merged block/step no longer exists.
+        if (touchesCollapsedBlock && edge.type === 'NESTED_IN' && edge.fromId === edge.toId) {
+          this.edges.splice(index, 1);
+        }
       }
       this.addEdge('Fn', this.fnStableId, undefined, stepStableId, 'HAS_FLOW_BLOCK', {
         label: outcome.toLowerCase(),

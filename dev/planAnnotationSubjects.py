@@ -33,16 +33,35 @@ db.execute('''CREATE TABLE owner_candidates AS
     SELECT n.stable_id,o.stable_id,'parentStepStableId',NULL,1
     FROM raw_nodes n JOIN subjects o
       ON o.stable_id=json_extract_string(n.props_json,'$.parentStepStableId')
-    WHERE n.stable_id<>o.stable_id AND list_contains(o.labels,'Step')''')
+    WHERE n.stable_id<>o.stable_id AND list_contains(o.labels,'Step')
+    UNION
+    SELECT n.stable_id,v.target,v.relation,NULL,v.tier
+    FROM raw_nodes n, LATERAL (VALUES
+      (json_extract_string(n.props_json,'$.parentFlowBlockStableId'),'parentFlowBlockStableId',2),
+      (json_extract_string(n.props_json,'$.parentLocalFunctionStableId'),'parentLocalFunctionStableId',3),
+      (json_extract_string(n.props_json,'$.parentFnStableId'),'parentFnStableId',4)
+    ) v(target,relation,tier)
+    WHERE list_has_any(n.labels,['Step','Block']) AND nullif(v.target,'') IS NOT NULL
+    UNION
+    SELECT r.from_id,r.to_id,r.rel_type,NULL,2
+    FROM rels r JOIN subjects s ON s.stable_id=r.from_id
+    WHERE list_has_any(s.labels,['Step','Block']) AND r.rel_type='NESTED_IN'
+      AND json_extract_string(r.props_json,'$.structure_kind')='containment'
+    ''')
 # A syntax parent is nearer than its enclosing step. Equal-tier disagreement
 # remains a conflict; sorting stable IDs must never resolve ownership.
-db.execute('''CREATE TABLE direct_evidence AS SELECT * FROM owner_candidates
-    QUALIFY tier=min(tier) OVER (PARTITION BY stable_id)''')
+db.execute('''CREATE TABLE direct_evidence AS
+    SELECT e.*, (t.stable_id IS NOT NULL AND e.target<>e.stable_id
+      AND (e.tier<>2 OR list_has_any(t.labels,['Step','Block']))) AS target_valid
+    FROM (SELECT * FROM owner_candidates
+      QUALIFY tier=min(tier) OVER (PARTITION BY stable_id)) e
+    LEFT JOIN subjects t ON t.stable_id=e.target''')
 db.execute('DROP TABLE owner_candidates')
 # LIST aggregation cannot spill all intermediate states. Hash partitions bound
 # its working set without changing grouping or the result's evidence ordering.
 owner_aggregation = '''SELECT stable_id,
     list(DISTINCT target ORDER BY target) AS targets,
+    bool_or(NOT target_valid) AS invalid_target,
     list(struct_pack(target:=target,relation:=relation,field:=field,tier:=tier)
       ORDER BY target,relation,field) AS evidence
     FROM direct_evidence WHERE {condition} GROUP BY stable_id'''
@@ -88,7 +107,7 @@ db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
       WHEN list_contains(s.labels,'CallbackImplementation') AND
         (s.mode='standalone' OR a.category='body-confirmed-through-entry') THEN 'review-callback'
       WHEN s.mode='standalone' OR a.category='body-confirmed-through-entry' THEN 'generation-candidate'
-      WHEN s.mode='inline' AND len(d.targets)=1 THEN 'compose-in-owner'
+      WHEN s.mode='inline' AND len(d.targets)=1 AND NOT d.invalid_target THEN 'compose-in-owner'
       WHEN s.mode='inline' THEN 'review-owner'
       ELSE 'blocked-unresolved' END AS decision,
     CASE WHEN c.stable_id IS NOT NULL THEN 'direct-callback-argument'
@@ -97,7 +116,8 @@ db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
       WHEN s.mode='inline' OR list_contains(s.labels,'CallbackImplementation') THEN coalesce(d.targets,s.owners)
       ELSE []::VARCHAR[] END AS context_targets,
     d.evidence AS immediate_owner_evidence,
-    CASE WHEN len(d.targets)=1 THEN 'unique-direct-owner'
+    CASE WHEN d.invalid_target THEN 'invalid-direct-owner-target'
+      WHEN len(d.targets)=1 THEN 'unique-direct-owner'
       WHEN len(d.targets)>1 THEN 'conflicting-direct-owners'
       ELSE 'no-direct-owner-evidence' END AS owner_status,
     s.body_targets AS required_body_context,
@@ -121,7 +141,7 @@ for status, reason, count in db.execute('''SELECT owner_status,s.reason,count(*)
         ORDER BY p.stable_id LIMIT 3''', [status,reason]).fetchall()
     owner_review.append({'status':status,'reason':reason,'count':count,
         'examples':[{'stableId':i,'candidateOwners':t,'evidence':e} for i,t,e in examples]})
-report = {'version':3,'nodes':summary['nodes'],
+report = {'version':5,'nodes':summary['nodes'],
     'counts':dict(db.execute('SELECT decision,count(*) FROM plan GROUP BY decision ORDER BY decision').fetchall()),
     'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds'],
     'generatesAnnotations':False,'scheduledTasks':0,'requiredGenerationCount':None,

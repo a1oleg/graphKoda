@@ -87,13 +87,21 @@ regressions against fresh extraction, including step targets and reachability.
 
 ## Verification
 
-Annotation plan v3 distinguishes immediate containment from ancestor evidence.
+Annotation plan v5 distinguishes immediate containment from ancestor evidence.
 Field-bearing, non-projected `AST_CHILD` and member/property edges marked
 `ownership=direct` establish syntax/member owners. `HAS_OPERATION` marked
 `ownership=immediate-step` and `parentStepStableId` pointing to an existing Step
 establish step ownership when no syntax/member owner is present. This matches
 the extractor's `attachImmediateStepOperationGraph` contract. Conflicting targets stay
 under review; lexical function ownership alone does not establish direct nesting.
+For Step/Block nodes only, structural containment proceeds through the enclosing
+flow block (`parentFlowBlockStableId` / structural `NESTED_IN`), then local
+function, then root function. `HAS_FLOW_BLOCK` is function membership, potentially
+including ancestors, and is excluded from immediate ownership evidence entirely.
+Missing or self-referencing nearest
+targets and non-block block targets remain `invalid-direct-owner-target`;
+they do not fall back to a more distant owner. This rule does not apply broadly
+to every operation merely carrying `parentFnStableId`.
 The API returns target-associated `immediate_owner_evidence`, not just parallel
 lists of targets and relation names.
 `owner_status` distinguishes missing evidence from conflicting direct owners.
@@ -113,6 +121,12 @@ annotation completeness, cache freshness, or minimal generation counts.
 the configured Telegram extraction, checks operation conflicts and pagination,
 and runs the actual ChatAbortController regression checks. No synthetic graph
 is created. The original standalone CLI remains available:
+
+`node --import tsx dev/flowBlockOwnership.integration.mts` extracts the actual
+LeftColumn and deeplink functions and verifies that collapsing a block into its
+only Step removes internal containment instead of producing `NESTED_IN` self
+edges. Existing snapshots still report those errors until re-extracted; the
+annotation planner does not repair or conceal them.
 
 ```
 python dev/inventoryAnnotationSubjects.py --parquet <snapshot> --output <report>

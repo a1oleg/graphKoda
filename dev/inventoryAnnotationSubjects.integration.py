@@ -59,10 +59,24 @@ for stable_id, owner in [
      'flow-step:execution:src/api/gramjs/ChatAbortController.ts:10:6:10:45'),
     ('src/components/common/helpers/gifts.ts:19:2:19:36', 'src/components/common/helpers/gifts.ts:18:0:23:2'),
     ('src/api/gramjs/apiBuilders/appConfig.ts:152:26:165:8', 'src/api/gramjs/apiBuilders/appConfig.ts:152:9:165:13'),
+    ('flow-step:statement:src/util/notifications.tsx:335:2:335:45', 'src/util/notifications.tsx:333:0:369:1'),
+    ('flow-block:alternative:false:src/api/gramjs/apiBuilders/pathBytesToSvg.ts:19:11:26:5',
+     'flow-block:side:next:src/api/gramjs/apiBuilders/pathBytesToSvg.ts:15:2:27:3'),
+    ('flow-block:alternative:false:src/lib/vibecalls/sdp/buildSdp.ts:140:11:151:5',
+     'src/lib/vibecalls/sdp/buildSdp.ts:110:8:110:20'),
+    ('flow-step:condition:src/components/left/main/Chat.tsx:321:10:321:26',
+     'src/components/left/main/Chat.tsx:291:40:337:3'),
 ]:
     actual = db.execute('SELECT decision,context_targets FROM plan WHERE stable_id=?', [stable_id]).fetchone()
     assert actual == ('compose-in-owner', [owner]), (stable_id, actual)
-assert db.execute("SELECT decision FROM plan WHERE stable_id='flow-step:statement:src/util/notifications.tsx:335:2:335:45'").fetchone()[0] == 'review-owner'
+assert db.execute("SELECT count(*) FROM plan WHERE owner_status='invalid-direct-owner-target' AND decision='compose-in-owner'").fetchone()[0] == 0
+for stable_id in [
+    'flow-step:execution:src/components/left/LeftColumn.tsx:377:10:377:16',
+    'flow-step:execution:src/util/deeplink.ts:125:8:125:14',
+]:
+    assert db.execute('SELECT decision,owner_status FROM plan WHERE stable_id=?', [stable_id]).fetchone() == (
+        'review-owner', 'invalid-direct-owner-target')
+assert db.execute("SELECT owner_status FROM plan WHERE stable_id='flow-block:alternative:false:src/components/modals/gift/craft/GiftCraftModal.tsx:790:15:793:9'").fetchone()[0] == 'conflicting-direct-owners'
 assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' AND owner_status<>'unique-direct-owner'").fetchone()[0] == 0
 plan_summary = json.loads((args.report/'annotation-plan.json').read_text(encoding='utf-8'))
 assert sum(group['count'] for group in plan_summary['ownerReview']) == plan_summary['counts']['review-owner']
