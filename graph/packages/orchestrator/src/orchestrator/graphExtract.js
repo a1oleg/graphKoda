@@ -301,7 +301,7 @@ function parseLastJsonLine(output) {
   }
 }
 
-function resolvePythonExecutable() {
+export function resolvePythonExecutable() {
   const candidates = process.platform === 'win32'
     ? [
       path.join(process.cwd(), '.venv', 'Scripts', 'python.exe'),

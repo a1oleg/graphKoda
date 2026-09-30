@@ -1,6 +1,7 @@
 ﻿import http from 'node:http';
 
 import neo4j from 'neo4j-driver';
+import { getRankingPlan, getRankingPreflight, getRankingStatus, isRankingActive, startRanking, persistRanking, recoverRanking, withRankingExclusion } from './orchestrator/graphRanking.js';
 import { executeAnnotationGraphql, sharedSchemaSDL } from './orchestrator/annotationGraphql.js';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -1614,6 +1615,7 @@ async function handleGet(requestUrl, response, context) {
   }
 
   if (pathname === '/api/extract/status') {
+    // Extraction status remains independent of ranking jobs.
     sendJson(response, 200, getExtractStatus({
       tailLog: searchParams.get('tailLog') === '1' || searchParams.get('tailLog') === 'true',
     }));
@@ -1630,6 +1632,19 @@ async function handleGet(requestUrl, response, context) {
 
   if (pathname === '/api/extract/plan') {
     sendJson(response, 200, { ok: true, plan: getExtractPlan() });
+    return;
+  }
+
+  if (pathname === '/api/graph/ranking/plan') {
+    sendJson(response, 200, { ok: true, plan: getRankingPlan() });
+    return;
+  }
+  if (pathname === '/api/graph/ranking/preflight') {
+    sendJson(response, 200, await getRankingPreflight());
+    return;
+  }
+  if (pathname === '/api/graph/ranking/status') {
+    sendJson(response, 200, getRankingStatus(searchParams.get('runId')));
     return;
   }
 
@@ -1739,6 +1754,25 @@ async function handleGet(requestUrl, response, context) {
 async function handlePost(requestUrl, request, response, context) {
   const { pathname } = requestUrl;
   const body = await readJsonBody(request);
+  if (['/api/actions/run-extract', '/api/actions/import-functions', '/api/actions/reset-graph-database'].includes(pathname) && isRankingActive()) {
+    sendJson(response, 409, { ok: false, error: 'Graph ranking is active; wait for completion.' });
+    return;
+  }
+  if (pathname === '/api/graph/ranking/run') {
+    const result = await startRanking();
+    sendJson(response, result.ok ? 202 : 409, result);
+    return;
+  }
+  if (pathname === '/api/graph/ranking/recover') {
+    const result = recoverRanking();
+    sendJson(response, result.ok ? 200 : 409, result);
+    return;
+  }
+  if (pathname === '/api/graph/ranking/persist') {
+    const result = persistRanking(body.runId);
+    sendJson(response, result.ok ? 202 : 409, result);
+    return;
+  }
   if (pathname === '/api/annotations/graphql' || pathname === '/api/graphql') {
     sendJson(response, 200, await executeAnnotationGraphql(body, context));
     return;
@@ -1813,7 +1847,7 @@ async function handlePost(requestUrl, request, response, context) {
   }
 
   if (pathname === '/api/actions/import-functions') {
-    sendJson(response, 200, await importFunctionsScoped(body));
+    sendJson(response, 200, await withRankingExclusion(() => importFunctionsScoped(body)));
     return;
   }
 
@@ -2145,7 +2179,7 @@ async function handlePost(requestUrl, request, response, context) {
       });
       return;
     }
-    sendJson(response, 200, await resetGraphDatabase(context.driver, context.database));
+    sendJson(response, 200, await withRankingExclusion(() => resetGraphDatabase(context.driver, context.database)));
     return;
   }
 

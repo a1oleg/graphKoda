@@ -29,6 +29,8 @@ const GROUPS = [
     '/api/status/process-diagnostics', '/api/status/processes',
   ]],
   ['Extraction', 'GET', ['/api/extract/plan', '/api/extract/preflight', '/api/extract/status']],
+  ['Graph', 'GET', ['/api/graph/ranking/plan', '/api/graph/ranking/preflight', '/api/graph/ranking/status']],
+  ['Graph', 'POST', ['/api/graph/ranking/run', '/api/graph/ranking/persist', '/api/graph/ranking/recover']],
   ['Extraction', 'POST', [
     '/api/actions/run-extract', '/api/actions/import-functions', '/api/actions/stop-extract',
   ]],
@@ -76,6 +78,12 @@ const GROUPS = [
 ];
 
 const DETAILS = {
+  'GET /api/graph/ranking/plan': ['Describe graph ranking', 'Individual and SCC component levels, configured Parquet snapshot and output paths. No re-extraction.'],
+  'GET /api/graph/ranking/preflight': ['Check graph ranking readiness', 'Checks Python dependencies, snapshot files and managed-operation conflicts. Publication performs full Neo4j snapshot validation.'],
+  'GET /api/graph/ranking/status': ['Read ranking progress', 'Persistent run state, latest progress and summary by runId; omitted runId selects active or latest run.'],
+  'POST /api/graph/ranking/run': ['Calculate graph levels', 'Asynchronous calculation of individual and cyclic-component levels from configured Parquet. Returns 202 and runId; no Neo4j writes.'],
+  'POST /api/graph/ranking/persist': ['Publish graph levels', 'Asynchronous publication of a completed run to local Neo4j after matching stable IDs and extraction provenance. Does not change source relationships or annotations.'],
+  'POST /api/graph/ranking/recover': ['Recover interrupted ranking', 'Releases an orphaned lock only after both recorded processes are no longer running. Does not declare partial publication complete.'],
   'GET /api/graphql/schema': ['Read the shared GraphQL schema', 'Annotation plans, semantic entities and registered presentation views share stableId identities.'],
   'POST /api/graphql': ['Query semantics or execute a presentation', 'GraphQL query, variables and operationName. Presentation mutations validate and execute ordered UI steps; annotation mutations retain their existing workflow semantics.'],
   'GET /': ['Discover the orchestrator', 'Returns stable entry points and the normal local runbook.'],
@@ -109,6 +117,7 @@ const DESTRUCTIVE = new Set([
 ]);
 
 const BODY_SCHEMA_BY_KEY = {
+  'POST /api/graph/ranking/persist': 'RankingRunRequest',
   'POST /api/actions/import-functions': 'ScopedFunctionImportRequest',
   'POST /api/actions/reset-graph-database': 'GraphResetRequest',
   'POST /api/graph/annotations/resolve': 'AnnotationResolveRequest',
@@ -122,6 +131,7 @@ const BODY_SCHEMA_BY_KEY = {
 };
 
 const QUERY_PARAMETERS = {
+  '/api/graph/ranking/status': [['runId', 'string', false, 'Ranking run UUID; defaults to active or latest run.']],
   '/api/status/gateway': [['tailLog', 'boolean', false, 'Include the current extraction log tail.']],
   '/api/status/repro-monitor': [['tailLines', 'integer', false, 'Number of recent log lines, from 1 to 100.']],
   '/api/status/process-diagnostics': [['tailLines', 'integer', false, 'Number of recent log lines, from 1 to 100.']],
@@ -212,6 +222,8 @@ export function buildApiRouteCatalog(baseUrl = 'http://127.0.0.1:8791/') {
 }
 
 const schemas = {
+  RankingRunRequest: { type: 'object', required: ['runId'], additionalProperties: false,
+    properties: { runId: { type: 'string', format: 'uuid' } } },
   GenericObject: { type: 'object', additionalProperties: true },
   GenericSuccess: {
     type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' } }, additionalProperties: true,
@@ -281,6 +293,10 @@ function openApiOperation(operation) {
       content: { 'application/json': { schema: { $ref: `#/components/schemas/${operation.bodySchema}` } } },
     } : undefined,
     responses: {
+      ...(operation.path.startsWith('/api/graph/ranking/') ? {
+        202: { description: 'Asynchronous job accepted; poll status with returned runId.' },
+        409: { description: 'Operation conflict or prerequisites not satisfied.' },
+      } : {}),
       200: { description: 'Successful orchestrator response.', content: { 'application/json': { schema: { $ref: '#/components/schemas/GenericSuccess' } } } },
       400: { description: 'Invalid request.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
       404: { description: 'Route or graph entity not found.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },

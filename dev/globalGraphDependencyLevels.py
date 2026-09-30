@@ -151,6 +151,38 @@ def main():
     print(json.dumps({"phase": "components", "components": len(sizes),
                       "cyclicComponents": sum(cyclic)}), flush=True)
 
+    # Condensation removes only intra-component edges. Parallel external edges
+    # are counted and discharged symmetrically, so deduplication is unnecessary.
+    component_sources, component_targets = array("I"), array("I")
+    component_remaining = array("I", [0]) * len(sizes)
+    for a, b in zip(sources, targets):
+        parent, child = group[a], group[b]
+        if parent != child:
+            component_sources.append(parent)
+            component_targets.append(child)
+            component_remaining[parent] += 1
+    component_reverse = csr(len(sizes), component_targets, component_sources)
+    component_level = array("i", [0]) * len(sizes)
+    queue = deque(i for i, degree in enumerate(component_remaining) if degree == 0)
+    completed_components = 0
+    offsets, neighbors = component_reverse
+    while queue:
+        child = queue.popleft()
+        completed_components += 1
+        for pos in range(offsets[child], offsets[child + 1]):
+            parent = neighbors[pos]
+            component_level[parent] = max(component_level[parent], component_level[child] + 1)
+            component_remaining[parent] -= 1
+            if component_remaining[parent] == 0:
+                queue.append(parent)
+    assert completed_components == len(sizes), 'Condensation must be acyclic'
+    expected_component_level = array("i", [0]) * len(sizes)
+    for parent, child in zip(component_sources, component_targets):
+        assert component_level[parent] > component_level[child]
+        expected_component_level[parent] = max(expected_component_level[parent], component_level[child] + 1)
+    assert component_level == expected_component_level
+    del component_sources, component_targets, component_reverse, expected_component_level
+
     # SCCs are diagnostics, NOT synthetic ready tasks. Only true DAG leaves
     # seed the structural waves; all consumers of a cycle stay blocked.
     remaining = array("I", (outgoing[0][i+1]-outgoing[0][i] for i in range(n)))
@@ -197,16 +229,18 @@ def main():
     for i in range(n):
         if level[i] >= 0:
             assert level[i] == maximum[i]
+            assert level[i] == component_level[group[i]]
         elif not cyclic[group[i]]:
             assert remaining[i] > 0
 
     result = pa.table({"idx": range(n), "component": group,
+                       "component_level": [component_level[group[i]] for i in range(n)],
                        "structural_level": level,
                        "in_cycle": [bool(cyclic[group[i]]) for i in range(n)],
                        "unknown_dependency_semantics": [bool(x) for x in unknown]})
     db.register("levels", result)
     destination = str(args.output / "levels.parquet").replace("'", "''")
-    db.execute(f"""COPY (SELECT stable_id, labels, component, structural_level,
+    db.execute(f"""COPY (SELECT stable_id, labels, component, structural_level, component_level,
         in_cycle, unknown_dependency_semantics,
         CASE WHEN in_cycle THEN 'cyclic-dependency'
              WHEN structural_level<0 THEN 'depends-on-cycle'
@@ -219,7 +253,7 @@ def main():
     for key in largest:
         rows = db.execute("""SELECT stable_id FROM numbered JOIN levels USING(idx)
             WHERE component=? ORDER BY stable_id LIMIT 5""", [key]).fetchall()
-        samples[key] = {"size": sizes[key], "sampleIds": [r[0] for r in rows]}
+        samples[key] = {"size": sizes[key], "level": component_level[key], "sampleIds": [r[0] for r in rows]}
     reciprocal = db.execute("""SELECT x.stable_id, y.stable_id FROM deps a
         JOIN deps b ON a.consumer=b.prerequisite AND a.prerequisite=b.consumer
         JOIN numbered x ON x.idx=a.consumer JOIN numbered y ON y.idx=a.prerequisite
@@ -241,7 +275,11 @@ def main():
               "ignored": sorted(IGNORED), "ownership": "parent -> direct child",
               "unknown": "both endpoints and their consumers are uncertain"}
     report = {
-        "mode": "global-materialized-dependency-inventory", "version": 2,
+        "mode": "global-materialized-dependency-inventory", "version": 3,
+        "componentLevelRule": "SCC condensation: sinks=0, consumer=1+max(external prerequisites)",
+        "components": len(sizes),
+        "componentLevels": dict(sorted(Counter(component_level).items())),
+        "maxComponentLevel": max(component_level, default=0),
         "annotationProfilesCertified": False, "generatesAnnotations": False,
         "writesDatabase": False, "source": str(args.parquet.resolve()),
         "provenanceIds": [r[0] for r in db.execute("SELECT DISTINCT provenance_id FROM nodes").fetchall()],
@@ -258,12 +296,12 @@ def main():
         "structurallyIsolatedNodes": sum(outgoing[0][i]==outgoing[0][i+1]
             and incoming[0][i]==incoming[0][i+1] for i in range(n)),
         "relationInventory": [{"type": t,"count": count,"disposition": d} for t,count,d in inventory],
-        "verification": "all dependency edges checked; all assigned levels satisfy max(dependencies)+1",
+        "verification": "all dependency edges checked; individual and component levels satisfy max(external dependencies)+1; all components processed; existing individual levels unchanged",
         "elapsedSeconds": round(time.perf_counter()-started, 3),
     }
     (args.output / "summary.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps({k:v for k,v in report.items() if k not in {
-        "policy", "levels", "largestCycles", "relationInventory"}}), flush=True)
+        "policy", "levels", "componentLevels", "largestCycles", "relationInventory"}}), flush=True)
     db.close()
 
 
