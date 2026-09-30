@@ -30,6 +30,8 @@ const GROUPS = [
   ]],
   ['Extraction', 'GET', ['/api/extract/plan', '/api/extract/preflight', '/api/extract/status']],
   ['Graph', 'GET', ['/api/graph/ranking/plan', '/api/graph/ranking/preflight', '/api/graph/ranking/status']],
+  ['Graph', 'GET', ['/api/graph/annotation-inventory/plan', '/api/graph/annotation-inventory/preflight', '/api/graph/annotation-inventory/status', '/api/graph/annotation-inventory/subjects']],
+  ['Graph', 'POST', ['/api/graph/annotation-inventory/run', '/api/graph/annotation-inventory/recover']],
   ['Graph', 'POST', ['/api/graph/ranking/run', '/api/graph/ranking/persist', '/api/graph/ranking/recover']],
   ['Extraction', 'POST', [
     '/api/actions/run-extract', '/api/actions/import-functions', '/api/actions/stop-extract',
@@ -78,6 +80,12 @@ const GROUPS = [
 ];
 
 const DETAILS = {
+  'GET /api/graph/annotation-inventory/plan': ['Describe annotation inventory', 'Versioned candidate rules, evidence and limitations. Not a certified annotation generation queue.'],
+  'GET /api/graph/annotation-inventory/preflight': ['Check inventory readiness', 'Checks the configured extraction snapshot, Python runtime and managed-operation conflicts.'],
+  'GET /api/graph/annotation-inventory/status': ['Read inventory status', 'Persistent run state and summary; defaults to latest inventory, separately from ranking.'],
+  'GET /api/graph/annotation-inventory/subjects': ['Read annotation candidate evidence', 'Filter by stableId or mode; bounded pagination includes body targets, ownership and original-reference evidence.'],
+  'POST /api/graph/annotation-inventory/run': ['Inventory annotation candidates', 'Asynchronous whole-snapshot checks and persisted candidate markings in Parquet. No generation, re-extraction or Neo4j mutation.'],
+  'POST /api/graph/annotation-inventory/recover': ['Recover interrupted graph analysis', 'Shared ranking/inventory lock is released only after recorded processes are no longer running.'],
   'GET /api/graph/ranking/plan': ['Describe graph ranking', 'Individual and SCC component levels, configured Parquet snapshot and output paths. No re-extraction.'],
   'GET /api/graph/ranking/preflight': ['Check graph ranking readiness', 'Checks Python dependencies, snapshot files and managed-operation conflicts. Publication performs full Neo4j snapshot validation.'],
   'GET /api/graph/ranking/status': ['Read ranking progress', 'Persistent run state, latest progress and summary by runId; omitted runId selects active or latest run.'],
@@ -131,6 +139,14 @@ const BODY_SCHEMA_BY_KEY = {
 };
 
 const QUERY_PARAMETERS = {
+  '/api/graph/annotation-inventory/status': [['runId', 'string', false, 'Inventory UUID; defaults to latest inventory.']],
+  '/api/graph/annotation-inventory/subjects': [
+    ['runId', 'string', false, 'Completed inventory UUID; defaults to latest inventory.'],
+    ['stableId', 'string', false, 'Exact entity stable ID.'],
+    ['mode', 'string', false, 'standalone, inline, reference or unresolved.'],
+    ['limit', 'integer', false, 'Page size 1..200; default 50.'],
+    ['offset', 'integer', false, 'Nonnegative offset; default 0.'],
+  ],
   '/api/graph/ranking/status': [['runId', 'string', false, 'Ranking run UUID; defaults to active or latest run.']],
   '/api/status/gateway': [['tailLog', 'boolean', false, 'Include the current extraction log tail.']],
   '/api/status/repro-monitor': [['tailLines', 'integer', false, 'Number of recent log lines, from 1 to 100.']],
@@ -293,7 +309,7 @@ function openApiOperation(operation) {
       content: { 'application/json': { schema: { $ref: `#/components/schemas/${operation.bodySchema}` } } },
     } : undefined,
     responses: {
-      ...(operation.path.startsWith('/api/graph/ranking/') ? {
+      ...(['/api/graph/ranking/', '/api/graph/annotation-inventory/'].some(prefix => operation.path.startsWith(prefix)) ? {
         202: { description: 'Asynchronous job accepted; poll status with returned runId.' },
         409: { description: 'Operation conflict or prerequisites not satisfied.' },
       } : {}),

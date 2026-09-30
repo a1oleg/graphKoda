@@ -18727,22 +18727,18 @@ class FunctionFlowGraphBuilder {
 
   private buildThrowStatement(statement: ts.ThrowStatement, incomingExits: PendingExit[], environment: BuildEnvironment): BuildResult {
     const throwTextRaw = statement.getText(this.sourceFile);
-    const throwSources: PendingThrowExit[] = (incomingExits.length
-      ? incomingExits
-      : this.buildInitialPendingExits())
-      .map((exit) => ({ ...exit, actionTextRaw: throwTextRaw }));
-
-    if (environment.hasLocalCatch) {
-      return {
-        openExits: [],
-        pendingBreaks: [],
-        pendingContinues: [],
-        pendingThrows: [...throwSources],
-      };
-    }
+    const incoming = incomingExits.length ? incomingExits : this.buildInitialPendingExits();
+    const value = this.materializeExpressionValue(statement.expression, incoming);
+    const throwId = this.createNode('Action', 'throw', statement, {
+      labels: ['Throw', 'Action'], actionTextRaw: throwTextRaw,
+    }, getExtendedStableId(this.sourceFile, statement));
+    this.connectPendingToNode(value.pending, throwId);
+    const throwSources: PendingThrowExit[] = [{
+      ...this.createPendingExit(undefined, throwId, 'NEXT'), actionTextRaw: throwTextRaw,
+    }];
 
     return {
-      firstNodeId: undefined,
+      firstNodeId: value.firstNodeId || throwId,
       openExits: [],
       pendingBreaks: [],
       pendingContinues: [],

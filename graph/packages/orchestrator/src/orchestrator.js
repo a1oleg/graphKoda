@@ -2,6 +2,7 @@
 
 import neo4j from 'neo4j-driver';
 import { getRankingPlan, getRankingPreflight, getRankingStatus, isRankingActive, startRanking, persistRanking, recoverRanking, withRankingExclusion } from './orchestrator/graphRanking.js';
+import { getAnnotationInventoryPlan, getAnnotationInventoryPreflight, getAnnotationInventoryStatus, getAnnotationInventorySubjects, startAnnotationInventory } from './orchestrator/graphRanking.js';
 import { executeAnnotationGraphql, sharedSchemaSDL } from './orchestrator/annotationGraphql.js';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -1639,6 +1640,22 @@ async function handleGet(requestUrl, response, context) {
     sendJson(response, 200, { ok: true, plan: getRankingPlan() });
     return;
   }
+  if (pathname === '/api/graph/annotation-inventory/plan') {
+    sendJson(response, 200, { ok: true, plan: getAnnotationInventoryPlan() });
+    return;
+  }
+  if (pathname === '/api/graph/annotation-inventory/preflight') {
+    sendJson(response, 200, await getAnnotationInventoryPreflight());
+    return;
+  }
+  if (pathname === '/api/graph/annotation-inventory/status') {
+    sendJson(response, 200, getAnnotationInventoryStatus(searchParams.get('runId')));
+    return;
+  }
+  if (pathname === '/api/graph/annotation-inventory/subjects') {
+    sendJson(response, 200, await getAnnotationInventorySubjects(Object.fromEntries(searchParams)));
+    return;
+  }
   if (pathname === '/api/graph/ranking/preflight') {
     sendJson(response, 200, await getRankingPreflight());
     return;
@@ -1761,6 +1778,16 @@ async function handlePost(requestUrl, request, response, context) {
   if (pathname === '/api/graph/ranking/run') {
     const result = await startRanking();
     sendJson(response, result.ok ? 202 : 409, result);
+    return;
+  }
+  if (pathname === '/api/graph/annotation-inventory/run') {
+    const result = await startAnnotationInventory();
+    sendJson(response, result.ok ? 202 : 409, result);
+    return;
+  }
+  if (pathname === '/api/graph/annotation-inventory/recover') {
+    const result = recoverRanking();
+    sendJson(response, result.ok ? 200 : 409, result);
     return;
   }
   if (pathname === '/api/graph/ranking/recover') {

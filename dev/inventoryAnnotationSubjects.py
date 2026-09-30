@@ -3,6 +3,8 @@ import argparse
 import json
 from pathlib import Path
 import time
+import subprocess
+import sys
 
 import duckdb
 
@@ -56,12 +58,25 @@ def main():
         UNION SELECT r.from_id,r.to_id,r.rel_type FROM rels r
         JOIN nodes a ON a.stable_id=r.from_id JOIN nodes b ON b.stable_id=r.to_id
         WHERE r.rel_type IN ('RESOLVES_TO','RESOLVES_TO_MEMBER','PROXY_OF','ALIASES') AND r.from_id<>r.to_id''')
+    db.execute('''CREATE TABLE body_evidence AS
+        SELECT DISTINCT r.from_id AS stable_id,r.to_id AS target,r.rel_type AS evidence
+        FROM rels r JOIN nodes a ON a.stable_id=r.from_id JOIN nodes b ON b.stable_id=r.to_id
+        WHERE r.from_id<>r.to_id AND (r.rel_type IN ('HAS_OPERATION','HAS_FLOW_BLOCK','RETURNS_VALUE')
+          OR (r.rel_type='AST_CHILD' AND (json_extract_string(r.props_json,'$.field')='body'
+            OR json_extract_string(r.props_json,'$.projection')='nearest-function-operation')))
+        UNION SELECT r.to_id,r.from_id,'ENCLOSED_BY:lexical-function-owner'
+        FROM rels r JOIN nodes a ON a.stable_id=r.from_id JOIN nodes b ON b.stable_id=r.to_id
+        WHERE r.from_id<>r.to_id AND r.rel_type='ENCLOSED_BY'
+          AND json_extract_string(r.props_json,'$.resolution')='lexical-function-owner' ''')
     db.execute('''CREATE TABLE facts AS SELECT n.*,
         coalesce(o.targets,[]::VARCHAR[]) AS owners,
         coalesce(o.evidence,[]::VARCHAR[]) AS owner_evidence,
         coalesce(r.targets,[]::VARCHAR[]) AS originals,
         coalesce(r.evidence,[]::VARCHAR[]) AS original_evidence,
-        coalesce(s.body_count,0) AS body_count, coalesce(s.member_count,0) AS member_count,
+        coalesce(b.body_count,0) AS body_count,
+        coalesce(b.targets,[]::VARCHAR[]) AS body_targets,
+        coalesce(b.evidence,[]::VARCHAR[]) AS body_evidence,
+        coalesce(s.member_count,0) AS member_count,
         coalesce(s.ast_count,0) AS ast_count,
         list_has_any(n.labels,['VisualProxy','PresentationOnly']) AS visual,
         list_has_any(n.labels,['Declaration','FunctionImplementation','TypeDeclaration']) OR
@@ -73,9 +88,10 @@ def main():
             list(DISTINCT evidence ORDER BY evidence) AS evidence FROM owner_evidence GROUP BY stable_id) o USING(stable_id)
         LEFT JOIN (SELECT stable_id,list(DISTINCT target ORDER BY target) AS targets,
             list(DISTINCT evidence ORDER BY evidence) AS evidence FROM reference_evidence GROUP BY stable_id) r USING(stable_id)
+        LEFT JOIN (SELECT stable_id,count(DISTINCT target) AS body_count,
+            list(DISTINCT target ORDER BY target) AS targets,
+            list(DISTINCT evidence ORDER BY evidence) AS evidence FROM body_evidence GROUP BY stable_id) b USING(stable_id)
         LEFT JOIN (SELECT from_id AS stable_id,
-            count(*) FILTER(WHERE rel_type IN ('HAS_OPERATION','HAS_FLOW_BLOCK','RETURNS_VALUE')
-                OR (rel_type='AST_CHILD' AND json_extract_string(props_json,'$.field')='body')) AS body_count,
             count(*) FILTER(WHERE rel_type IN ('HAS_MEMBER','HAS_PROPERTY')) AS member_count,
             count(*) FILTER(WHERE rel_type='AST_CHILD') AS ast_count
             FROM rels GROUP BY from_id) s USING(stable_id)''')
@@ -119,7 +135,7 @@ def main():
              ELSE 'developer-context' END AS context_kind FROM classified''')
     dest = str(args.output / 'subjects.parquet').replace("'", "''")
     db.execute(f'''COPY (SELECT stable_id,labels,name,file,declaration_kind,annotation_kind,
-        mode,reason,context_kind,owners,owner_evidence,originals,original_evidence,body_count,member_count,ast_count
+        mode,reason,context_kind,owners,owner_evidence,originals,original_evidence,body_count,body_targets,body_evidence,member_count,ast_count
         FROM candidates ORDER BY stable_id) TO '{dest}' (FORMAT PARQUET, COMPRESSION ZSTD)''')
     counts = dict(db.execute('SELECT mode,count(*) FROM candidates GROUP BY mode ORDER BY mode').fetchall())
     assert sum(counts.values()) == count
@@ -129,12 +145,12 @@ def main():
     reasons = []
     for reason, mode, size in db.execute('SELECT reason,mode,count(*) FROM candidates GROUP BY reason,mode ORDER BY count(*) DESC').fetchall():
         rows = db.execute('''SELECT stable_id,name,file,labels,declaration_kind,owners,originals,
-            body_count,member_count,ast_count,substring(syntax,1,500) AS syntax
+            body_count,body_targets,body_evidence,member_count,ast_count,substring(syntax,1,500) AS syntax
             FROM candidates WHERE reason=? ORDER BY stable_id LIMIT 4''', [reason])
         names = [d[0] for d in rows.description]
         reasons.append({'reason': reason, 'mode': mode, 'count': size,
                         'examples': [dict(zip(names,row)) for row in rows.fetchall()]})
-    report = {'version':3,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
+    report = {'version':4,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
         'writesGraph':False,'generationQueueCertified':False,'existingAnnotationFreshnessChecked':False,
         'input':str(args.parquet.resolve()),'provenanceIds':[r[0] for r in db.execute('SELECT DISTINCT provenance_id FROM nodes').fetchall()],
         'nodes':count,'counts':counts,'reasons':reasons,
@@ -147,8 +163,14 @@ def main():
             'Existing annotation availability and freshness have not been subtracted.'],
         'elapsedSeconds':round(time.perf_counter()-start,3)}
     (args.output/'summary.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
-    print(json.dumps({k:v for k,v in report.items() if k!='reasons'},ensure_ascii=False),flush=True)
     db.close()
+    subprocess.run([sys.executable, str(Path(__file__).with_name('auditUnconfirmedCallableBodies.py')),
+        '--report', str(args.output)], check=True)
+    body_audit = json.loads((args.output/'body-audit.json').read_text(encoding='utf-8'))
+    report['bodyAudit'] = {k:v for k,v in body_audit.items() if k!='subjects'}
+    report['elapsedSeconds'] = round(time.perf_counter()-start,3)
+    (args.output/'summary.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+    print(json.dumps({k:v for k,v in report.items() if k!='reasons'},ensure_ascii=False),flush=True)
 
 
 if __name__=='__main__':

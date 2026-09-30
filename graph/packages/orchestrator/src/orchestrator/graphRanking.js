@@ -24,6 +24,41 @@ export function getRankingPlan() {
     generatesAnnotations: false, reextracts: false, annotationProfilesCertified: false,
     publication: 'Explicit POST /api/graph/ranking/persist; local Neo4j only; complete snapshot must match.' };
 }
+export function getAnnotationInventoryPlan() {
+  return { version: 4, parquet, outputRoot: root,
+    modes: ['standalone', 'inline', 'reference', 'unresolved'],
+    generatesAnnotations: false, writesGraph: false, generationQueueCertified: false,
+    evidence: 'Explicit body, ownership and reference edges with existing endpoints; all alternatives retained.',
+    result: 'summary.json and subjects.parquet; paginated /api/graph/annotation-inventory/subjects',
+    exclusion: 'Shares the ranking lock; cannot overlap managed extraction or graph mutations.' };
+}
+export async function getAnnotationInventoryPreflight() {
+  return { ...await getRankingPreflight(), plan: getAnnotationInventoryPlan() };
+}
+export function getAnnotationInventoryStatus(runId) {
+  const latestPath = path.join(root, 'latest-inventory.json');
+  const id = runId || (fs.existsSync(latestPath) ? JSON.parse(fs.readFileSync(latestPath, 'utf8')).runId : null);
+  const run = id ? readRun(id) : null;
+  if (run && run.operation !== 'annotation-inventory') throw new Error('Invalid request: not an annotation inventory run');
+  return { ok: true, running: run?.status === 'running' && active?.runId === id,
+    recoveryRequired: run?.status === 'running' && active?.runId !== id,
+    run, plan: getAnnotationInventoryPlan() };
+}
+export async function getAnnotationInventorySubjects({ runId, stableId, mode, limit = '50', offset = '0' }) {
+  const { run } = getAnnotationInventoryStatus(runId);
+  if (!run || run.status !== 'complete') throw new Error('Invalid request: completed inventory required');
+  if (mode && !getAnnotationInventoryPlan().modes.includes(mode)) throw new Error('Invalid request: unknown inventory mode');
+  if (!/^\d+$/.test(String(limit)) || Number(limit) < 1 || Number(limit) > 200 ||
+      !/^\d+$/.test(String(offset)) || !Number.isSafeInteger(Number(offset))) throw new Error('Invalid request: invalid pagination');
+  const args = [path.join(paths.toolRoot, 'dev', 'readAnnotationSubjects.py'), '--report', runPath(run.runId),
+    '--limit', String(limit), '--offset', String(offset)];
+  if (stableId) args.push('--stable-id', stableId);
+  if (mode) args.push('--mode', mode);
+  const { stdout } = await promisify(execFile)(resolvePythonExecutable(), args, {
+    cwd: paths.toolRoot, windowsHide: true, timeout: 30000, maxBuffer: 16 * 1024 * 1024,
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
+  return { ok: true, runId: run.runId, ...JSON.parse(stdout) };
+}
 function runPath(id) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id || '')) throw new Error('Valid ranking runId required');
   return path.join(root, id);
@@ -77,7 +112,7 @@ function launch(run, python, script, args) {
   fs.writeFileSync(fd, JSON.stringify({ runId: run.runId, orchestratorPid: process.pid }));
   fs.closeSync(fd);
   active = run;
-  fs.writeFileSync(path.join(root, 'latest.json'), JSON.stringify({ runId: run.runId }));
+  fs.writeFileSync(path.join(root, run.operation === 'annotation-inventory' ? 'latest-inventory.json' : 'latest.json'), JSON.stringify({ runId: run.runId }));
   run.status = 'running'; run.startedAt = new Date().toISOString();
   save(run);
   run.logPath = path.join(runPath(run.runId), `${run.operation}.log`);
@@ -108,9 +143,9 @@ function launch(run, python, script, args) {
     run.exitCode = code; run.error = spawnError || (code === 0 ? null : stderrTail || `Worker exited: ${code}`);
     run.completedAt = new Date().toISOString();
     try {
-      if (run.operation === 'calculate' && run.status === 'complete') {
+      if (['calculate', 'annotation-inventory'].includes(run.operation) && run.status === 'complete') {
         run.summary = JSON.parse(fs.readFileSync(path.join(runPath(run.runId), 'summary.json'), 'utf8'));
-        run.calculationComplete = true;
+        run.calculationComplete = run.operation === 'calculate';
       }
     } catch (error) { run.status = 'failed'; run.error = error.message; }
     save(run); active = null; fs.unlinkSync(lockPath);
@@ -123,6 +158,15 @@ export async function startRanking() {
   const run = { runId: crypto.randomUUID(), operation: 'calculate', calculationComplete: false };
   fs.mkdirSync(runPath(run.runId), { recursive: true });
   return launch(run, preflight.python, 'globalGraphDependencyLevels.py', ['--parquet', parquet, '--output', runPath(run.runId)]);
+}
+export async function startAnnotationInventory() {
+  const preflight = await getAnnotationInventoryPreflight();
+  if (!preflight.ready || isRankingActive() || graphMutations > 0 || getExtractStatus().running) {
+    return { ok: false, error: 'Annotation inventory preflight failed', preflight };
+  }
+  const run = { runId: crypto.randomUUID(), operation: 'annotation-inventory' };
+  fs.mkdirSync(runPath(run.runId), { recursive: true });
+  return launch(run, preflight.python, 'inventoryAnnotationSubjects.py', ['--parquet', parquet, '--output', runPath(run.runId)]);
 }
 export function persistRanking(runId) {
   if (isRankingActive() || graphMutations > 0 || getExtractStatus().running) return { ok: false, error: 'Graph operation already running' };
