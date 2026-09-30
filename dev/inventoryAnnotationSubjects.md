@@ -128,6 +128,16 @@ only Step removes internal containment instead of producing `NESTED_IN` self
 edges. Existing snapshots still report those errors until re-extracted; the
 annotation planner does not repair or conceal them.
 
+FlowBlock occurrence IDs now use the same local-function context as Step IDs.
+The ownership regression also extracts GiftCraftModal's component, effect
+callback and nested update callback, then checks their combined block IDs and
+owners. Structural occurrences from different extraction contexts must not merge
+into one block with multiple `NESTED_IN` parents. This is an extractor change;
+old snapshot conflicts are intentionally retained until re-extraction.
+The whole-component extraction also verifies contextual `for` entry/update
+links. Those links must use the ID returned by `createNode`, not the raw source
+coordinate, when the loop is expanded in another function's context.
+
 ```
 python dev/inventoryAnnotationSubjects.py --parquet <snapshot> --output <report>
 python dev/inventoryAnnotationSubjects.integration.py --report <report>

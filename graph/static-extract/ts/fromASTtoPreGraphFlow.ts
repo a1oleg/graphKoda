@@ -598,7 +598,10 @@ function compositionTargetFacet(kind: RenderPartDescriptor['kind']) {
   return 'value';
 }
 
-function attachSyntaxCompositionGraph(payload: GraphExtractedPayload) {
+export function attachSyntaxCompositionGraph(
+  payload: GraphExtractedPayload,
+  canonicalEntities?: ReadonlyMap<string, CanonicalEntity>,
+) {
   const entityById = new Map((payload.semanticEntities || []).map((entity) => [entity.stableId, entity]));
   const relationshipByKey = new Map((payload.semanticRelationships || []).map((relationship) => [
     `${relationship.fromId}\u0000${relationship.type}\u0000${relationship.toId}`,
@@ -617,7 +620,7 @@ function attachSyntaxCompositionGraph(payload: GraphExtractedPayload) {
     const rawOwnerStableId = getStableIdKey(owner.stableId);
     const ownerCoordinates = sourceCoordinatesFromStableId(rawOwnerStableId);
     const ownerStableId = ownerCoordinates?.canonicalStableId || rawOwnerStableId;
-    const existingOwner = entityById.get(ownerStableId);
+    const existingOwner = entityById.get(ownerStableId) || canonicalEntities?.get(ownerStableId);
     const ownerLabels = uniqueStrings([
       ...(existingOwner?.labels || []),
       'SyntaxComposition',
@@ -648,7 +651,7 @@ function attachSyntaxCompositionGraph(payload: GraphExtractedPayload) {
         : undefined;
       const partStableId = partCoordinates?.canonicalStableId;
       if (!partStableId || partStableId === ownerStableId) return;
-      const existing = entityById.get(partStableId);
+      const existing = entityById.get(partStableId) || canonicalEntities?.get(partStableId);
       const labels = uniqueStrings([
         ...(existing?.labels || []),
         'CodeEntity',
@@ -4326,6 +4329,13 @@ class FunctionFlowGraphBuilder {
       return stableId;
     }
     return `${stableId}:horizontal-owner-${sanitizeSyntheticExternalPart(this.fnStableId)}`;
+  }
+
+  private contextualizeStructuralStableId(stableId: string) {
+    const localFunctionStableId = this.localFunctionContexts.at(-1)?.stableId;
+    return localFunctionStableId
+      ? `${stableId}:local-function-${sanitizeSyntheticExternalPart(localFunctionStableId)}`
+      : stableId;
   }
 
   private incomingHasHorizontalOwner(incomingExits: PendingExit[]) {
@@ -14428,7 +14438,9 @@ class FunctionFlowGraphBuilder {
     const parentFlowBlockStableId = this.resolveFlowBlockStableId(
       this.flowBlockContexts.at(-1)?.stableId,
     );
-    const stableId = `flow-block:${role}:${outcome.toLowerCase()}:${getExtendedStableId(this.sourceFile, anchor)}`;
+    const stableId = this.contextualizeStructuralStableId(
+      `flow-block:${role}:${outcome.toLowerCase()}:${getExtendedStableId(this.sourceFile, anchor)}`,
+    );
     const flowBlockOrder = this.flowBlockOrdinal;
     this.flowBlockOrdinal += 1;
 
@@ -14549,7 +14561,6 @@ class FunctionFlowGraphBuilder {
     kind: Kind,
     stableRole: Kind | 'loop' = kind,
   ): FlowStepContext & { kind: Kind } {
-    const localFunctionStableId = this.localFunctionContexts.at(-1)?.stableId;
     const baseStableId = `flow-step:${stableRole}:${getExtendedStableId(this.sourceFile, anchor)}`;
     const syntaxPlan = this.syntaxRegionPlanByNode.get(anchor) || {
       depth: 0,
@@ -14558,9 +14569,7 @@ class FunctionFlowGraphBuilder {
     };
     const syntaxBoundary = this.syntaxBoundaryForAnchor(anchor);
     const context: FlowStepContext & { kind: Kind } = {
-      stableId: localFunctionStableId
-        ? `${baseStableId}:local-function-${sanitizeSyntheticExternalPart(localFunctionStableId)}`
-        : baseStableId,
+      stableId: this.contextualizeStructuralStableId(baseStableId),
       kind,
       order: this.flowStepOrdinal,
       syntaxEntryStableId: syntaxBoundary.entryStableId,
@@ -18918,15 +18927,15 @@ class FunctionFlowGraphBuilder {
   private buildForStatement(statement: ts.ForStatement, incomingExits: PendingExit[], environment: BuildEnvironment): BuildResult {
     const entry = this.runInFlowStep(statement, 'execution', () => {
       const id = `${getExtendedStableId(this.sourceFile, statement)}:for`;
-      this.createNode('Action', 'for', statement, {
+      const entryId = this.createNode('Action', 'for', statement, {
         labels: ['System', 'Keyword', 'For', 'Method'], diaName: 'for',
         renderPartsLayout: 'single', renderPrimaryPartIndex: 0,
         renderPartsJson: JSON.stringify([{ stableId: id, text: 'for', kind: 'method',
           labels: ['System', 'Keyword', 'Method'], sourceStableId: getExtendedStableId(this.sourceFile, statement), order: 0 }]),
       }, id);
-      this.registerFirstNode(id, incomingExits);
-      this.connectPendingToNode(incomingExits, id);
-      return id;
+      this.registerFirstNode(entryId, incomingExits);
+      this.connectPendingToNode(incomingExits, entryId);
+      return entryId;
     });
     const entries = [this.createPendingExit(undefined, entry, 'NEXT')];
     const result = this.runInFlowBlock(statement, 'side', 'NEXT', [entry], entries,
@@ -18991,7 +19000,7 @@ class FunctionFlowGraphBuilder {
               const id = getExtendedStableId(this.sourceFile, update);
               const sourceStableId = getExtendedStableId(this.sourceFile, update.operand);
               const valueSlotStableId = this.bindingNodeStableIdForExpression(update.operand);
-              this.createNode('Action', 'update', update, {
+              const updateId = this.createNode('Action', 'update', update, {
                 labels: ['ValueWrite', 'Assignment'], diaName: update.operand.getText(this.sourceFile),
                 valueSlotStableId, operationSubjectText: update.operand.getText(this.sourceFile),
                 containerMethodKind: operator, renderPartsLayout: 'container-overlay', renderPrimaryPartIndex: 0,
@@ -19002,8 +19011,8 @@ class FunctionFlowGraphBuilder {
                     labels: ['System', 'Method', 'ContainerMethod'], sourceStableId: id, order: 1 },
                 ] satisfies RenderPartDescriptor[]),
               }, id);
-              this.connectPendingToNode(updateIncoming, id);
-              return { ...buildEmptyResult(), firstNodeId: id, openExits: [this.createPendingExit(undefined, id, 'NEXT')] };
+              this.connectPendingToNode(updateIncoming, updateId);
+              return { ...buildEmptyResult(), firstNodeId: updateId, openExits: [this.createPendingExit(undefined, updateId, 'NEXT')] };
             }
             return this.materializeLinearStatement(header, updateIncoming);
           });
@@ -20070,6 +20079,7 @@ export function createFunctionFlowExtractionContext(program: ts.Program, metadat
         : measure('parameter-origins', () => collectParameterOriginFacts(program, stableIdByDeclaration));
     },
     completeCanonicalReferenceGraph,
+    canonicalEntityById: new Map(completeCanonicalReferenceGraph?.entities.map(entity => [entity.stableId, entity]) || []),
     get finiteLiteralGraph() {
       return finiteLiteralGraph ??= measure('literal-domains', () => collectFiniteLiteralDomainGraph(program));
     },
@@ -20286,7 +20296,7 @@ function collectFunctionFlowArtifacts(
       semanticRelationshipKeys.add(key);
     }
     attachImmediateStepOperationGraph(finalPayload);
-    attachSyntaxCompositionGraph(finalPayload);
+    attachSyntaxCompositionGraph(finalPayload, context.canonicalEntityById);
   }
   return finalPayload;
 }
@@ -20624,7 +20634,10 @@ function createArtifactWriter(auditIdentities = false, sink?: ArtifactSink): Art
   }
 }
 
-function writeFunctionFlowArtifacts(program: ts.Program, writer: ArtifactWriter, metadataOnly = false) {
+export function writeFunctionFlowArtifacts(
+  program: ts.Program, writer: ArtifactWriter, metadataOnly = false,
+  fnStableIds?: ReadonlySet<string>,
+) {
   const checker = program.getTypeChecker();
   const finiteLiteralGraph = metadataOnly ? undefined : collectFiniteLiteralDomainGraph(program);
   const stableIdByDeclaration = buildStableIdByDeclaration(program);
@@ -20667,7 +20680,8 @@ function writeFunctionFlowArtifacts(program: ts.Program, writer: ArtifactWriter,
       }
 
       function visit(node: ts.Node): void {
-        if (isFunctionLikeNode(node) && node.body) {
+        if (isFunctionLikeNode(node) && node.body
+          && (!fnStableIds || fnStableIds.has(getStableId(sourceFile, node)))) {
           const stableId = getStableId(sourceFile, node);
           const stableIdDescriptor = getStableIdDescriptor(sourceFile, node);
           const functionName = getFunctionName(node);
@@ -20716,6 +20730,7 @@ function writeFunctionFlowArtifacts(program: ts.Program, writer: ArtifactWriter,
     }
 
     const canonicalReferenceGraph = collectCanonicalReferenceGraph(program);
+    const canonicalEntityById = new Map(canonicalReferenceGraph.entities.map(entity => [entity.stableId, entity]));
     const operationIds = collectOperationIds(canonicalReferenceGraph.entities);
     for (const entity of canonicalReferenceGraph.entities) writer.writeSemanticEntity(entity);
     for (const relationship of canonicalReferenceGraph.relationships) writer.writeSemanticRelationship(relationship);
@@ -20729,7 +20744,8 @@ function writeFunctionFlowArtifacts(program: ts.Program, writer: ArtifactWriter,
       }
 
       function visit(node: ts.Node): void {
-        if (isFunctionLikeNode(node) && node.body) {
+        if (isFunctionLikeNode(node) && node.body
+          && (!fnStableIds || fnStableIds.has(getStableId(sourceFile, node)))) {
           const stableId = getStableId(sourceFile, node);
           const stableIdDescriptor = getStableIdDescriptor(sourceFile, node);
           const functionName = getFunctionName(node);
@@ -20766,7 +20782,7 @@ function writeFunctionFlowArtifacts(program: ts.Program, writer: ArtifactWriter,
           const storageGraph = buildStorageGraph(result.nodes);
           attachStorageBindings(result.edges, storageGraph.storageBindings);
           attachImmediateStepOperationGraph(result, operationIds);
-          attachSyntaxCompositionGraph(result);
+          attachSyntaxCompositionGraph(result, canonicalEntityById);
           for (const nodeRow of result.nodes) {
             writer.writeNode(nodeRow);
           }

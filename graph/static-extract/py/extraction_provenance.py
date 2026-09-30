@@ -94,15 +94,20 @@ def prepare_scoped_replacement(session, payload, record, fn_stable_id, batch_siz
     scope.update(stable_id for stable_id, row in existing.items() if owned(stable_id, row['props']))
     ignored = {'provenance_id', 'roles', 'flow_labels'}
 
-    def equivalent(props, old):
-        return all(old.get(key) == value for key, value in props.items() if key not in ignored and value is not None)
+    def equivalent(props, old, extra_ignored=()):
+        return all(old.get(key) == value for key, value in props.items()
+                   if key not in ignored and key not in extra_ignored and value is not None)
 
     preserved = set()
+    function_catalog_rows = {id(row) for row in payload.get('functions', [])}
     for row in rows:
         stable_id = row['stableId']
         old = existing.get(stable_id)
         if old and stable_id not in scope:
-            if not equivalent(row['props'], old['props']) or not set(row['labels']).issubset(old['labels']):
+            # A shared catalog Fn carries a call-site name, not a rename of the
+            # canonical definition. Preserve the existing node, including name.
+            catalog_name = id(row) in function_catalog_rows and set(row['labels']) == {'Fn'} and 'Fn' in old['labels']
+            if not equivalent(row['props'], old['props'], ('name',) if catalog_name else ()) or not set(row['labels']).issubset(old['labels']):
                 raise ValueError(f'Shared dependency changed outside scope: {stable_id}; include its owner in a replacement')
             preserved.add(stable_id)
     # Shared-source relationships must not be swept by scoped cleanup.
@@ -116,11 +121,15 @@ def prepare_scoped_replacement(session, payload, record, fn_stable_id, batch_siz
                 shared_edges.append({'source': source, 'target': target, 'kind': kind})
     shared_existing = {}
     for start in range(0, len(shared_edges), batch_size):
-        for item in session.run('''UNWIND $edges AS edge
-            MATCH (a {stableId:edge.source})-[r]->(b {stableId:edge.target})
-            WHERE type(r)=edge.kind
-            RETURN edge.source AS source,edge.target AS target,edge.kind AS kind,properties(r) AS props''',
-                edges=shared_edges[start:start+batch_size]):
+        batch = shared_edges[start:start+batch_size]
+        # Without a universal label index, UNWIND + endpoint MATCH scans nodes
+        # once per edge. Read a candidate batch once, then use exact tuple keys.
+        for item in session.run('''MATCH (a)-[r]->(b)
+            WHERE a.stableId IN $sources AND b.stableId IN $targets AND type(r) IN $kinds
+            RETURN a.stableId AS source,b.stableId AS target,type(r) AS kind,properties(r) AS props''',
+                sources=list({edge['source'] for edge in batch}),
+                targets=list({edge['target'] for edge in batch}),
+                kinds=list({edge['kind'] for edge in batch})):
             shared_existing.setdefault((item['source'], item['target'], item['kind']), []).append(item['props'])
     retained_edges = {}
     for key in edge_keys:

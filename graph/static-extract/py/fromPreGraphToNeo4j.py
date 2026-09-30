@@ -393,25 +393,24 @@ def delete_scoped_annotations(session: Any, fn_stable_id: str) -> int:
     return int(result['deleted']) if result else 0
 
 
+def scoped_replacement_node_ids(session: Any, fn_stable_id: str, incoming_ids: list[str]) -> list[str]:
+    """Coordinates alone do not authorize deletion of nested function bodies."""
+    return [row['id'] for row in session.run('''MATCH (n {source:$source})
+        WHERE n.parentFnStableId=$fn OR n.parent_fn_stable_id=$fn OR n.stableId IN $incoming
+        RETURN n.stableId AS id''',source=SOURCE,fn=fn_stable_id,incoming=incoming_ids)]
+
+
 def clear_scoped_flow(
     session: Any,
     fn_stable_id: str,
     *,
     preserve_annotations: bool = True,
+    replacement_ids: list[str] | None = None,
 ) -> int:
     annotations_deleted = 0
     if not preserve_annotations:
         annotations_deleted = delete_scoped_annotations(session, fn_stable_id)
-    scope_path: str | None = None
-    scope_start_line = scope_start_column = scope_end_line = scope_end_column = None
-    try:
-        scope_path, start_line, start_column, end_line, end_column = fn_stable_id.rsplit(':', 4)
-        scope_start_line = int(start_line)
-        scope_start_column = int(start_column)
-        scope_end_line = int(end_line)
-        scope_end_column = int(end_column)
-    except (TypeError, ValueError):
-        scope_path = None
+    ids = replacement_ids if replacement_ids is not None else scoped_replacement_node_ids(session, fn_stable_id, [])
     session.run(
         '''
         MATCH (:Fn {stableId: $fnStableId})-[rel:HAS_OPERATION]->()
@@ -424,27 +423,11 @@ def clear_scoped_flow(
     session.run(
         '''
         MATCH (n {source: $source})
-        WHERE n.parentFnStableId = $fnStableId
-           OR n.parent_fn_stable_id = $fnStableId
-           OR ($scopePath IS NOT NULL
-             AND n.repoRelativePath = $scopePath
-             AND n.startLine IS NOT NULL
-             AND n.startColumn IS NOT NULL
-             AND n.endLine IS NOT NULL
-             AND n.endColumn IS NOT NULL
-             AND (n.startLine > $scopeStartLine
-               OR (n.startLine = $scopeStartLine AND n.startColumn >= $scopeStartColumn))
-             AND (n.endLine < $scopeEndLine
-               OR (n.endLine = $scopeEndLine AND n.endColumn <= $scopeEndColumn)))
+        WHERE n.stableId IN $ids
         DETACH DELETE n
         ''',
-        fnStableId=fn_stable_id,
         source=SOURCE,
-        scopePath=scope_path,
-        scopeStartLine=scope_start_line,
-        scopeStartColumn=scope_start_column,
-        scopeEndLine=scope_end_line,
-        scopeEndColumn=scope_end_column,
+        ids=ids,
     ).consume()
     return annotations_deleted
 
@@ -862,18 +845,33 @@ def record_import(session: Any, *, fn_stable_id: str | None, counts: dict[str, i
 def replace_scoped_payload(session, payload, args, started):
     provenance = check_scoped_provenance(session, payload, fn_stable_id=args.fn_stable_id if not args.append else None)
     scope = payload.get('_scopedReplacement', {}).get('scopeIds', [])
+    replacement_ids = scoped_replacement_node_ids(session, args.fn_stable_id, scope) if not args.append else []
+    boundary_scope = sorted(set(scope) | set(replacement_ids))
     boundary = [dict(row) for row in session.run('''MATCH (a)-[r]->(b)
-        WHERE b.stableId IN $scope AND NOT a.stableId IN $scope
+        WHERE ((b.stableId IN $scope AND NOT a.stableId IN $scope)
+            OR (a.stableId IN $scope AND NOT b.stableId IN $scope))
           AND a.stableId IS NOT NULL AND type(r)<>'HAS_ANNOTATION'
-        RETURN a.stableId AS fromId,b.stableId AS toId,type(r) AS type,properties(r) AS props''', scope=scope)]
+        RETURN a.stableId AS fromId,b.stableId AS toId,type(r) AS type,properties(r) AS props''', scope=boundary_scope)]
     annotations_deleted = 0
     if not args.append:
-        annotations_deleted = clear_scoped_flow(session, args.fn_stable_id, preserve_annotations=args.preserve_annotations)
+        annotations_deleted = clear_scoped_flow(session, args.fn_stable_id, preserve_annotations=args.preserve_annotations,
+            replacement_ids=replacement_ids)
         clear_replaced_semantic_relationships(session, payload)
     writer = GraphWriter(session, args.batch_size, bulk=False)
     register_provenance(session, [provenance])
     import_payload(writer, payload)
     writer.finish()
+    superseded_ownership = 0
+    ownership_sources = {r['fromId'] for r in boundary if r['type']=='NESTED_IN' and r['fromId'] in replacement_ids}
+    if ownership_sources:
+        owners = {row['id']:row['owner'] for row in session.run('''MATCH (n)
+            WHERE n.stableId IN $ids AND n.parentFlowBlockStableId IS NOT NULL
+            RETURN n.stableId AS id,n.parentFlowBlockStableId AS owner''',ids=list(ownership_sources))}
+        # The replacement's explicit owner supersedes an older boundary relation.
+        retained = [r for r in boundary if not (r['type']=='NESTED_IN' and r['fromId'] in owners
+            and owners[r['fromId']]!=r['toId'])]
+        superseded_ownership = len(boundary)-len(retained)
+        boundary = retained
     if boundary:
         write_edges(session, boundary, bulk=False)
     annotations_restored = restore_scoped_annotations(session, args.fn_stable_id) if args.preserve_annotations else 0
@@ -881,6 +879,7 @@ def replace_scoped_payload(session, payload, args, started):
     record_import(session, fn_stable_id=args.fn_stable_id, counts=dict(writer.counts), elapsed=elapsed, provenance_ids=[provenance['id']])
     return {'ok': True, 'provenancePolicy': payload.get('_scopedReplacement'),
         'boundaryRelationshipsRestored': len(boundary), 'counts': writer.counts,
+        'supersededBoundaryOwnership': superseded_ownership,
         'elapsedSeconds': round(elapsed, 3),
         'writeSeconds': {key: round(value, 3) for key, value in writer.write_seconds.items()},
         'writeBatches': writer.write_batches, 'preserveAnnotations': args.preserve_annotations,
