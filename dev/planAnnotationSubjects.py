@@ -93,6 +93,15 @@ db.execute('''INSERT INTO owner_candidates
       AND json_extract_string(r.props_json,'$.structure_kind')='containment'
     ''')
 # A syntax parent is nearer than its enclosing step. Equal-tier disagreement
+# Explicit AST ancestor projections are fallbacks, never peers of direct owners.
+db.execute('''INSERT INTO owner_candidates
+    SELECT r.from_id,r.to_id,r.rel_type,'nearest-materialized-ast-owner',5
+    FROM rels r JOIN subjects s ON s.stable_id=r.from_id
+    WHERE list_contains(s.labels,'DeclarationContainer') AND r.rel_type='ENCLOSED_BY'
+      AND json_extract_string(r.props_json,'$.resolution')='nearest-materialized-ast-owner'
+    ''')
+
+# A syntax parent is nearer than its enclosing step. Equal-tier disagreement
 # remains a conflict; sorting stable IDs must never resolve ownership.
 db.execute('''CREATE TABLE direct_evidence AS
     SELECT DISTINCT e.*, (t.stable_id IS NOT NULL AND e.target<>e.stable_id
@@ -229,7 +238,7 @@ for status, reason, count in db.execute('''SELECT owner_status,s.reason,count(*)
         ORDER BY p.stable_id LIMIT 3''', [status,reason]).fetchall()
     owner_review.append({'status':status,'reason':reason,'count':count,
         'examples':[{'stableId':i,'candidateOwners':t,'evidence':e} for i,t,e in examples]})
-report = {'version':10,'nodes':summary['nodes'],
+report = {'version':11,'nodes':summary['nodes'],
     'counts':dict(db.execute('SELECT decision,count(*) FROM plan GROUP BY decision ORDER BY decision').fetchall()),
     'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds'],
     'generatesAnnotations':False,'scheduledTasks':0,'requiredGenerationCount':None,

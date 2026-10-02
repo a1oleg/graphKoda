@@ -1239,6 +1239,13 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
 
   function visit(sourceFile: ts.SourceFile, node: ts.Node): void {
     visitedSourceNodes.push(node);
+    // Keep declaration containers so the generic AST pass can express ownership
+    // without treating a rendered identifier tile as the declaration's parent.
+    if (ts.isVariableDeclarationList(node) || ts.isVariableStatement(node)) {
+      emitEntity({ stableId: stableId(node),
+        labels: ['CodeEntity', 'SyntaxPart', 'DeclarationContainer', 'System'],
+        props: { ...sourceProps(node), syntaxKind: ts.SyntaxKind[node.kind] } });
+    }
     if (ts.isTypeAliasDeclaration(node) || ts.isInterfaceDeclaration(node) || ts.isTypeParameterDeclaration(node)) {
       emitDeclaration(node, 'TypeDeclaration');
     } else if (
@@ -1622,6 +1629,33 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
           }
         }
       }
+    }
+  }
+
+  // Project containment only across unmaterialized AST nodes. This is not
+  // execution flow or value provenance; keep the skipped syntax explicit.
+  for (const node of visitedSourceNodes) {
+    if (!ts.isVariableStatement(node) && !ts.isVariableDeclarationList(node)) continue;
+    const childId = stableId(node);
+    let ancestor = node.parent;
+    const skippedSyntaxKinds: string[] = [];
+    while (ancestor) {
+      const ancestorId = ts.isSourceFile(ancestor)
+        ? `source-file:${getRepoRelativePath(ancestor.fileName)}` : stableId(ancestor);
+      if (ts.isSourceFile(ancestor)) {
+        emitEntity({ stableId: ancestorId, labels: ['CodeEntity', 'SourceFile'],
+          props: { ...sourceProps(ancestor), name: getRepoRelativePath(ancestor.fileName),
+            syntaxKind: 'SourceFile' } });
+      }
+      if (ancestorId !== childId && entities.has(ancestorId)) {
+        emitRelationship(childId, ancestorId, 'ENCLOSED_BY', {
+          layer: 'structural', resolution: 'nearest-materialized-ast-owner',
+          skippedSyntaxKinds: JSON.stringify(skippedSyntaxKinds),
+        });
+        break;
+      }
+      skippedSyntaxKinds.push(ts.SyntaxKind[ancestor.kind]);
+      ancestor = ancestor.parent;
     }
   }
 

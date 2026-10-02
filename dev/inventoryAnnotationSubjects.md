@@ -162,6 +162,23 @@ bodies: `required_body_context` remains explicit. No LLM tasks are scheduled.
 These rules currently plan context allocation; they do not certify recursive
 annotation completeness, cache freshness, or minimal generation counts.
 
+Variable declarations retain their actual `VariableDeclarationList` and
+`VariableStatement` containers. The generic AST pass emits
+`AST_CHILD(field=declarations)` and `AST_CHILD(field=declarationList)`; rendered
+identifier tiles are not used as declaration owners. Identical source ranges
+(for example a statement without a semicolon) share a node, without self edges.
+Containers additionally carry `ENCLOSED_BY(resolution=nearest-materialized-ast-owner)`
+to their nearest materialized AST ancestor. Skipped syntax kinds are recorded;
+top-level containers terminate at a `SourceFile` node. These are structural
+projections, not execution edges. Planner v11 accepts them at fallback tier 5,
+after direct AST, Step and Block evidence. Equal-tier conflicts remain errors
+for review. This does not certify all other entities' owner chains.
+Existing snapshots need re-extraction before inventory counts can reflect it.
+`node --import tsx dev/variableDeclarationOwnership.integration.mts` checks all
+tracked declarations of the configured source project against its actual AST.
+`python dev/variableDeclarationScoped.integration.py` checks that a real scoped
+Telegram extraction transports the container edge and retains `VALUE_FROM`.
+
 `node dev/annotationInventoryApi.integration.mjs` exercises real HTTP routes and
 the configured Telegram extraction, checks operation conflicts and pagination,
 and runs the actual ChatAbortController regression checks. No synthetic graph

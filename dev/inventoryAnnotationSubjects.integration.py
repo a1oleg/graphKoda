@@ -90,7 +90,7 @@ for stable_id in [
 assert db.execute("SELECT owner_status FROM plan WHERE stable_id='flow-block:alternative:false:src/components/modals/gift/craft/GiftCraftModal.tsx:790:15:793:9'").fetchone()[0] == 'conflicting-direct-owners'
 assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' AND owner_status<>'unique-direct-owner'").fetchone()[0] == 0
 plan_summary = json.loads((args.report/'annotation-plan.json').read_text(encoding='utf-8'))
-assert plan_summary['version'] == 10
+assert plan_summary['version'] == 11
 for captured, predecessor, original in [
     ('src/api/gramjs/ChatAbortController.ts:20:15:20:30:captured-in:src/api/gramjs/ChatAbortController.ts:22:25:22:65',
      'src/api/gramjs/ChatAbortController.ts:20:15:20:30', 'src/api/gramjs/ChatAbortController.ts:20:15:20:30'),
@@ -117,7 +117,7 @@ if args.previous_report:
           AND json_extract_string(n.props_json,'$.operation_code')='FLOW_JOIN'
           AND json_extract_string(n.props_json,'$.join_kind')='flow'
           AND json_extract_string(n.props_json,'$.synthetic')='true',false)''').fetchone()[0] == 0
-    print('Verified v9/v10 comparison: only explicit synthetic FLOW_JOIN decisions/targets changed.')
+    print('Verified baseline comparison: only explicit synthetic FLOW_JOIN decisions/targets changed.')
 assert db.execute('''SELECT count(*) FROM plan p, unnest(p.immediate_owner_evidence) e(item)
     WHERE item.field='argument-object-property' AND NOT EXISTS (
       SELECT 1 FROM raw_rels direct JOIN raw_rels argument ON argument.to_id=direct.from_id
