@@ -9,7 +9,7 @@ and context targets. Nothing is scheduled or generated.
 
 - `generation-candidate`: confirmed definition, still subject to task demand and freshness.
 - `contract-candidate`: signature without implementation; do not invent a body.
-- `review-callback`: callback implementation; do not assume a separate annotation is needed.
+- `review-callback`: callback implementation whose body is not confirmed.
 - `compose-in-owner`: one explicit owner, retain context there.
 - `review-owner`: several owner candidates; do not pick an arbitrary one.
 - `follow-original`: reuse the original, including bindings to initializer functions.
@@ -157,16 +157,36 @@ snapshot, not subsequent scoped updates in Neo4j.
 A callback can compose into its containing call when a unique direct argument
 parent is confirmed by both `AST_CHILD(field=arguments)` and `HAS_ARGUMENT`,
 with no other incoming functional relations beyond containment. Other callbacks
-remain under review. This does not imply synchronous execution or discard their
+with confirmed bodies remain independent candidates; unconfirmed bodies stay
+under review. This does not imply synchronous execution or discard their
 bodies: `required_body_context` remains explicit. No LLM tasks are scheduled.
 These rules currently plan context allocation; they do not certify recursive
 annotation completeness, cache freshness, or minimal generation counts.
+
+Planner v12 treats callbacks with confirmed body context as independent
+generation candidates when direct callback composition is not proven. Being a
+callback alone is not a reason to block annotation. Callbacks without body
+evidence remain under review, and confirmed direct argument composition keeps
+precedence. `callbackAnnotationPlan.integration.py` compares actual inventories
+and checks that only confirmed callback decisions change and body evidence stays.
+
+`python dev/checkAnnotationOwnerChains.py --report <new-inventory> --baseline <old-inventory> --output <check-dir>`
+compares the baseline's unresolved value declarations with the new plan and
+records complete owner-chain terminals in `declaration-chains.parquet`.
+It also simulates plan context dependencies bottom-up: composed children feed
+their owner, references require originals, and required bodies are prerequisites.
+The check validates endpoints, condenses cycles and verifies component levels.
+Blocked evidence propagates to consumers. This checks the inventory plan;
+production profile dependencies and annotation freshness are not certified.
+It generates no annotations and writes no Neo4j data.
 
 Variable declarations retain their actual `VariableDeclarationList` and
 `VariableStatement` containers. The generic AST pass emits
 `AST_CHILD(field=declarations)` and `AST_CHILD(field=declarationList)`; rendered
 identifier tiles are not used as declaration owners. Identical source ranges
 (for example a statement without a semicolon) share a node, without self edges.
+Catch clauses are declaration containers too: their binding has a direct
+`AST_CHILD(field=variableDeclaration)` parent rather than an inferred mosaic owner.
 Containers additionally carry `ENCLOSED_BY(resolution=nearest-materialized-ast-owner)`
 to their nearest materialized AST ancestor. Skipped syntax kinds are recorded;
 top-level containers terminate at a `SourceFile` node. These are structural

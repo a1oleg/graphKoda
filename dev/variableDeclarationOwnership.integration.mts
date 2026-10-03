@@ -13,11 +13,11 @@ const owners = new Map(graph.relationships.filter(e => e.type === 'ENCLOSED_BY'
 function id(node: ts.Node) {
   return getExtendedStableId(node.getSourceFile(), node);
 }
-let declarations = 0, lists = 0, statements = 0, loopLists = 0, multipleLists = 0, sharedRanges = 0;
+let declarations = 0, lists = 0, statements = 0, loopLists = 0, multipleLists = 0, sharedRanges = 0, catchBindings = 0;
 for (const source of program.getSourceFiles()) {
   if (!isTrackedSourceFile(source)) continue;
   function visit(node: ts.Node) {
-    if (ts.isVariableDeclarationList(node) || ts.isVariableStatement(node)) {
+    if (ts.isVariableDeclarationList(node) || ts.isVariableStatement(node) || ts.isCatchClause(node)) {
       let ancestor = node.parent;
       while (ancestor) {
         const target = ts.isSourceFile(ancestor)
@@ -29,6 +29,12 @@ for (const source of program.getSourceFiles()) {
         ancestor = ancestor.parent;
       }
       assert.ok(ancestor, `Missing AST boundary for ${id(node)}`);
+    }
+    if (ts.isCatchClause(node) && node.variableDeclaration) {
+      assert.ok(entities.get(id(node))?.labels.includes('DeclarationContainer'), id(node));
+      assert.equal(edges.get(`${id(node)}\0${id(node.variableDeclaration)}`)?.props.field,
+        'variableDeclaration', id(node.variableDeclaration));
+      catchBindings++;
     }
     if (ts.isVariableDeclarationList(node)) {
       const listId = id(node);
@@ -62,4 +68,4 @@ for (const start of owners.keys()) {
   }
   assert.ok(entities.has(current), current);
 }
-console.log(JSON.stringify({ ok: true, declarations, lists, statements, loopLists, multipleLists, sharedRanges }));
+console.log(JSON.stringify({ ok: true, declarations, lists, statements, loopLists, multipleLists, sharedRanges, catchBindings }));

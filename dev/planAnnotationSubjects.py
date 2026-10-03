@@ -193,6 +193,8 @@ db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
       WHEN s.reason='no-ownership-or-reference-evidence' AND object_arg.stable_id IS NOT NULL THEN 'review-owner'
       WHEN c.stable_id IS NOT NULL AND
         (s.mode='standalone' OR a.category='body-confirmed-through-entry') THEN 'compose-in-owner'
+      WHEN list_contains(s.labels,'CallbackImplementation') AND s.body_count>0 AND
+        (s.mode='standalone' OR a.category='body-confirmed-through-entry') THEN 'generation-candidate'
       WHEN list_contains(s.labels,'CallbackImplementation') AND
         (s.mode='standalone' OR a.category='body-confirmed-through-entry') THEN 'review-callback'
       WHEN s.mode='standalone' OR a.category='body-confirmed-through-entry' THEN 'generation-candidate'
@@ -238,7 +240,7 @@ for status, reason, count in db.execute('''SELECT owner_status,s.reason,count(*)
         ORDER BY p.stable_id LIMIT 3''', [status,reason]).fetchall()
     owner_review.append({'status':status,'reason':reason,'count':count,
         'examples':[{'stableId':i,'candidateOwners':t,'evidence':e} for i,t,e in examples]})
-report = {'version':11,'nodes':summary['nodes'],
+report = {'version':12,'nodes':summary['nodes'],
     'counts':dict(db.execute('SELECT decision,count(*) FROM plan GROUP BY decision ORDER BY decision').fetchall()),
     'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds'],
     'generatesAnnotations':False,'scheduledTasks':0,'requiredGenerationCount':None,
