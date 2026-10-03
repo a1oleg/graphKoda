@@ -163,6 +163,37 @@ bodies: `required_body_context` remains explicit. No LLM tasks are scheduled.
 These rules currently plan context allocation; they do not certify recursive
 annotation completeness, cache freshness, or minimal generation counts.
 
+Planner v13 adds explicit `COMPOSES_SYNTAX` ownership for `SyntaxPart` nodes as
+a fallback after AST, step and declaration-container evidence. All owners at
+this fallback tier are retained: multiple composition owners remain a conflict.
+Declarations, parameters, value slots and references are excluded: displaying
+an original entity in an expression does not transfer ownership to its caller.
+Composition never overrides a stronger direct owner or schedules generation.
+An edge reversing direct AST containment (`await` owns its call, not the reverse)
+or having reciprocal composition evidence is retained as an invalid owner,
+not promoted to ownership. The ambiguity is not misclassified as code recursion.
+The real-snapshot regression check is `syntaxCompositionOwnership.integration.py`.
+
+Canonical extraction materializes simple declaration names as `DeclarationName`
+syntax parts and emits `AST_CHILD(field=name)` from the declaration. These are
+not new bindings or references: the original declaration keeps its identity and
+type/value edges. Identical source ranges do not create a self-edge, and property
+access expressions are not declaration names. Tests against actual project ASTs:
+`declarationNameOwnership.integration.mts` and `declarationNameScoped.integration.py`.
+
+Inventory v5 excludes `AST_CHILD(field=name)` from `ast_count`. Declaration
+identity remains in the graph, but a type's own name is not evidence of its
+contract structure. This does not remove ownership edges or callable body
+context. `declarationNameInventory.integration.py` compares real snapshots.
+
+Planner v14 recognizes `MATERIALIZES_ARGUMENT` as direct call ownership only
+when its call-execution/actual-argument metadata and the child's
+`sourceCallStableId` agree. The caller must be a materialized `Call`.
+Equal-tier conflicts remain explicit; no source-range or name guessing is used.
+`materializedArgumentOwnership.integration.py` compares two plans from the same
+actual snapshot, checks relation evidence, and preserves generation candidates,
+body prerequisites and capture paths.
+
 Planner v12 treats callbacks with confirmed body context as independent
 generation candidates when direct callback composition is not proven. Being a
 callback alone is not a reason to block annotation. Callbacks without body
@@ -177,6 +208,9 @@ It also simulates plan context dependencies bottom-up: composed children feed
 their owner, references require originals, and required bodies are prerequisites.
 The check validates endpoints, condenses cycles and verifies component levels.
 Blocked evidence propagates to consumers. This checks the inventory plan;
+Report v2 separates direct unresolved/review evidence from inherited-only
+unconfirmed readiness, with reason counts and direct examples. These counts
+are not independent extractor defect counts.
 production profile dependencies and annotation freshness are not certified.
 It generates no annotations and writes no Neo4j data.
 

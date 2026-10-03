@@ -27,7 +27,7 @@ for stable_id, classification in expected.items():
     assert actual == classification, (stable_id, actual, classification)
 assert db.execute("SELECT count(*) FROM subjects WHERE mode='standalone' AND declaration_kind IN ('UnionType','ArrayType','IntersectionType')").fetchone()[0] == 0
 assert db.execute("SELECT count(*) FROM subjects WHERE mode='inline' AND len(owners)=0").fetchone()[0] == 0
-assert summary['version'] == 4
+assert summary['version'] == 5
 assert db.execute('SELECT count(*) FROM subjects WHERE body_count<>len(body_targets)').fetchone()[0] == 0
 body = db.execute('SELECT body_targets,body_evidence FROM subjects WHERE stable_id=?',
     ['src/api/gramjs/ChatAbortController.ts:15:2:18:3']).fetchone()
@@ -90,7 +90,7 @@ for stable_id in [
 assert db.execute("SELECT owner_status FROM plan WHERE stable_id='flow-block:alternative:false:src/components/modals/gift/craft/GiftCraftModal.tsx:790:15:793:9'").fetchone()[0] == 'conflicting-direct-owners'
 assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' AND owner_status<>'unique-direct-owner'").fetchone()[0] == 0
 plan_summary = json.loads((args.report/'annotation-plan.json').read_text(encoding='utf-8'))
-assert plan_summary['version'] == 12
+assert plan_summary['version'] == 14
 for captured, predecessor, original in [
     ('src/api/gramjs/ChatAbortController.ts:20:15:20:30:captured-in:src/api/gramjs/ChatAbortController.ts:22:25:22:65',
      'src/api/gramjs/ChatAbortController.ts:20:15:20:30', 'src/api/gramjs/ChatAbortController.ts:20:15:20:30'),

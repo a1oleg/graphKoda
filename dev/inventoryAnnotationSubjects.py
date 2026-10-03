@@ -93,7 +93,8 @@ def main():
             list(DISTINCT evidence ORDER BY evidence) AS evidence FROM body_evidence GROUP BY stable_id) b USING(stable_id)
         LEFT JOIN (SELECT from_id AS stable_id,
             count(*) FILTER(WHERE rel_type IN ('HAS_MEMBER','HAS_PROPERTY')) AS member_count,
-            count(*) FILTER(WHERE rel_type='AST_CHILD') AS ast_count
+            count(*) FILTER(WHERE rel_type='AST_CHILD'
+                AND coalesce(json_extract_string(props_json,'$.field'),'')<>'name') AS ast_count
             FROM rels GROUP BY from_id) s USING(stable_id)''')
     # Rules produce candidates with a reason, not authoritative new labels.
     db.execute('''CREATE TABLE classified AS SELECT *, CASE
@@ -150,7 +151,8 @@ def main():
         names = [d[0] for d in rows.description]
         reasons.append({'reason': reason, 'mode': mode, 'count': size,
                         'examples': [dict(zip(names,row)) for row in rows.fetchall()]})
-    report = {'version':4,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
+    report = {'version':5,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
+        'astCountPolicy':'AST children excluding declaration names; a name alone is not contract structure.',
         'writesGraph':False,'generationQueueCertified':False,'existingAnnotationFreshnessChecked':False,
         'input':str(args.parquet.resolve()),'provenanceIds':[r[0] for r in db.execute('SELECT DISTINCT provenance_id FROM nodes').fetchall()],
         'nodes':count,'counts':counts,'reasons':reasons,

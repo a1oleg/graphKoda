@@ -416,6 +416,19 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
         canonical: true,
       },
     });
+    const name = (node as ts.NamedDeclaration).name;
+    if (name && !ts.isPropertyAccessExpression(node) && isTrackedSourceFile(node.getSourceFile())
+      && (ts.isIdentifier(name) || ts.isPrivateIdentifier(name)
+        || ts.isStringLiteralLike(name) || ts.isNumericLiteral(name))) {
+      const nameId = stableId(name);
+      if (nameId !== id) {
+        emitEntity({ stableId: nameId, labels: ['CodeEntity', 'SyntaxPart', 'DeclarationName'],
+          props: { ...sourceProps(name), name: name.getText(), syntaxKind: ts.SyntaxKind[name.kind] } });
+        emitRelationship(id, nameId, 'AST_CHILD', {
+          ...syntaxChildDescriptor(node, name, 0), layer: 'syntax',
+        });
+      }
+    }
     return id;
   }
 

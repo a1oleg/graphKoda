@@ -2,6 +2,7 @@
 import argparse
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import duckdb
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -9,7 +10,8 @@ parser.add_argument('--report', type=Path, required=True)
 args = parser.parse_args()
 summary = json.loads((args.report/'summary.json').read_text(encoding='utf-8'))
 audit = json.loads((args.report/'body-audit.json').read_text(encoding='utf-8'))
-db = duckdb.connect()
+spill = TemporaryDirectory(prefix='annotation-subject-plan-')
+db = duckdb.connect(config={'temp_directory': spill.name})
 db.execute("SET memory_limit='1GB'")
 db.execute('SET threads=1')
 db.execute('SET preserve_insertion_order=false')
@@ -63,6 +65,16 @@ db.execute('''INSERT INTO owner_candidates
       AND list_contains(caller.labels,'Call')
     ''')
 db.execute('''INSERT INTO owner_candidates
+    SELECT r.to_id,r.from_id,r.rel_type,'actual-argument',0
+    FROM rels r JOIN raw_nodes child ON child.stable_id=r.to_id
+    JOIN subjects caller ON caller.stable_id=r.from_id
+    WHERE r.rel_type='MATERIALIZES_ARGUMENT' AND r.from_id<>r.to_id
+      AND list_contains(caller.labels,'Call')
+      AND json_extract_string(r.props_json,'$.semantic_expansion')='call-execution'
+      AND json_extract_string(r.props_json,'$.protocol_role')='actual argument'
+      AND json_extract_string(child.props_json,'$.sourceCallStableId')=r.from_id
+    ''')
+db.execute('''INSERT INTO owner_candidates
     SELECT n.stable_id,o.stable_id,'parentStepStableId',NULL,1
     FROM raw_nodes n JOIN subjects o
       ON o.stable_id=json_extract_string(n.props_json,'$.parentStepStableId')
@@ -101,10 +113,36 @@ db.execute('''INSERT INTO owner_candidates
       AND json_extract_string(r.props_json,'$.resolution')='nearest-materialized-ast-owner'
     ''')
 
+# Materialized syntax parts can lack a separate AST parent (operator tokens,
+# for example). Explicit composition is weaker than AST/step ownership; retain
+# every composition owner at the fallback tier so ambiguity stays visible.
+db.execute('''INSERT INTO owner_candidates
+    SELECT r.to_id,r.from_id,r.rel_type,'renderedExpression',6
+    FROM rels r JOIN subjects part ON part.stable_id=r.to_id
+    JOIN subjects owner ON owner.stable_id=r.from_id
+    WHERE r.rel_type='COMPOSES_SYNTAX' AND r.from_id<>r.to_id
+      AND list_contains(part.labels,'SyntaxPart')
+      AND NOT list_has_any(part.labels,['Declaration','FunctionImplementation',
+        'CallableDeclaration','Fn','FnDeclaration','TypeDeclaration','ValueDeclaration',
+        'Parameter','MemberDeclaration','TypeMember','ValueSlot','Reference',
+        'ValueReference','MemberReference','TypeReference','ResourceProxy'])
+      AND part.declaration_kind IS NULL
+      AND json_extract_string(r.props_json,'$.layer')='syntax-composition'
+      AND json_extract_string(r.props_json,'$.field')='renderedExpression'
+    ''')
+
 # A syntax parent is nearer than its enclosing step. Equal-tier disagreement
 # remains a conflict; sorting stable IDs must never resolve ownership.
 db.execute('''CREATE TABLE direct_evidence AS
     SELECT DISTINCT e.*, (t.stable_id IS NOT NULL AND e.target<>e.stable_id
+      AND (e.tier<>6 OR NOT EXISTS (SELECT 1 FROM rels reverse
+        WHERE reverse.from_id=e.stable_id AND reverse.to_id=e.target AND (
+          (reverse.rel_type='AST_CHILD'
+            AND json_extract_string(reverse.props_json,'$.field') IS NOT NULL
+            AND json_extract_string(reverse.props_json,'$.projection') IS NULL)
+          OR (reverse.rel_type='COMPOSES_SYNTAX'
+            AND json_extract_string(reverse.props_json,'$.layer')='syntax-composition'
+            AND json_extract_string(reverse.props_json,'$.field')='renderedExpression'))))
       AND (e.tier<>2 OR list_has_any(t.labels,['Step','Block']))
       AND (NOT list_has_any(s.labels,['FunctionStart','FunctionEnd']) OR e.tier<3
         OR list_has_any(t.labels,['Fn','FnDeclaration','CallableDeclaration']))
@@ -240,7 +278,7 @@ for status, reason, count in db.execute('''SELECT owner_status,s.reason,count(*)
         ORDER BY p.stable_id LIMIT 3''', [status,reason]).fetchall()
     owner_review.append({'status':status,'reason':reason,'count':count,
         'examples':[{'stableId':i,'candidateOwners':t,'evidence':e} for i,t,e in examples]})
-report = {'version':12,'nodes':summary['nodes'],
+report = {'version':14,'nodes':summary['nodes'],
     'counts':dict(db.execute('SELECT decision,count(*) FROM plan GROUP BY decision ORDER BY decision').fetchall()),
     'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds'],
     'generatesAnnotations':False,'scheduledTasks':0,'requiredGenerationCount':None,
@@ -252,3 +290,5 @@ report = {'version':12,'nodes':summary['nodes'],
         'Scoped Neo4j imports do not update this immutable extraction snapshot.']}
 (args.report/'annotation-plan.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(report,ensure_ascii=False))
+db.close()
+spill.cleanup()

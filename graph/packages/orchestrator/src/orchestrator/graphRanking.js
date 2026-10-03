@@ -25,7 +25,8 @@ export function getRankingPlan() {
     publication: 'Explicit POST /api/graph/ranking/persist; local Neo4j only; complete snapshot must match.' };
 }
 export function getAnnotationInventoryPlan() {
-  return { version: 4, parquet, outputRoot: root,
+  return { version: 4, inventoryVersion: 5, parquet, outputRoot: root,
+    astCountPolicy: 'AST children excluding declaration names; names alone do not prove contract structure.',
     modes: ['standalone', 'inline', 'reference', 'unresolved'],
     generatesAnnotations: false, writesGraph: false, generationQueueCertified: false,
     evidence: 'Explicit body, ownership and reference edges with existing endpoints; all alternatives retained.',

@@ -4,6 +4,7 @@ from array import array
 from collections import Counter, deque
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import duckdb
 from globalGraphDependencyLevels import csr, components
@@ -17,7 +18,8 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     summary = json.loads((args.report/'summary.json').read_text(encoding='utf-8'))
-    db = duckdb.connect()
+    spill = TemporaryDirectory(prefix='annotation-owner-chains-')
+    db = duckdb.connect(config={'temp_directory': spill.name})
     db.execute("SET memory_limit='1GB'")
     db.execute('SET threads=1')
     db.execute('SET preserve_insertion_order=false')
@@ -122,9 +124,11 @@ def main():
     remaining = array('I', [0]) * len(sizes)
     levels = array('I', [0]) * len(sizes)
     blocked = bytearray(len(sizes))
+    direct = bytearray(count)
     cyclic = bytearray(size > 1 for size in sizes)
     for i, decision in enumerate(decisions):
         if not boundaries[i] and (decision.startswith('blocked-') or decision.startswith('review-')):
+            direct[i] = 1
             blocked[group[i]] = 1
     component_sources, component_targets = array('I'), array('I')
     for a, b in zip(sources, targets):
@@ -156,11 +160,25 @@ def main():
     states = Counter('blocked-evidence' if blocked[group[i]] else
                      'requires-cyclic-context' if waits_on_cycle[group[i]] else
                      'structurally-traversable' for i in range(count))
+    direct_count = sum(direct)
+    inherited = Counter(decisions[i] for i in range(count)
+                        if blocked[group[i]] and not direct[i])
+    assert direct_count + sum(inherited.values()) == states['blocked-evidence']
+    direct_reasons = db.execute('''SELECT decision,evidence_reason,owner_status,count(*)
+        FROM numbered WHERE NOT file_boundary
+          AND (starts_with(decision,'blocked-') OR starts_with(decision,'review-'))
+        GROUP BY ALL ORDER BY count(*) DESC''').fetchall()
+    examples = db.execute('''SELECT n.stable_id,n.decision,n.evidence_reason,n.owner_status,
+        count(d.consumer) AS immediate_consumers
+        FROM numbered n LEFT JOIN dependency_ids d ON d.prerequisite=n.stable_id
+        WHERE NOT n.file_boundary
+          AND (starts_with(n.decision,'blocked-') OR starts_with(n.decision,'review-'))
+        GROUP BY ALL ORDER BY immediate_consumers DESC,n.stable_id LIMIT 20''').fetchall()
     failures = db.execute('''SELECT kind,terminal_status,terminal_id,count(*) AS total
         FROM comparison WHERE terminal_status NOT IN ('source-file','generation-candidate',
         'contract-candidate','external-boundary','syntax-summary')
         GROUP BY ALL ORDER BY total DESC LIMIT 20''').fetchall()
-    result = {'version': 1, 'baseline': str(args.baseline), 'input': str(args.report),
+    result = {'version': 2, 'baseline': str(args.baseline), 'input': str(args.report),
         'baselineReviewDeclarations': len(cases),
         'decisions': [{'kind': k, 'decision': d, 'count': c} for (k,d),c in sorted(changes.items())],
         'ownerChainTerminals': [{'kind': k, 'status': s, 'count': c} for (k,s),c in sorted(endings.items())],
@@ -168,7 +186,17 @@ def main():
         'bottomUp': {'nodes': count, 'dependencies': len(sources), 'missingEndpoints': missing,
             'components': len(sizes), 'cyclicComponents': sum(cyclic),
             'processedComponents': processed, 'maximumComponentLevel': max(levels),
-            'states': dict(states)},
+            'states': dict(states),
+            'unconfirmedReadiness': {
+                'directNodes': direct_count,
+                'inheritedOnlyNodes': sum(inherited.values()),
+                'inheritedByDecision': dict(inherited),
+                'directReasons': [{'decision': d, 'reason': r, 'ownerStatus': o, 'count': c}
+                                  for d,r,o,c in direct_reasons],
+                'directExamples': [{'stableId': i, 'decision': d, 'reason': r,
+                                    'ownerStatus': o, 'immediateConsumers': c}
+                                   for i,d,r,o,c in examples],
+                'policy': 'Direct means own unresolved/review evidence; inherited-only means a blocked prerequisite. Neither counts independent extraction defects.'}},
         'generatesAnnotations': False, 'writesGraph': False,
         'limitations': ['Simulates the inventory plan, not all production annotation-profile dependencies.',
             'SourceFile is an ownership boundary, not a certified annotation job.',
@@ -176,6 +204,7 @@ def main():
     (args.output/'summary.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps(result, ensure_ascii=False))
     db.close()
+    spill.cleanup()
 
 
 if __name__ == '__main__':
