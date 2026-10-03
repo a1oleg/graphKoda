@@ -1254,9 +1254,11 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     visitedSourceNodes.push(node);
     // Keep declaration containers so the generic AST pass can express ownership
     // without treating a rendered identifier tile as the declaration's parent.
-    if (ts.isVariableDeclarationList(node) || ts.isVariableStatement(node) || ts.isCatchClause(node)) {
+    if (ts.isVariableDeclarationList(node) || ts.isVariableStatement(node) || ts.isCatchClause(node)
+      || ts.isExportAssignment(node)) {
       emitEntity({ stableId: stableId(node),
-        labels: ['CodeEntity', 'SyntaxPart', 'DeclarationContainer', 'System'],
+        labels: ['CodeEntity', 'SyntaxPart', 'DeclarationContainer',
+          ...(ts.isExportAssignment(node) ? [] : ['System'])],
         props: { ...sourceProps(node), syntaxKind: ts.SyntaxKind[node.kind] } });
     }
     if (ts.isTypeAliasDeclaration(node) || ts.isInterfaceDeclaration(node) || ts.isTypeParameterDeclaration(node)) {
@@ -1648,7 +1650,8 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
   // Project containment only across unmaterialized AST nodes. This is not
   // execution flow or value provenance; keep the skipped syntax explicit.
   for (const node of visitedSourceNodes) {
-    if (!ts.isVariableStatement(node) && !ts.isVariableDeclarationList(node) && !ts.isCatchClause(node)) continue;
+    if (!ts.isVariableStatement(node) && !ts.isVariableDeclarationList(node) && !ts.isCatchClause(node)
+      && !ts.isExportAssignment(node)) continue;
     const childId = stableId(node);
     let ancestor = node.parent;
     const skippedSyntaxKinds: string[] = [];

@@ -65,6 +65,7 @@ import {
   type CanonicalEntity,
   type CanonicalRelationship,
 } from './functionFlowDuckdbStage.js';
+import { selectFiniteLiteralDomainContext } from './functionFlowGraph.literalDomainIndex.js';
 import {
   collectFiniteLiteralDomainGraph,
   type FiniteLiteralDomainGraph,
@@ -1019,30 +1020,15 @@ export function scopeCanonicalReferenceGraph(
 
 function attachFiniteLiteralDomainsFromGraph(graph: FiniteLiteralDomainGraph, payload: GraphExtractedPayload) {
   const includedFunctionIds = new Set(payload.functions.map((row) => getStableIdKey(row.stableId)));
-  const occurrences = graph.occurrences.filter((occurrence) => (
-    occurrence.parentFnStableId && includedFunctionIds.has(occurrence.parentFnStableId)
-  ));
-  const occurrenceIds = new Set(occurrences.map((occurrence) => occurrence.stableId));
-  const domainIds = new Set(occurrences.map((occurrence) => occurrence.domainStableId));
-  const memberIds = new Set<string>();
-  for (const relationship of graph.relationships) {
-    if (relationship.type === 'HAS_MEMBER' && domainIds.has(relationship.fromId)) memberIds.add(relationship.toId);
-  }
+  const { occurrences, entities, relationships } = selectFiniteLiteralDomainContext(graph, includedFunctionIds);
 
   payload.semanticEntities = [
     ...(payload.semanticEntities || []),
-    ...graph.entities.filter((entity) => (
-      occurrenceIds.has(entity.stableId)
-      || domainIds.has(entity.stableId)
-      || memberIds.has(entity.stableId)
-    )),
+    ...entities,
   ];
   payload.semanticRelationships = [
     ...(payload.semanticRelationships || []),
-    ...graph.relationships.filter((relationship) => (
-      (relationship.type === 'HAS_MEMBER' && domainIds.has(relationship.fromId))
-      || (relationship.type === 'RESOLVES_TO' && occurrenceIds.has(relationship.fromId))
-    )),
+    ...relationships,
   ];
 
   for (const occurrence of occurrences) {
@@ -20637,18 +20623,29 @@ function createArtifactWriter(auditIdentities = false, sink?: ArtifactSink): Art
 export function writeFunctionFlowArtifacts(
   program: ts.Program, writer: ArtifactWriter, metadataOnly = false,
   fnStableIds?: ReadonlySet<string>,
+  onMetric?: (metric: { operation: string; seconds: number; cpuSeconds: number; rssBytes: number }) => void,
 ) {
-  const checker = program.getTypeChecker();
-  const finiteLiteralGraph = metadataOnly ? undefined : collectFiniteLiteralDomainGraph(program);
-  const stableIdByDeclaration = buildStableIdByDeclaration(program);
-  const uniqueApiMethodTargetsByName = buildUniqueApiMethodTargets(program, stableIdByDeclaration);
-  const uniqueActionTargetsByName = buildUniqueActionTargets(program, stableIdByDeclaration);
-  const uniqueFunctionTargetsByName = buildUniqueFunctionTargets(program, stableIdByDeclaration);
-  const reactStateProvenance = buildReactStateProvenance(program, checker);
-  const accessorIndex = buildAccessorIndex(program, stableIdByDeclaration, getRepoRelativePath);
+  const measure = <T>(operation: string, run: () => T): T => {
+    if (!onMetric) return run();
+    const started = performance.now();
+    const cpu = process.cpuUsage();
+    try { return run(); } finally {
+      const used = process.cpuUsage(cpu);
+      onMetric({ operation, seconds: (performance.now() - started) / 1000,
+        cpuSeconds: (used.user + used.system) / 1e6, rssBytes: process.memoryUsage().rss });
+    }
+  };
+  const checker = measure('checker', () => program.getTypeChecker());
+  const finiteLiteralGraph = metadataOnly ? undefined : measure('literal-domains', () => collectFiniteLiteralDomainGraph(program));
+  const stableIdByDeclaration = measure('declarations', () => buildStableIdByDeclaration(program));
+  const uniqueApiMethodTargetsByName = measure('api-targets', () => buildUniqueApiMethodTargets(program, stableIdByDeclaration));
+  const uniqueActionTargetsByName = measure('action-targets', () => buildUniqueActionTargets(program, stableIdByDeclaration));
+  const uniqueFunctionTargetsByName = measure('function-targets', () => buildUniqueFunctionTargets(program, stableIdByDeclaration));
+  const reactStateProvenance = measure('state-provenance', () => buildReactStateProvenance(program, checker));
+  const accessorIndex = measure('accessors', () => buildAccessorIndex(program, stableIdByDeclaration, getRepoRelativePath));
   const parameterOriginFactsByTarget = new Map<string, ParameterOriginFact[]>();
   if (!metadataOnly) {
-    for (const fact of collectParameterOriginFacts(program, stableIdByDeclaration)) {
+    for (const fact of measure('parameter-origins', () => collectParameterOriginFacts(program, stableIdByDeclaration))) {
       parameterOriginFactsByTarget.set(
         fact.targetFnStableId,
         [...(parameterOriginFactsByTarget.get(fact.targetFnStableId) || []), fact],
@@ -20729,15 +20726,17 @@ export function writeFunctionFlowArtifacts(
       return;
     }
 
-    const canonicalReferenceGraph = collectCanonicalReferenceGraph(program);
+    const canonicalReferenceGraph = measure('canonical-references', () => collectCanonicalReferenceGraph(program));
     const canonicalEntityById = new Map(canonicalReferenceGraph.entities.map(entity => [entity.stableId, entity]));
     const operationIds = collectOperationIds(canonicalReferenceGraph.entities);
-    for (const entity of canonicalReferenceGraph.entities) writer.writeSemanticEntity(entity);
-    for (const relationship of canonicalReferenceGraph.relationships) writer.writeSemanticRelationship(relationship);
+    measure('canonical-and-literal-transport', () => {
+      for (const entity of canonicalReferenceGraph.entities) writer.writeSemanticEntity(entity);
+      for (const relationship of canonicalReferenceGraph.relationships) writer.writeSemanticRelationship(relationship);
+      for (const entity of finiteLiteralGraph?.entities || []) writer.writeSemanticEntity(entity);
+      for (const relationship of finiteLiteralGraph?.relationships || []) writer.writeSemanticRelationship(relationship);
+    });
 
-    for (const entity of finiteLiteralGraph?.entities || []) writer.writeSemanticEntity(entity);
-    for (const relationship of finiteLiteralGraph?.relationships || []) writer.writeSemanticRelationship(relationship);
-
+    measure('function-bodies-and-transport', () => {
     for (const sourceFile of program.getSourceFiles()) {
       if (!isTrackedSourceFile(sourceFile)) {
         continue;
@@ -20805,6 +20804,7 @@ export function writeFunctionFlowArtifacts(
 
       visit(sourceFile);
     }
+    });
 
     // External targets are discovered while function bodies are built, so emit
     // the final registry after that traversal as well. DuckDB canonicalization
@@ -21151,12 +21151,18 @@ async function writeFunctionFlowArtifactsDuckdb(
       stage.addRelationship(kind, normalized as CanonicalRelationship);
     }
   });
+  const extractionMetrics: { operation: string; seconds: number; cpuSeconds: number; rssBytes: number }[] = [];
   try {
     const extractStarted = performance.now();
     reportProgress('extract');
-    writeFunctionFlowArtifacts(program, writer, metadataOnly);
+    const extractCpu = process.cpuUsage();
+    writeFunctionFlowArtifacts(program, writer, metadataOnly, undefined, (metric) => {
+      extractionMetrics.push(metric);
+      process.stderr.write(`[graph:func:extract-metric] ${JSON.stringify(metric)}\n`);
+    });
     writer.close();
     const extractSeconds = Math.round(performance.now() - extractStarted) / 1000;
+    const extractCpuUsed = process.cpuUsage(extractCpu);
     const canonicalizeStarted = performance.now();
     assertExtractionUnchanged(provenance);
     const counts = await stage.finalize();
@@ -21167,6 +21173,9 @@ async function writeFunctionFlowArtifactsDuckdb(
       stageSeconds: Math.round(performance.now() - started) / 1000,
       extractSeconds,
       canonicalizeSeconds,
+      extractionMetrics,
+      extractionCpuSeconds: (extractCpuUsed.user + extractCpuUsed.system) / 1e6,
+      stageMetrics: stage.metrics,
       duckdbPath: path.resolve(stagingPath),
       parquetDir: path.resolve(parquetDir),
       parquetBytes: {

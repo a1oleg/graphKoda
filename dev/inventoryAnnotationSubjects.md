@@ -181,6 +181,14 @@ type/value edges. Identical source ranges do not create a self-edge, and propert
 access expressions are not declaration names. Tests against actual project ASTs:
 `declarationNameOwnership.integration.mts` and `declarationNameScoped.integration.py`.
 
+Export assignments retain their declaration identity and expression `VALUE_FROM`
+edge, including wrapper calls such as `memo(Component)`. They also carry
+`DeclarationContainer` and `ENCLOSED_BY(resolution=nearest-materialized-ast-owner)`
+to their source file. This is containment, not an alias bypassing the wrapper.
+`exportAssignmentOwnership.integration.mts` checks actual project exports,
+expression links when materialized, and call-wrapper identity. Snapshots made
+before this extractor change still lack the ownership evidence until re-imported.
+
 Inventory v5 excludes `AST_CHILD(field=name)` from `ast_count`. Declaration
 identity remains in the graph, but a type's own name is not evidence of its
 contract structure. This does not remove ownership edges or callable body

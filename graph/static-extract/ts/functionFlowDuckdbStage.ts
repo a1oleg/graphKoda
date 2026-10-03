@@ -34,6 +34,8 @@ export type StageProgress = {
   rawRelationships: number;
 };
 
+export type StageMetric = { operation: string; seconds: number; cpuSeconds: number; rssBytes: number };
+
 // This only controls DuckDB appender flushing. Neo4j transaction batching is
 // configured independently by fromPreGraphToNeo4j.py.
 const DUCKDB_APPENDER_FLUSH_ROWS = 50_000;
@@ -47,6 +49,7 @@ function compactJson(value: Record<string, unknown>) {
 }
 
 export class FunctionFlowDuckdbStage {
+  readonly metrics: StageMetric[] = [];
   private ordinal = 0n;
   private pendingEntities = 0;
   private pendingRelationships = 0;
@@ -133,6 +136,18 @@ export class FunctionFlowDuckdbStage {
     });
   }
 
+  private async measured<T>(operation: string, run: () => Promise<T>): Promise<T> {
+    const started = performance.now();
+    const cpu = process.cpuUsage();
+    try { return await run(); } finally {
+      const used = process.cpuUsage(cpu);
+      const metric = { operation, seconds: (performance.now() - started) / 1000,
+        cpuSeconds: (used.user + used.system) / 1e6, rssBytes: process.memoryUsage().rss };
+      this.metrics.push(metric);
+      process.stderr.write(`[graph:func:stage-metric] ${JSON.stringify(metric)}\n`);
+    }
+  }
+
   static async resume(databasePath: string, parquetDir: string, confirmedProvenanceId: string) {
     if (!fs.existsSync(databasePath)) throw new Error('Staging database does not exist.');
     const instance = await DuckDBInstance.create(path.resolve(databasePath), {
@@ -210,7 +225,7 @@ export class FunctionFlowDuckdbStage {
     this.relationshipAppender.closeSync();
 
     this.report('validate');
-    const missing = await this.connection.runAndReadAll(`
+    const missing = await this.measured('validate-endpoints', () => this.connection.runAndReadAll(`
       WITH entity_ids AS (
         SELECT DISTINCT stable_id FROM raw_entities
       ), missing AS (
@@ -227,7 +242,7 @@ export class FunctionFlowDuckdbStage {
       GROUP BY stable_id, endpoint
       ORDER BY reference_count DESC, stable_id
       LIMIT 20
-    `);
+    `));
     const missingRows = missing.getRows();
     if (missingRows.length) {
       const serializedRows = JSON.stringify(
@@ -238,13 +253,14 @@ export class FunctionFlowDuckdbStage {
     }
 
     this.report('canonicalize');
-    await this.connection.run(`
+    await this.measured('duplicate-entity-ids', () => this.connection.run(`
       CREATE TEMP TABLE duplicate_entity_ids AS
       SELECT stable_id
       FROM raw_entities
       GROUP BY stable_id
       HAVING count(*) > 1;
-
+    `));
+    await this.measured('merge-entities', () => this.connection.run(`
       CREATE TEMP TABLE canonical_entities_export AS
       SELECT raw.stable_id, raw.labels, raw.props_json
       FROM raw_entities raw
@@ -259,13 +275,15 @@ export class FunctionFlowDuckdbStage {
       FROM raw_entities raw
       SEMI JOIN duplicate_entity_ids duplicates USING (stable_id)
       GROUP BY raw.stable_id;
-
+    `));
+    await this.measured('duplicate-relationship-signatures', () => this.connection.run(`
       CREATE TEMP TABLE duplicate_relationship_signatures AS
       SELECT signature
       FROM raw_relationships
       GROUP BY signature
       HAVING count(*) > 1;
-
+    `));
+    await this.measured('merge-relationships', () => this.connection.run(`
       CREATE TEMP TABLE canonical_relationships_export AS
       SELECT raw.signature, raw.from_id, raw.to_id, raw.rel_type, raw.props_json
       FROM raw_relationships raw
@@ -282,23 +300,29 @@ export class FunctionFlowDuckdbStage {
       FROM raw_relationships raw
       SEMI JOIN duplicate_relationship_signatures duplicates USING (signature)
       GROUP BY raw.signature;
-
+    `));
+    await this.measured('attach-provenance', () => this.connection.run(`
       ALTER TABLE canonical_entities_export ADD COLUMN provenance_id VARCHAR;
       UPDATE canonical_entities_export SET provenance_id = (SELECT id FROM extraction_provenance);
       ALTER TABLE canonical_relationships_export ADD COLUMN provenance_id VARCHAR;
       UPDATE canonical_relationships_export SET provenance_id = (SELECT id FROM extraction_provenance);
+    `));
+    await this.measured('export-provenance', () => this.connection.run(`
       COPY extraction_provenance
       TO '${sqlPath(path.join(this.parquetDir, 'provenance.parquet'))}'
       (FORMAT PARQUET, COMPRESSION ZSTD);
-
+    `));
+    await this.measured('export-entities', () => this.connection.run(`
       COPY canonical_entities_export
       TO '${sqlPath(path.join(this.parquetDir, 'nodes.parquet'))}'
       (FORMAT PARQUET, COMPRESSION ZSTD);
-
+    `));
+    await this.measured('export-relationships', () => this.connection.run(`
       COPY canonical_relationships_export
       TO '${sqlPath(path.join(this.parquetDir, 'relationships.parquet'))}'
       (FORMAT PARQUET, COMPRESSION ZSTD);
-
+    `));
+    await this.measured('stats-cleanup-checkpoint', () => this.connection.run(`
       CREATE TABLE staging_stats AS
       SELECT * FROM (VALUES
         ('rawEntities', (SELECT count(*) FROM raw_entities)),
@@ -314,7 +338,7 @@ export class FunctionFlowDuckdbStage {
       CREATE VIEW canonical_relationships AS
         SELECT * FROM read_parquet('${sqlPath(path.join(this.parquetDir, 'relationships.parquet'))}');
       CHECKPOINT;
-    `);
+    `));
 
     const result = await this.connection.runAndReadAll('SELECT name, value FROM staging_stats');
     const counts = Object.fromEntries(result.getRows().map(([name, value]) => [String(name), Number(value)])) as StageCounts;
