@@ -230,12 +230,18 @@ def run_scoped_extractor(fn_stable_id: str) -> dict[str, Any]:
 
 
 def run_full_extractor(staging_path: Path, parquet_dir: Path) -> dict[str, Any]:
+    heap_mb = int(os.getenv('GRAPH_FULL_EXTRACTOR_HEAP_MB', '12288'))
+    if heap_mb < 1024:
+        raise ValueError('GRAPH_FULL_EXTRACTOR_HEAP_MB must be at least 1024.')
+    command = extractor_command([
+        '--output-format', 'duckdb',
+        '--staging-path', str(staging_path),
+        '--parquet-dir', str(parquet_dir),
+    ])
+    command.insert(1, f'--max-old-space-size={heap_mb}')
+    print(f'[graph:func:memory] nodeHeapLimitMb={heap_mb}', file=sys.stderr)
     completed = subprocess.run(
-        extractor_command([
-            '--output-format', 'duckdb',
-            '--staging-path', str(staging_path),
-            '--parquet-dir', str(parquet_dir),
-        ]),
+        command,
         cwd=WORKSPACE_DIR,
         check=False,
         stdout=subprocess.PIPE,

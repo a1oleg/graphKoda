@@ -7,7 +7,7 @@ import paths from '../../../../../dev/projectPaths.cjs';
 import { getExtractStatus, resolvePythonExecutable } from './graphExtract.js';
 
 const root = path.join(paths.dataRoot, 'checks', 'graph-ranking');
-const parquet = path.join(paths.dataRoot, 'checks', 'streaming', 'parquet');
+const parquet = path.join(paths.dataRoot, 'cache', 'function-flow-parquet');
 const lockPath = path.join(root, 'active.json');
 let active = null;
 let graphMutations = 0;
@@ -35,7 +35,7 @@ export function getAnnotationInventoryPlan() {
 }
 export function getUnresolvedReferenceAuditPlan() {
   return { version: 2, defaultSnapshot: path.dirname(parquet), outputRoot: root,
-    inputPolicy: 'Existing snapshot and inventory under configured dataRoot/checks; real source identity must match.',
+    inputPolicy: 'Current import catalog or existing check snapshot; real source identity must match.',
     generatesAnnotations: false, writesGraph: false, classificationOnly: true,
     compilerDiagnostics: 'Per-reference semantic diagnostics; checkJs enabled separately when necessary. No extraction options changed.',
     exclusion: 'Shares the ranking/inventory/extraction lock.',
@@ -47,26 +47,28 @@ export function getUnresolvedReferenceAuditPlan() {
 function auditDirectory(value) {
   const directory = fs.realpathSync(path.resolve(value));
   const relative = path.relative(fs.realpathSync(path.join(paths.dataRoot, 'checks')), directory);
-  if (relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative)) {
+  if ((relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative))
+      && directory !== fs.realpathSync(path.dirname(parquet))) {
     throw new Error('Invalid request: audit input must be within configured checks directory');
   }
   return directory;
 }
 export async function getUnresolvedReferenceAuditPreflight({ snapshot, inventoryRunId } = {}) {
-  let input = null, inventory = null, error = null;
+  let input = null, inventory = null, auditParquet = null, error = null;
   try {
     input = auditDirectory(snapshot || path.dirname(parquet));
+    auditParquet = input === fs.realpathSync(path.dirname(parquet)) ? parquet : path.join(input, 'parquet');
     if (inventoryRunId) {
       const { run } = getAnnotationInventoryStatus(inventoryRunId);
       if (run?.status !== 'complete') throw new Error('Invalid request: completed inventory required');
       inventory = auditDirectory(runPath(run.runId));
     } else inventory = auditDirectory(path.join(input, 'inventory'));
     const summary = JSON.parse(fs.readFileSync(path.join(inventory, 'summary.json'), 'utf8'));
-    if (fs.realpathSync(summary.input) !== fs.realpathSync(path.join(input, 'parquet'))) {
+    if (fs.realpathSync(summary.input) !== fs.realpathSync(auditParquet)) {
       throw new Error('Invalid request: inventory belongs to a different snapshot');
     }
     for (const file of ['nodes.parquet', 'relationships.parquet', 'provenance.parquet']) {
-      fs.accessSync(path.join(input, 'parquet', file));
+      fs.accessSync(path.join(auditParquet, file));
     }
     fs.accessSync(path.join(inventory, 'annotation-plan.parquet'));
     await promisify(execFile)(process.execPath, ['--import', 'tsx', '--input-type=module', '-e',
@@ -74,7 +76,7 @@ export async function getUnresolvedReferenceAuditPreflight({ snapshot, inventory
       cwd: paths.toolRoot, windowsHide: true, timeout: 15000 });
   } catch (failure) { error = failure.message; }
   const busy = isRankingActive() || graphMutations > 0 || getExtractStatus().running;
-  return { ok: true, ready: !error && !busy, snapshot: input, inventory, error, busy,
+  return { ok: true, ready: !error && !busy, snapshot: input, parquet: auditParquet, inventory, error, busy,
     plan: getUnresolvedReferenceAuditPlan() };
 }
 export function getUnresolvedReferenceAuditStatus(runId) {
@@ -104,7 +106,7 @@ export async function startUnresolvedReferenceAudit(options = {}) {
   const run = { runId: crypto.randomUUID(), operation: 'unresolved-reference-audit', snapshot: preflight.snapshot };
   fs.mkdirSync(runPath(run.runId), { recursive: true });
   return launch(run, process.execPath, 'auditUnresolvedReferences.mts', [preflight.snapshot,
-    path.join(runPath(run.runId), 'reference-audit.json'), preflight.inventory], true);
+    path.join(runPath(run.runId), 'reference-audit.json'), preflight.inventory, preflight.parquet], true);
 }
 export async function getAnnotationInventoryPreflight() {
   return { ...await getRankingPreflight(), plan: getAnnotationInventoryPlan() };

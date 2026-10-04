@@ -289,3 +289,36 @@ The CLI reuses an existing snapshot and inventory; it does not re-extract or imp
 node --import tsx dev/auditUnresolvedReferences.mts <snapshot> <new-report.json>
 node dev/unresolvedReferenceAuditApi.integration.mjs <actual-audited-snapshot>
 ```
+
+### Global Bottom-Up Simulation
+
+The plan includes `immediate_owner_targets` even for unresolved references.
+`checkAnnotationOwnerChains.py` condenses dependency SCCs and emits per-node
+`bottom-up-levels.parquet` plus wave counts in `summary.json`. A cyclic group
+has one component level; no member is arbitrarily selected as the first one.
+
+An optional `--diagnostic-audit <reference-audit.json>` accepts only matching
+snapshot provenance, confirmed source identity and unbound references with
+compiler diagnostic 2304. Each must have a unique direct owner and no prerequisite.
+These leaves propagate incomplete context to their owners. They are not resolved,
+not classified as system code and not given fabricated annotation text. Other
+blocked or review subjects retain their blocking status.
+
+```text
+python dev/checkAnnotationOwnerChains.py --report <inventory> --baseline <old-inventory> --output <output> --diagnostic-audit <reference-audit.json>
+node dev/runFullAnnotationReadiness.mjs
+node dev/runFullAnnotationReadiness.mjs --catalog-only
+node dev/runFullAnnotationReadiness.mjs --analysis-only
+```
+
+The full-import runner preserves annotations and records import performance,
+then runs inventory, global ranking and unresolved-reference audit. The bottom-up
+simulation is a separate read-only stage and does not certify every production
+annotation profile. Full extraction uses `GRAPH_FULL_EXTRACTOR_HEAP_MB` (12288 by
+default); the Node heap budget is logged separately from DuckDB memory settings.
+`--catalog-only` resumes loading the existing complete extraction without re-extracting.
+Structured provenance fields are JSON-encoded for Neo4j properties, preserving
+completion-check evidence instead of passing unsupported nested maps to Cypher.
+Ranking and inventory API defaults use the importer's current
+`cache/function-flow-parquet`, not a historical `checks/streaming` snapshot.
+The audit receives the same explicit Parquet directory and verifies its provenance.

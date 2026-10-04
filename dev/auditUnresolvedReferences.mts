@@ -7,18 +7,19 @@ import {createProgram, getExtendedStableId} from '../graph/static-extract/ts/fun
 import projectPaths from './projectPaths.cjs';
 import {gitIdentity} from './extractionProvenance.mjs';
 
-const [snapshot, output, inventory = snapshot && path.join(snapshot, 'inventory')] = process.argv.slice(2);
+const [snapshot, output, inventory = snapshot && path.join(snapshot, 'inventory'),
+  parquet = snapshot && path.join(snapshot, 'parquet')] = process.argv.slice(2);
 if (!snapshot) throw new Error('Usage: <snapshot> [new-output-json]');
 const instance = await DuckDBInstance.create(':memory:', {memory_limit: '1GB', threads: '1'});
 const db = await instance.connect();
 try {
   const metadata = JSON.parse(String((await db.runAndReadAll('SELECT metadata_json FROM read_parquet(?)',
-    [path.join(snapshot, 'parquet/provenance.parquet')])).getRows()[0][0]));
+    [path.join(parquet!, 'provenance.parquet')])).getRows()[0][0]));
   const sourceIdentity = gitIdentity(projectPaths.sourceRoot);
   assert.equal(sourceIdentity.commit, metadata.source_revision, 'Source revision differs from extraction');
   assert.equal(sourceIdentity.dirtyFingerprint, metadata.source_dirty_fingerprint, 'Source changes differ from extraction');
   const requested = new Map((await db.runAndReadAll("SELECT n.stable_id,n.props_json FROM read_parquet(?) n JOIN read_parquet(?) p USING(stable_id) WHERE p.decision='blocked-unresolved'",
-    [path.join(snapshot, 'parquet/nodes.parquet'), path.join(inventory!, 'annotation-plan.parquet')])).getRows()
+    [path.join(parquet!, 'nodes.parquet'), path.join(inventory!, 'annotation-plan.parquet')])).getRows()
     .map(([id, raw]) => [String(id), JSON.parse(String(raw))]));
   const program = createProgram(), checker = program.getTypeChecker();
   const records: Array<Record<string, unknown> & {stableId: string; category: string}> = [];
@@ -96,7 +97,7 @@ try {
   records.sort((a, b) => a.stableId.localeCompare(b.stableId));
   const counts: Record<string, number> = {};
   for (const record of records) counts[record.category] = (counts[record.category] || 0) + 1;
-  const report = {version: 2, input: snapshot, provenanceId: metadata.id, sourceIdentity,
+  const report = {version: 2, input: snapshot, parquet, provenanceId: metadata.id, sourceIdentity,
     sourceIdentityConfirmed: true, nodes: records.length, counts,
     compilerOptions: {allowJs: options.allowJs === true, checkJs: options.checkJs === true,
       types: options.types ?? null, strictNullChecks: options.strictNullChecks === true},

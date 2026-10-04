@@ -10,6 +10,11 @@ parser.add_argument('--report', type=Path, required=True)
 parser.add_argument('--previous-report', type=Path)
 args = parser.parse_args()
 summary = json.loads((args.report / 'summary.json').read_text(encoding='utf-8'))
+
+if summary['version'] >= 16:
+    from checkAnnotationInventorySnapshot import verify
+    print(json.dumps(verify(args.report)))
+    raise SystemExit(0)
 db = duckdb.connect()
 db.read_parquet(str(args.report / 'subjects.parquet')).create_view('subjects')
 assert db.execute('SELECT count(*),count(DISTINCT stable_id) FROM subjects').fetchone() == (summary['nodes'], summary['nodes'])

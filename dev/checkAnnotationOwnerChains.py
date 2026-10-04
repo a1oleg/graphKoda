@@ -3,10 +3,13 @@ import argparse
 from array import array
 from collections import Counter, deque
 import json
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import duckdb
+import pyarrow as pa
+import pyarrow.parquet as pq
 from globalGraphDependencyLevels import csr, components
 
 
@@ -15,7 +18,13 @@ def main():
     parser.add_argument('--report', type=Path, required=True)
     parser.add_argument('--baseline', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--diagnostic-audit', type=Path)
     args = parser.parse_args()
+    started = time.perf_counter()
+
+    def progress(phase):
+        print(json.dumps({'phase': phase, 'elapsedSeconds': round(time.perf_counter()-started, 3)}), flush=True)
+
     args.output.mkdir(parents=True, exist_ok=True)
     summary = json.loads((args.report/'summary.json').read_text(encoding='utf-8'))
     spill = TemporaryDirectory(prefix='annotation-owner-chains-')
@@ -44,6 +53,7 @@ def main():
         decisions.append(decision)
         boundaries.append(bool(boundary))
     index = {stable_id: i for i, stable_id in enumerate(ids)}
+    progress('subjects-loaded')
     owner = array('i', [-1]) * count
     for child, target in db.execute('''SELECT idx,context_targets[1] FROM numbered
         WHERE decision IN ('compose-in-owner','follow-original') AND len(context_targets)=1''').fetchall():
@@ -103,25 +113,45 @@ def main():
     # Owners require their composed children's context. References require their
     # originals. Required bodies are prerequisites, not ownership arrows.
     db.execute('''CREATE TABLE dependency_ids AS
-        SELECT target AS consumer,stable_id AS prerequisite FROM plan,unnest(context_targets) t(target)
+        SELECT unnest(context_targets) AS consumer,stable_id AS prerequisite FROM plan
           WHERE decision='compose-in-owner'
         UNION
-        SELECT stable_id,target FROM plan,unnest(context_targets) t(target)
+        SELECT stable_id,unnest(context_targets) FROM plan
           WHERE decision='follow-original'
         UNION
-        SELECT stable_id,target FROM plan,unnest(required_body_context) t(target)''')
+        SELECT stable_id,unnest(required_body_context) FROM plan''')
     if any(row[0]=='required_type_context' for row in db.execute('DESCRIBE plan').fetchall()):
         db.execute('''INSERT INTO dependency_ids
-            SELECT stable_id,target FROM plan,unnest(required_type_context) t(target)
+            SELECT stable_id,unnest(required_type_context) FROM plan
             EXCEPT SELECT consumer,prerequisite FROM dependency_ids''')
     if any(row[0]=='required_value_context' for row in db.execute('DESCRIBE plan').fetchall()):
         db.execute('''INSERT INTO dependency_ids
-            SELECT stable_id,target FROM plan,unnest(required_value_context) t(target)
+            SELECT stable_id,unnest(required_value_context) FROM plan
             EXCEPT SELECT consumer,prerequisite FROM dependency_ids''')
     if any(row[0]=='required_callable_context' for row in db.execute('DESCRIBE plan').fetchall()):
         db.execute('''INSERT INTO dependency_ids
-            SELECT stable_id,target FROM plan,unnest(required_callable_context) t(target)
+            SELECT stable_id,unnest(required_callable_context) FROM plan
             EXCEPT SELECT consumer,prerequisite FROM dependency_ids''')
+    diagnostic_ids = []
+    if args.diagnostic_audit:
+        audit = json.loads(args.diagnostic_audit.read_text(encoding='utf-8'))
+        assert audit.get('sourceIdentityConfirmed') is True
+        assert Path(audit.get('parquet', str(Path(audit['input'])/'parquet'))).resolve() == Path(summary['input']).resolve(), 'Audit snapshot differs'
+        assert summary['provenanceIds'] == [audit['provenanceId']], 'Audit provenance differs'
+        candidates = {record['stableId'] for record in audit['records']
+                      if record['category'] in {'unbound-identifier', 'commonjs-binding-in-es-module'}
+                      and not record.get('declarationIds') and not record.get('aliasTargetDeclarationIds')
+                      and any(item['code'] == 2304 for item in record.get('compilerDiagnostics', []))}
+        for stable_id in sorted(candidates):
+            row = db.execute('''SELECT decision,owner_status,immediate_owner_targets FROM plan
+                                WHERE stable_id=?''', [stable_id]).fetchone()
+            assert row and row[0].startswith('blocked-'), f'Not a blocked reference: {stable_id}'
+            assert row[1] == 'unique-direct-owner' and len(row[2]) == 1, f'No unique owner: {stable_id}'
+            assert db.execute('SELECT count(*) FROM dependency_ids WHERE consumer=?',
+                              [stable_id]).fetchone()[0] == 0, f'Not a leaf: {stable_id}'
+            db.execute('INSERT INTO dependency_ids VALUES (?,?)', [row[2][0], stable_id])
+            diagnostic_ids.append(stable_id)
+    progress('dependencies-built')
     missing = db.execute('''SELECT count(*) FROM dependency_ids d
         LEFT JOIN numbered a ON a.stable_id=d.consumer
         LEFT JOIN numbered b ON b.stable_id=d.prerequisite WHERE a.idx IS NULL OR b.idx IS NULL''').fetchone()[0]
@@ -134,12 +164,18 @@ def main():
             sources.append(a)
             targets.append(b)
     group, sizes = components(count, csr(count, sources, targets), csr(count, targets, sources))
+    progress('components-built')
     remaining = array('I', [0]) * len(sizes)
     levels = array('I', [0]) * len(sizes)
     blocked = bytearray(len(sizes))
     direct = bytearray(count)
+    diagnostic = bytearray(len(sizes))
+    diagnostic_indices = {index[stable_id] for stable_id in diagnostic_ids}
     cyclic = bytearray(size > 1 for size in sizes)
     for i, decision in enumerate(decisions):
+        if i in diagnostic_indices:
+            diagnostic[group[i]] = 1
+            continue
         if not boundaries[i] and (decision.startswith('blocked-') or decision.startswith('review-')
                 or decision.startswith('deferred-')):
             direct[i] = 1
@@ -163,6 +199,7 @@ def main():
         for pos in range(offsets[child], offsets[child+1]):
             parent = neighbors[pos]
             blocked[parent] |= blocked[child]
+            diagnostic[parent] |= diagnostic[child]
             waits_on_cycle[parent] |= waits_on_cycle[child]
             levels[parent] = max(levels[parent], levels[child]+1)
             remaining[parent] -= 1
@@ -171,9 +208,29 @@ def main():
     assert processed == len(sizes)
     assert all(group[a] == group[b] or levels[group[a]] > levels[group[b]]
                for a, b in zip(sources, targets))
-    states = Counter('blocked-evidence' if blocked[group[i]] else
-                     'requires-cyclic-context' if waits_on_cycle[group[i]] else
-                     'structurally-traversable' for i in range(count))
+    def node_state(i):
+        return ('blocked-evidence' if blocked[group[i]] else
+                'cyclic-context-with-diagnostics' if diagnostic[group[i]] and waits_on_cycle[group[i]] else
+                'traversable-with-diagnostics' if diagnostic[group[i]] else
+                'requires-cyclic-context' if waits_on_cycle[group[i]] else
+                'structurally-traversable')
+
+    states = Counter(node_state(i) for i in range(count))
+    waves = {}
+    for i in range(count):
+        waves.setdefault(levels[group[i]], Counter())[node_state(i)] += 1
+    progress('waves-built')
+    schema = pa.schema([('stable_id', pa.string()), ('component', pa.int32()),
+                        ('level', pa.int32()), ('state', pa.string())])
+    with pq.ParquetWriter(args.output/'bottom-up-levels.parquet', schema, compression='zstd') as writer:
+        for start in range(0, count, 100000):
+            end = min(start + 100000, count)
+            writer.write_table(pa.Table.from_arrays([
+                pa.array(ids[start:end], type=pa.string()),
+                pa.array(group[start:end], type=pa.int32()),
+                pa.array([levels[group[i]] for i in range(start, end)], type=pa.int32()),
+                pa.array([node_state(i) for i in range(start, end)], type=pa.string())], schema=schema))
+    progress('levels-saved')
     direct_count = sum(direct)
     inherited = Counter(decisions[i] for i in range(count)
                         if blocked[group[i]] and not direct[i])
@@ -194,7 +251,8 @@ def main():
         FROM comparison WHERE terminal_status NOT IN ('source-file','generation-candidate',
         'contract-candidate','external-boundary','syntax-summary')
         GROUP BY ALL ORDER BY total DESC LIMIT 20''').fetchall()
-    result = {'version': 2, 'baseline': str(args.baseline), 'input': str(args.report),
+    result = {'version': 3, 'baseline': str(args.baseline), 'input': str(args.report),
+        'elapsedSeconds': round(time.perf_counter()-started, 3),
         'baselineReviewDeclarations': len(cases),
         'decisions': [{'kind': k, 'decision': d, 'count': c} for (k,d),c in sorted(changes.items())],
         'ownerChainTerminals': [{'kind': k, 'status': s, 'count': c} for (k,s),c in sorted(endings.items())],
@@ -203,6 +261,12 @@ def main():
             'components': len(sizes), 'cyclicComponents': sum(cyclic),
             'processedComponents': processed, 'maximumComponentLevel': max(levels),
             'states': dict(states),
+            'waves': [{'level': level, 'nodes': sum(counts.values()), 'states': dict(counts)}
+                      for level, counts in sorted(waves.items())],
+            'levelsFile': str(args.output/'bottom-up-levels.parquet'),
+            'diagnostics': {'leaves': diagnostic_ids,
+                            'affectedNodes': sum(bool(diagnostic[group[i]]) for i in range(count)),
+                            'policy': 'Unbound compiler-confirmed leaves propagate incomplete context; they are not resolved or declared system code.'},
             'unconfirmedReadiness': {
                 'directNodes': direct_count,
                 'inheritedOnlyNodes': sum(inherited.values()),

@@ -354,6 +354,7 @@ db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
       WHEN s.mode='inline' OR list_contains(s.labels,'CallbackImplementation') THEN coalesce(d.targets,s.owners)
       ELSE []::VARCHAR[] END AS context_targets,
     d.evidence AS immediate_owner_evidence,
+    coalesce(d.targets,[]::VARCHAR[]) AS immediate_owner_targets,
     capture.original AS capture_original,
     capture.capture_path AS capture_path,
     CASE WHEN d.invalid_target THEN 'invalid-direct-owner-target'
@@ -427,7 +428,7 @@ for status, reason, count in db.execute('''SELECT owner_status,s.reason,count(*)
         ORDER BY p.stable_id LIMIT 3''', [status,reason]).fetchall()
     owner_review.append({'status':status,'reason':reason,'count':count,
         'examples':[{'stableId':i,'candidateOwners':t,'evidence':e} for i,t,e in examples]})
-report = {'version':41,'nodes':summary['nodes'],
+report = {'version':42,'nodes':summary['nodes'],
     'counts':dict(db.execute('SELECT decision,count(*) FROM plan GROUP BY decision ORDER BY decision').fetchall()),
     'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds'],
     'generatesAnnotations':False,'scheduledTasks':0,'requiredGenerationCount':None,

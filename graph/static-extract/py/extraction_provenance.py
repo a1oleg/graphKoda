@@ -1,3 +1,4 @@
+import json
 import re
 
 
@@ -16,7 +17,10 @@ def validate_provenance(record):
 
 
 def register_provenance(session, records):
-    records = [validate_provenance(record) for record in records]
+    records = [{key: json.dumps(value, ensure_ascii=False, sort_keys=True)
+                if isinstance(value, dict) or (isinstance(value, list)
+                    and any(isinstance(item, (dict, list)) for item in value)) else value
+                for key, value in validate_provenance(record).items()} for record in records]
     session.run('''UNWIND $records AS record
         MERGE (p:ExtractionProvenance {id:record.id})
         ON CREATE SET p += record''', records=records).consume()
