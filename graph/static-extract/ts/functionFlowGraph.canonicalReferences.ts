@@ -1408,10 +1408,11 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       field: 'expression', order: 0, layer: 'syntax',
     });
     // Return-field resolution also visits bodies outside the requested scope.
-    // Preserve their concrete statement owner without claiming full body coverage.
+    // Only out-of-scope statements need early ownership. Tracked statements get
+    // their nearest owner in the final AST pass, after containers are materialized.
     let ancestor = node.parent;
     const skippedSyntaxKinds: string[] = [];
-    while (ancestor) {
+    while (!isTrackedSourceFile(node.getSourceFile()) && ancestor) {
       const ancestorId = ancestor === owner ? ownerId : stableId(ancestor);
       if (entities.has(ancestorId)) {
         emitRelationship(returnId, ancestorId, 'ENCLOSED_BY', {

@@ -1,6 +1,6 @@
 import ts from 'typescript';
 
-type FlowNodeKind = 'Eval' | 'Branch' | 'ArgBranch' | 'FieldBranch' | 'OperandBranch' | 'Loop' | 'Iteration' | 'Switch' | 'Case' | 'Action' | 'Read' | 'Call' | 'Op' | 'Value' | 'DataJoin' | 'Arg' | 'ArgJoin' | 'Object' | 'ObjectBrace' | 'Field' | 'FieldJoin' | 'FlowJoin' | 'BreakStop' | 'ThrowStop' | 'Return' | 'FunctionEnd';
+type FlowNodeKind = 'Eval' | 'Branch' | 'ArgBranch' | 'FieldBranch' | 'OperandBranch' | 'OperandJoin' | 'Loop' | 'Iteration' | 'Switch' | 'Case' | 'Action' | 'Read' | 'Call' | 'Op' | 'Value' | 'DataJoin' | 'Arg' | 'ArgJoin' | 'Object' | 'ObjectBrace' | 'Field' | 'FieldJoin' | 'FlowJoin' | 'BreakStop' | 'ThrowStop' | 'Return' | 'FunctionEnd';
 
 type FlowNodeRowSubset = {
   stableId?: string;
@@ -115,6 +115,13 @@ export function buildOperationFields(
     return {
       operationCode: 'FLOW_JOIN',
       operationSubjectText: extra.label,
+    };
+  }
+
+  if (kind === 'OperandJoin') {
+    return {
+      ...buildOperationFields('Action', node, sourceFile, extra, checker, deps),
+      operationCode: 'OPERAND_JOIN',
     };
   }
 

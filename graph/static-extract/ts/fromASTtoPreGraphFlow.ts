@@ -4962,7 +4962,7 @@ class FunctionFlowGraphBuilder {
             kind: 'punctuation',
             labels: ['Object', 'Open', 'Punctuation'],
             order: 2,
-            sourceStableId: getExtendedStableId(this.sourceFile, compactExplicitObjectMember),
+            sourceStableId: getExtendedStableId(compactExplicitObjectMember.getSourceFile(), compactExplicitObjectMember),
           },
           ...this.typeMemberRenderParts(compactExplicitObjectMember, `${baseStableId}:object-field`)
             .map((part, index) => ({ ...part, order: index + 3 })),
@@ -4972,7 +4972,7 @@ class FunctionFlowGraphBuilder {
             kind: 'punctuation',
             labels: ['Object', 'Close', 'Punctuation'],
             order: 6,
-            sourceStableId: getExtendedStableId(this.sourceFile, compactExplicitObjectMember),
+            sourceStableId: getExtendedStableId(compactExplicitObjectMember.getSourceFile(), compactExplicitObjectMember),
           },
           {
             stableId: `${baseStableId}:typed-as-close`,
