@@ -75,6 +75,9 @@ def main():
         SELECT DISTINCT r.from_id AS stable_id,r.to_id AS target,r.rel_type AS evidence
         FROM rels r JOIN nodes a ON a.stable_id=r.from_id JOIN nodes b ON b.stable_id=r.to_id
         WHERE r.from_id<>r.to_id AND (r.rel_type IN ('HAS_OPERATION','HAS_FLOW_BLOCK','RETURNS_VALUE')
+          OR (r.rel_type='HAS_TERMINAL'
+            AND json_extract_string(r.props_json,'$.ownership')='direct-terminal-scope'
+            AND list_has_any(a.labels,['Fn','FunctionImplementation','CallableDeclaration']))
           OR (r.rel_type='AST_CHILD' AND (json_extract_string(r.props_json,'$.field')='body'
             OR json_extract_string(r.props_json,'$.projection')='nearest-function-operation')))
         UNION SELECT r.to_id,r.from_id,'ENCLOSED_BY:lexical-function-owner'
@@ -117,6 +120,9 @@ def main():
     db.execute('''CREATE TABLE classified AS SELECT *, CASE
         WHEN visual AND len(owners)>0 THEN 'presentation-owned'
         WHEN visual THEN 'presentation-without-owner'
+        WHEN list_contains(labels,'ExecutionOccurrence')
+          AND list_contains(original_evidence,'PROXY_OF') AND len(originals)=1
+          THEN 'resolved-source-occurrence'
         WHEN external_boundary THEN 'external-boundary-catalog'
         WHEN list_has_any(labels,['ReExport','MergedSymbol']) AND len(originals)>0
           THEN 'resolved-declaration-reference'
@@ -151,7 +157,7 @@ def main():
         ELSE 'no-ownership-or-reference-evidence' END AS reason FROM facts''')
     db.execute('''CREATE TABLE candidates AS SELECT *, CASE
         WHEN reason IN ('callable-with-body','declared-contract-with-structure') THEN 'standalone'
-        WHEN reason IN ('resolved-reference','resolved-alias','resolved-declaration-reference','external-boundary-catalog') THEN 'reference'
+        WHEN reason IN ('resolved-reference','resolved-alias','resolved-declaration-reference','resolved-source-occurrence','external-boundary-catalog') THEN 'reference'
         WHEN reason IN ('presentation-owned','owned-step-or-block','owned-parameter-or-member',
             'owned-value-declaration','owned-operation-or-syntax','owned-system-syntax','owned-type-expression','owned-generic-use','dynamic-member-needs-receiver') THEN 'inline'
         ELSE 'unresolved' END AS mode,
@@ -175,7 +181,7 @@ def main():
         names = [d[0] for d in rows.description]
         reasons.append({'reason': reason, 'mode': mode, 'count': size,
                         'examples': [dict(zip(names,row)) for row in rows.fetchall()]})
-    report = {'version':6,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
+    report = {'version':8,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
         'astCountPolicy':'AST children excluding declaration names; a name alone is not contract structure.',
         'writesGraph':False,'generationQueueCertified':False,'existingAnnotationFreshnessChecked':False,
         'input':str(args.parquet.resolve()),'provenanceIds':[r[0] for r in db.execute('SELECT DISTINCT provenance_id FROM nodes').fetchall()],

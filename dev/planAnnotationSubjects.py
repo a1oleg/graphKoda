@@ -284,6 +284,7 @@ db.execute('''CREATE TABLE generic_context AS
 db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
     CASE
       WHEN coalesce(a.missing_step,false) THEN 'blocked-missing-step-target'
+      WHEN s.reason='resolved-source-occurrence' THEN 'follow-original'
       WHEN a.category='explicit-external-boundary' OR s.context_kind='external-catalog' THEN 'external-boundary'
       WHEN s.reason='source-file-ownership-boundary' THEN 'syntax-summary'
       WHEN s.reason='source-expansion-required' THEN 'deferred-source-expansion'
@@ -306,11 +307,13 @@ db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
       WHEN s.mode='inline' AND len(d.targets)=1 AND NOT d.invalid_target THEN 'compose-in-owner'
       WHEN s.mode='inline' THEN 'review-owner'
       ELSE 'blocked-unresolved' END AS decision,
-    CASE WHEN capture.stable_id IS NOT NULL THEN 'explicit-capture-chain'
+    CASE WHEN s.reason='resolved-source-occurrence' THEN 'explicit-source-occurrence'
+      WHEN capture.stable_id IS NOT NULL THEN 'explicit-capture-chain'
       WHEN object_arg.stable_id IS NOT NULL AND s.reason='no-ownership-or-reference-evidence' THEN 'explicit-object-argument'
       WHEN c.stable_id IS NOT NULL THEN 'direct-callback-argument'
       ELSE coalesce(a.category,s.reason) END AS evidence_reason,
-    CASE WHEN len(a.targets)>0 THEN a.targets WHEN s.mode='reference' THEN s.originals
+    CASE WHEN s.reason='resolved-source-occurrence' THEN s.originals
+      WHEN len(a.targets)>0 THEN a.targets WHEN s.mode='reference' THEN s.originals
       WHEN capture.stable_id IS NOT NULL THEN capture.targets
       WHEN object_arg.stable_id IS NOT NULL AND s.reason='no-ownership-or-reference-evidence' THEN d.targets
       WHEN s.mode='inline' OR list_contains(s.labels,'CallbackImplementation') THEN coalesce(d.targets,s.owners)
@@ -344,7 +347,7 @@ db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
       FROM rels r JOIN subjects child ON child.stable_id=r.from_id
       JOIN subjects receiver ON receiver.stable_id=r.to_id
       WHERE r.from_id<>r.to_id AND (
-        (list_contains(child.labels,'DynamicMemberAccess') AND r.rel_type='READS_FROM'
+        (list_contains(child.labels,'MemberReference') AND r.rel_type='READS_FROM'
           AND json_extract_string(r.props_json,'$.role')='receiver')
         OR (list_contains(child.labels,'ValueConsumption') AND r.rel_type='CONSUMES_VALUE'
           AND json_extract_string(r.props_json,'$.role') IN ('receiver','index')))
@@ -364,7 +367,7 @@ for status, reason, count in db.execute('''SELECT owner_status,s.reason,count(*)
         ORDER BY p.stable_id LIMIT 3''', [status,reason]).fetchall()
     owner_review.append({'status':status,'reason':reason,'count':count,
         'examples':[{'stableId':i,'candidateOwners':t,'evidence':e} for i,t,e in examples]})
-report = {'version':27,'nodes':summary['nodes'],
+report = {'version':29,'nodes':summary['nodes'],
     'counts':dict(db.execute('SELECT decision,count(*) FROM plan GROUP BY decision ORDER BY decision').fetchall()),
     'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds'],
     'generatesAnnotations':False,'scheduledTasks':0,'requiredGenerationCount':None,

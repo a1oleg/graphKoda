@@ -5697,6 +5697,18 @@ class FunctionFlowGraphBuilder {
       return stableId;
     }
 
+    // Horizontal expansion repeats a concrete AST entity in a caller's layout.
+    // Preserve that source identity instead of treating the copy as a new owner.
+    const sourceNodeStableId = getExtendedStableId(this.sourceFile, node);
+    if (stableId !== sourceNodeStableId && !extra.synthetic
+      && stableId === this.contextualizeHorizontalStableId(sourceNodeStableId, node)) {
+      extra = {
+        ...extra,
+        labels: uniqueStrings([...(extra.labels || []), 'ExecutionOccurrence']),
+        originalStableId: extra.originalStableId || sourceNodeStableId,
+      };
+    }
+
     const stableIdDescriptor = stableId !== rawStableId || stableIdOverride || extra.stableId
       ? buildStableIdDescriptorFromValue(stableId, {
         repoRelativePath: getRepoRelativePath(this.sourceFile.fileName),

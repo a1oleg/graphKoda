@@ -172,7 +172,9 @@ function resolveSymbol(checker: ts.TypeChecker, node: ts.Node) {
   let symbol = checker.getSymbolAtLocation(node);
   if (symbol && (symbol.flags & ts.SymbolFlags.Alias)) {
     try {
-      symbol = checker.getAliasedSymbol(symbol);
+      const target = checker.getAliasedSymbol(symbol);
+      // An unavailable alias target must not erase its concrete local binding.
+      if (target.declarations?.length || target.valueDeclaration) symbol = target;
     } catch {
       // An unresolved alias is still represented by its AliasDeclaration node.
     }
@@ -232,17 +234,21 @@ function isDerivedTypeNode(node: ts.Node): node is ts.TypeNode {
 
 function isOwnershipSyntaxContainer(node: ts.Node) {
   return ts.isVariableDeclarationList(node) || ts.isVariableStatement(node) || ts.isCatchClause(node)
-    || ts.isExportAssignment(node) || ts.isExpressionStatement(node) || ts.isReturnStatement(node)
+    || ts.isExportAssignment(node) || ts.isExpressionStatement(node) || ts.isReturnStatement(node) || ts.isThrowStatement(node)
     || ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || ts.isSatisfiesExpression(node)
     || ts.isTemplateLiteralTypeSpan(node) || ts.isSwitchStatement(node) || ts.isCaseBlock(node)
     || ts.isCaseClause(node) || ts.isDefaultClause(node) || ts.isPropertyAccessExpression(node)
     || ts.isParenthesizedExpression(node) || ts.isTemplateExpression(node)
+    || ts.isArrayLiteralExpression(node) || ts.isSpreadElement(node)
     || ts.isTemplateSpan(node) || ts.isNewExpression(node) || ts.isAwaitExpression(node)
-    || ts.isConditionalExpression(node) || ts.isNonNullExpression(node) || ts.isPrefixUnaryExpression(node)
+    || ts.isWhileStatement(node) || ts.isDoStatement(node) || ts.isForStatement(node)
+    || ts.isForInStatement(node) || ts.isForOfStatement(node)
+    || ts.isConditionalExpression(node) || ts.isNonNullExpression(node)
+    || ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)
     || ts.isJsxElement(node) || ts.isJsxFragment(node) || ts.isJsxExpression(node)
     || ts.isJsxAttributes(node) || ts.isJsxAttribute(node) || ts.isJsxSpreadAttribute(node)
     || (ts.isBinaryExpression(node) && [ts.SyntaxKind.AmpersandAmpersandToken,
-      ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind));
+      ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.CommaToken].includes(node.operatorToken.kind));
 }
 
 function directMemberOwner(node: ts.Declaration): ts.Declaration | undefined {
@@ -444,7 +450,9 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       },
     });
     const name = (node as ts.NamedDeclaration).name;
-    if (name && !ts.isPropertyAccessExpression(node) && isTrackedSourceFile(node.getSourceFile())
+    // Referenced external declarations also own their names. Rendering a field
+    // from a library type must not create an unowned, project-local name tile.
+    if (name && !ts.isPropertyAccessExpression(node)
       && (ts.isIdentifier(name) || ts.isPrivateIdentifier(name)
         || ts.isStringLiteralLike(name) || ts.isNumericLiteral(name))) {
       const nameId = stableId(name);
@@ -564,15 +572,15 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       const dynamic = type.flags & ts.TypeFlags.Any ? 'receiver-any'
         : index ? 'string-index-signature'
         : typeMember ? 'structural-type-member' : undefined;
+      const entity = entities.get(id)!;
+      Object.assign(entity.props, { memberResolution: dynamic || 'unresolved-member', memberName: node.parent.name.text,
+        receiverTypeText: checker.typeToString(type), staticMemberKnown: false,
+        typeMemberKnown: Boolean(typeMember), declarationResolution: 'no-source-declaration' });
+      emitRelationship(id, emitExpressionValue(receiver), 'READS_FROM', {
+        role: 'receiver', layer: 'functional', resolution: dynamic ? 'typescript-dynamic-member' : 'ast-member-receiver',
+      });
       if (dynamic) {
-        const entity = entities.get(id)!;
         entity.labels = [...new Set([...entity.labels, 'DynamicMemberAccess'])];
-        Object.assign(entity.props, { memberResolution: dynamic, memberName: node.parent.name.text,
-          receiverTypeText: checker.typeToString(type), staticMemberKnown: false,
-          typeMemberKnown: Boolean(typeMember), declarationResolution: 'no-source-declaration' });
-        emitRelationship(id, emitExpressionValue(receiver), 'READS_FROM', {
-          role: 'receiver', layer: 'functional', resolution: 'typescript-dynamic-member',
-        });
       }
     }
     for (const declaration of declarations) {
