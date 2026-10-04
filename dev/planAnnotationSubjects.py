@@ -388,7 +388,12 @@ db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
           AND r.rel_type='READS_FROM'
           AND json_extract_string(r.props_json,'$.role')='receiver')
         OR (list_contains(child.labels,'ValueConsumption') AND r.rel_type='CONSUMES_VALUE'
-          AND json_extract_string(r.props_json,'$.role') IN ('receiver','index')))
+          AND json_extract_string(r.props_json,'$.role') IN ('receiver','index'))
+        OR (list_has_all(child.labels,['SyntaxContainer','System']) AND r.rel_type='CONSUMES_VALUE'
+          AND json_extract_string(r.props_json,'$.role')='discarded'
+          AND json_extract_string(r.props_json,'$.resolution')='ast-operand')
+        OR (list_contains(child.labels,'RuntimeThisBinding') AND r.rel_type='BOUND_TO_CONTEXT'
+          AND json_extract_string(r.props_json,'$.resolution')='ast-this-binding'))
       GROUP BY r.from_id) v USING(stable_id)''')
 assert db.execute('SELECT count(*) FROM plan').fetchone()[0] == summary['nodes']
 assert db.execute("SELECT count(*) FROM plan WHERE decision='follow-original' AND len(context_targets)=0").fetchone()[0] == 0
@@ -405,7 +410,7 @@ for status, reason, count in db.execute('''SELECT owner_status,s.reason,count(*)
         ORDER BY p.stable_id LIMIT 3''', [status,reason]).fetchall()
     owner_review.append({'status':status,'reason':reason,'count':count,
         'examples':[{'stableId':i,'candidateOwners':t,'evidence':e} for i,t,e in examples]})
-report = {'version':32,'nodes':summary['nodes'],
+report = {'version':34,'nodes':summary['nodes'],
     'counts':dict(db.execute('SELECT decision,count(*) FROM plan GROUP BY decision ORDER BY decision').fetchall()),
     'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds'],
     'generatesAnnotations':False,'scheduledTasks':0,'requiredGenerationCount':None,

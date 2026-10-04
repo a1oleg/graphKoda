@@ -1,16 +1,34 @@
 import ts from 'typescript';
 
-type ArgumentsOwner = ts.FunctionDeclaration | ts.FunctionExpression | ts.MethodDeclaration
-  | ts.ConstructorDeclaration | ts.GetAccessorDeclaration | ts.SetAccessorDeclaration;
-
 export type RuntimeIntrinsic = {
-  kind: 'arguments' | 'global-this';
+  kind: 'arguments' | 'global-this' | 'this';
   symbolFlags: number;
-  owner?: ArgumentsOwner;
+  owner?: ts.Declaration;
+  bindingMode?: string;
   typeDeclarations?: ts.Declaration[];
 };
 
 export function classifyRuntimeIntrinsic(program: ts.Program, node: ts.Node): RuntimeIntrinsic | undefined {
+  if (node.kind === ts.SyntaxKind.ThisKeyword) {
+    for (let parent = node.parent; parent; parent = parent.parent) {
+      if (ts.isArrowFunction(parent)) continue;
+      if ((ts.isFunctionDeclaration(parent) || ts.isFunctionExpression(parent) || ts.isMethodDeclaration(parent)
+        || ts.isConstructorDeclaration(parent) || ts.isGetAccessorDeclaration(parent) || ts.isSetAccessorDeclaration(parent))
+        && parent.body) {
+        const parameter = parent.parameters.find(parameter => ts.isIdentifier(parameter.name) && parameter.name.text === 'this');
+        return {kind: 'this', symbolFlags: 0, owner: parameter || parent,
+          bindingMode: parameter ? 'explicit-this-parameter' : 'own-callable-receiver'};
+      }
+      if (ts.isClassDeclaration(parent) || ts.isClassExpression(parent)) {
+        return {kind: 'this', symbolFlags: 0, owner: parent, bindingMode: 'class-initializer-context'};
+      }
+      if (ts.isSourceFile(parent)) {
+        return {kind: 'this', symbolFlags: 0, owner: parent,
+          bindingMode: ts.isExternalModule(parent) ? 'module-undefined' : 'script-runtime-context'};
+      }
+    }
+    return;
+  }
   if (!ts.isIdentifier(node)) return;
   const checker = program.getTypeChecker();
   const symbol = checker.getSymbolAtLocation(node);

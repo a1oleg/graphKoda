@@ -47,6 +47,20 @@ def main():
         WHERE list_contains(member.labels,'MemberReference') AND r.from_id<>r.to_id
           AND r.rel_type='READS_FROM' AND json_extract_string(r.props_json,'$.role')='receiver'
           AND json_extract_string(r.props_json,'$.resolution') IN ('ast-member-receiver','typescript-dynamic-member')''')
+    db.execute('''CREATE TABLE index_consumers AS
+        SELECT r.from_id AS stable_id FROM rels r
+        JOIN raw_nodes n ON n.stable_id=r.from_id JOIN nodes operand ON operand.stable_id=r.to_id
+        WHERE list_contains(n.labels,'ValueConsumption')
+          AND json_extract_string(n.props_json,'$.consumptionKind')='index-access'
+          AND r.rel_type='CONSUMES_VALUE' AND r.from_id<>r.to_id
+          AND json_extract_string(r.props_json,'$.resolution')='ast-operand'
+          AND json_extract_string(r.props_json,'$.role') IN ('receiver','index')
+        GROUP BY r.from_id
+        HAVING count(DISTINCT json_extract_string(r.props_json,'$.role'))=2''')
+    db.execute('''CREATE TABLE this_bindings AS SELECT DISTINCT r.from_id AS stable_id
+        FROM rels r JOIN nodes binding ON binding.stable_id=r.from_id JOIN nodes owner ON owner.stable_id=r.to_id
+        WHERE list_contains(binding.labels,'RuntimeThisBinding') AND r.from_id<>r.to_id
+          AND r.rel_type='BOUND_TO_CONTEXT' AND json_extract_string(r.props_json,'$.resolution')='ast-this-binding' ''')
     # Only explicit ownership/reference evidence; never guess from names or
     # source-coordinate nesting. Preserve all alternatives, not an arbitrary one.
     db.execute('''CREATE TABLE owner_evidence AS
@@ -147,6 +161,8 @@ def main():
         WHEN list_has_any(labels,['ReExport','MergedSymbol']) AND len(originals)>0
           THEN 'resolved-declaration-reference'
         WHEN list_contains(labels,'SourceFile') THEN 'source-file-ownership-boundary'
+        WHEN NOT definition AND len(owners)>0 AND stable_id IN (SELECT stable_id FROM this_bindings)
+            THEN 'runtime-this-needs-context'
         WHEN definition AND source_coverage='declaration-only' AND body_count=0
             AND member_count=0 AND ast_count=0 THEN 'source-expansion-required'
         WHEN list_contains(labels,'GenericUse') AND instantiation_count>0 AND len(owners)>0 THEN 'owned-generic-use'
@@ -160,6 +176,8 @@ def main():
             AND declaration_kind IN ('TypeAliasDeclaration','ClassDeclaration','InterfaceDeclaration','EnumDeclaration')
             AND name IS NOT NULL AND (member_count>0 OR ast_count>0) THEN 'declared-contract-with-structure'
         WHEN reference AND NOT definition AND len(originals)>0 THEN 'resolved-reference'
+        WHEN reference AND NOT definition AND len(originals)=0 AND len(owners)>0
+            AND stable_id IN (SELECT stable_id FROM index_consumers) THEN 'index-access-needs-operands'
         WHEN reference AND NOT definition AND len(owners)>0
             AND stable_id IN (SELECT stable_id FROM member_receivers) THEN 'member-access-needs-receiver'
         WHEN list_contains(labels,'DynamicMemberAccess') AND len(owners)>0 THEN 'dynamic-member-needs-receiver'
@@ -181,7 +199,7 @@ def main():
         WHEN reason IN ('callable-with-body','declared-contract-with-structure') THEN 'standalone'
         WHEN reason IN ('resolved-reference','resolved-alias','resolved-declaration-reference','resolved-source-occurrence','external-boundary-catalog') THEN 'reference'
         WHEN reason IN ('presentation-owned','owned-step-or-block','owned-parameter-or-member',
-            'owned-value-declaration','owned-operation-or-syntax','owned-system-syntax','owned-type-expression','owned-generic-use','dynamic-member-needs-receiver','member-access-needs-receiver') THEN 'inline'
+            'owned-value-declaration','owned-operation-or-syntax','owned-system-syntax','owned-type-expression','owned-generic-use','dynamic-member-needs-receiver','member-access-needs-receiver','index-access-needs-operands','runtime-this-needs-context') THEN 'inline'
         ELSE 'unresolved' END AS mode,
         CASE WHEN external_boundary THEN 'external-catalog'
              WHEN reason='presentation-owned' THEN 'presentation-only'
@@ -203,7 +221,7 @@ def main():
         names = [d[0] for d in rows.description]
         reasons.append({'reason': reason, 'mode': mode, 'count': size,
                         'examples': [dict(zip(names,row)) for row in rows.fetchall()]})
-    report = {'version':10,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
+    report = {'version':12,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
         'astCountPolicy':'AST children excluding declaration names; a name alone is not contract structure.',
         'writesGraph':False,'generationQueueCertified':False,'existingAnnotationFreshnessChecked':False,
         'input':str(args.parquet.resolve()),'provenanceIds':[r[0] for r in db.execute('SELECT DISTINCT provenance_id FROM nodes').fetchall()],

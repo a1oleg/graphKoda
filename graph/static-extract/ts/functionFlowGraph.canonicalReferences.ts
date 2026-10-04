@@ -241,7 +241,7 @@ function isOwnershipSyntaxContainer(node: ts.Node) {
     || ts.isCaseClause(node) || ts.isDefaultClause(node) || ts.isPropertyAccessExpression(node)
     || ts.isParenthesizedExpression(node) || ts.isTemplateExpression(node)
     || ts.isArrayLiteralExpression(node) || ts.isSpreadElement(node)
-    || ts.isTemplateSpan(node) || ts.isNewExpression(node) || ts.isAwaitExpression(node)
+    || ts.isTemplateSpan(node) || ts.isNewExpression(node) || ts.isAwaitExpression(node) || ts.isVoidExpression(node)
     || ts.isWhileStatement(node) || ts.isDoStatement(node) || ts.isForStatement(node)
     || ts.isForInStatement(node) || ts.isForOfStatement(node)
     || ts.isConditionalExpression(node) || ts.isNonNullExpression(node)
@@ -525,7 +525,7 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
   }
 
   function emitReference(node: ts.Node, kind: 'TypeReference' | 'ValueReference' | 'MemberReference') {
-    if (node.kind >= ts.SyntaxKind.FirstKeyword && node.kind <= ts.SyntaxKind.LastKeyword) {
+    if (node.kind !== ts.SyntaxKind.ThisKeyword && node.kind >= ts.SyntaxKind.FirstKeyword && node.kind <= ts.SyntaxKind.LastKeyword) {
       const id = stableId(node);
       emitEntity({ stableId: id, labels: ['CodeEntity', 'SyntaxPart', 'System'],
         props: { ...sourceProps(node), name: node.getText(node.getSourceFile()),
@@ -537,12 +537,15 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       const id = stableId(node);
       const ownerId = intrinsic.owner ? emitDeclaration(intrinsic.owner, 'ValueDeclaration') : undefined;
       emitEntity({ stableId: id, labels: ['CodeEntity', 'SyntaxPart', 'System', 'Value',
-        intrinsic.kind === 'arguments' ? 'RuntimeArguments' : 'RuntimeGlobalObject'],
+        intrinsic.kind === 'arguments' ? 'RuntimeArguments' : intrinsic.kind === 'this' ? 'RuntimeThisBinding' : 'RuntimeGlobalObject'],
         props: { ...sourceProps(node), name: node.getText(node.getSourceFile()),
           runtimeIntrinsic: intrinsic.kind, resolution: 'typescript-intrinsic-runtime',
-          compilerSymbolFlags: intrinsic.symbolFlags, argumentsOwnerStableId: ownerId } });
-      if (ownerId) emitRelationship(id, ownerId, 'READS_ARGUMENTS_OF', {
-        layer: 'functional', resolution: 'lexical-non-arrow-function', contextRole: 'runtime-binding',
+          compilerSymbolFlags: intrinsic.symbolFlags,
+          ...(intrinsic.kind === 'this' ? {thisOwnerStableId: ownerId, thisBindingMode: intrinsic.bindingMode}
+            : {argumentsOwnerStableId: ownerId}) } });
+      if (ownerId) emitRelationship(id, ownerId, intrinsic.kind === 'this' ? 'BOUND_TO_CONTEXT' : 'READS_ARGUMENTS_OF', {
+        layer: 'functional', resolution: intrinsic.kind === 'this' ? 'ast-this-binding' : 'lexical-non-arrow-function',
+        contextRole: 'runtime-binding', ...(intrinsic.bindingMode ? {bindingMode: intrinsic.bindingMode} : {}),
       });
       for (const declaration of intrinsic.typeDeclarations || []) {
         emitRelationship(id, emitDeclaration(declaration, 'TypeDeclaration'), 'HAS_TYPE', {
@@ -1253,16 +1256,17 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       || ts.isSatisfiesExpression(node)
       || ts.isNonNullExpression(node)
     ) node = node.expression;
+    if (node.kind === ts.SyntaxKind.ThisKeyword) return emitReference(node, 'ValueReference');
     if (ts.isObjectLiteralExpression(node)) return emitObjectConstruction(node);
     if (ts.isJsxElement(node)) return emitJsxConstruction(node.openingElement);
     if (ts.isJsxSelfClosingElement(node)) return emitJsxConstruction(node);
     if (ts.isCallExpression(node)) return emitCall(node);
-    if (ts.isAwaitExpression(node)) {
+    if (ts.isAwaitExpression(node) || ts.isVoidExpression(node)) {
       const id = stableId(node);
       emitEntity({ stableId: id, labels: ['CodeEntity', 'SyntaxPart', 'SyntaxContainer', 'System'],
-        props: { ...sourceProps(node), syntaxKind: 'AwaitExpression' } });
+        props: { ...sourceProps(node), syntaxKind: ts.SyntaxKind[node.kind] } });
       emitRelationship(id, emitExpressionValue(node.expression), 'CONSUMES_VALUE', {
-        layer: 'functional', role: 'awaited', resolution: 'ast-operand',
+        layer: 'functional', role: ts.isAwaitExpression(node) ? 'awaited' : 'discarded', resolution: 'ast-operand',
       });
       return id;
     }
@@ -1467,6 +1471,10 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
 
   function visit(sourceFile: ts.SourceFile, node: ts.Node): void {
     visitedSourceNodes.push(node);
+    if (ts.isSourceFile(node)) {
+      emitEntity({ stableId: `source-file:${getRepoRelativePath(node.fileName)}`, labels: ['CodeEntity', 'SourceFile'],
+        props: { ...sourceProps(node), name: getRepoRelativePath(node.fileName), syntaxKind: 'SourceFile' } });
+    }
     // Keep declaration containers so the generic AST pass can express ownership
     // without treating a rendered identifier tile as the declaration's parent.
     if (isOwnershipSyntaxContainer(node)) {
@@ -1697,8 +1705,9 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       if (!(node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
         && ![ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.CommaToken].includes(node.operatorToken.kind)) emitExpressionValue(node);
     }
+    if (node.kind === ts.SyntaxKind.ThisKeyword) emitExpressionValue(node as ts.Expression);
     if (ts.isElementAccessExpression(node)) emitExpressionValue(node);
-    if (ts.isAwaitExpression(node)) emitExpressionValue(node);
+    if (ts.isAwaitExpression(node) || ts.isVoidExpression(node)) emitExpressionValue(node);
 
     if (ts.isJsxAttribute(node) && node.name.text === 'ref' && node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression) {
       emitRuntimeRef(node, node.initializer.expression);
