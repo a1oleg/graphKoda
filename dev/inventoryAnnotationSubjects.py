@@ -13,11 +13,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--parquet', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--memory-limit', default='2GB',
+                        help='DuckDB memory budget; full-project inventories may require more than scoped snapshots.')
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     start = time.perf_counter()
     db = duckdb.connect()
-    db.execute("SET memory_limit='2GB'")
+    db.execute('SET memory_limit=?', [args.memory_limit])
     db.execute('SET threads=1')
     db.execute('SET preserve_insertion_order=false')
     db.read_parquet(str(args.parquet / 'nodes.parquet')).create_view('raw_nodes')
@@ -27,6 +29,7 @@ def main():
         coalesce(json_extract_string(props_json,'$.repoRelativePath'),json_extract_string(props_json,'$.repo_relative_path')) AS file,
         json_extract_string(props_json,'$.declarationKind') AS declaration_kind,
         json_extract_string(props_json,'$.annotationKind') AS annotation_kind,
+        json_extract_string(props_json,'$.sourceCoverage') AS source_coverage,
         coalesce(json_extract_string(props_json,'$.parentStepStableId'),
             json_extract_string(props_json,'$.parentFlowBlockStableId'),
             json_extract_string(props_json,'$.parentLocalFunctionStableId'),
@@ -48,9 +51,13 @@ def main():
         UNION SELECT r.from_id,r.to_id,r.rel_type FROM rels r
         JOIN nodes a ON a.stable_id=r.from_id JOIN nodes b ON b.stable_id=r.to_id
         WHERE r.rel_type IN ('ENCLOSED_BY','NESTED_IN') AND r.from_id<>r.to_id
+        UNION SELECT r.from_id,r.to_id,r.rel_type FROM rels r
+        JOIN nodes a ON a.stable_id=r.from_id JOIN nodes b ON b.stable_id=r.to_id
+        WHERE r.rel_type='PART_OF' AND json_extract_string(r.props_json,'$.ownership')='direct-resource-cell'
+          AND r.from_id<>r.to_id
         UNION SELECT r.to_id,r.from_id,r.rel_type FROM rels r
         JOIN nodes a ON a.stable_id=r.from_id JOIN nodes b ON b.stable_id=r.to_id
-        WHERE r.rel_type IN ('HAS_PARAMETER','HAS_MEMBER','HAS_PROPERTY','COMPOSES_SYNTAX','HAS_OPERATION','HAS_FLOW_BLOCK','AST_CHILD')
+        WHERE r.rel_type IN ('HAS_PARAMETER','HAS_MEMBER','HAS_PROPERTY','COMPOSES_SYNTAX','HAS_OPERATION','HAS_SYNTAX_ENTRY','HAS_FLOW_BLOCK','AST_CHILD','HAS_RESOURCE','HAS_TERMINAL')
           AND r.from_id<>r.to_id''')
     db.execute('''CREATE TABLE reference_evidence AS
         SELECT n.stable_id,o.stable_id AS target,'canonicalStableId' AS evidence
@@ -58,6 +65,12 @@ def main():
         UNION SELECT r.from_id,r.to_id,r.rel_type FROM rels r
         JOIN nodes a ON a.stable_id=r.from_id JOIN nodes b ON b.stable_id=r.to_id
         WHERE r.rel_type IN ('RESOLVES_TO','RESOLVES_TO_MEMBER','PROXY_OF','ALIASES') AND r.from_id<>r.to_id''')
+    db.execute('''INSERT INTO reference_evidence
+        SELECT r.from_id,r.to_id,r.rel_type FROM rels r
+        JOIN nodes a ON a.stable_id=r.from_id JOIN nodes b ON b.stable_id=r.to_id
+        WHERE r.from_id<>r.to_id AND (
+          (r.rel_type='REEXPORTS' AND list_contains(a.labels,'ReExport'))
+          OR (r.rel_type='HAS_DECLARATION_PART' AND list_contains(a.labels,'MergedSymbol')))''')
     db.execute('''CREATE TABLE body_evidence AS
         SELECT DISTINCT r.from_id AS stable_id,r.to_id AS target,r.rel_type AS evidence
         FROM rels r JOIN nodes a ON a.stable_id=r.from_id JOIN nodes b ON b.stable_id=r.to_id
@@ -78,10 +91,11 @@ def main():
         coalesce(b.evidence,[]::VARCHAR[]) AS body_evidence,
         coalesce(s.member_count,0) AS member_count,
         coalesce(s.ast_count,0) AS ast_count,
+        coalesce(g.instantiation_count,0) AS instantiation_count,
         list_has_any(n.labels,['VisualProxy','PresentationOnly']) AS visual,
         list_has_any(n.labels,['Declaration','FunctionImplementation','TypeDeclaration']) OR
             (list_contains(n.labels,'Fn') AND NOT list_contains(n.labels,'Call')) AS definition,
-        list_has_any(n.labels,['Reference','ValueReference','MemberReference','TypeReference','ResourceProxy']) AS reference,
+        list_has_any(n.labels,['Reference','ValueReference','MemberReference','TypeReference','ResourceProxy','LiteralOccurrence','LiteralDomain']) AS reference,
         list_has_any(n.labels,['ExternalBoundary','ExternalDeclaration','SystemProvider']) AS external_boundary
         FROM nodes n LEFT JOIN
         (SELECT stable_id,list(DISTINCT target ORDER BY target) AS targets,
@@ -95,12 +109,21 @@ def main():
             count(*) FILTER(WHERE rel_type IN ('HAS_MEMBER','HAS_PROPERTY')) AS member_count,
             count(*) FILTER(WHERE rel_type='AST_CHILD'
                 AND coalesce(json_extract_string(props_json,'$.field'),'')<>'name') AS ast_count
-            FROM rels GROUP BY from_id) s USING(stable_id)''')
+            FROM rels GROUP BY from_id) s USING(stable_id)
+        LEFT JOIN (SELECT r.from_id AS stable_id,count(*) AS instantiation_count
+            FROM rels r JOIN nodes target ON target.stable_id=r.to_id
+            WHERE r.rel_type='INSTANTIATES' GROUP BY r.from_id) g USING(stable_id)''')
     # Rules produce candidates with a reason, not authoritative new labels.
     db.execute('''CREATE TABLE classified AS SELECT *, CASE
         WHEN visual AND len(owners)>0 THEN 'presentation-owned'
         WHEN visual THEN 'presentation-without-owner'
         WHEN external_boundary THEN 'external-boundary-catalog'
+        WHEN list_has_any(labels,['ReExport','MergedSymbol']) AND len(originals)>0
+          THEN 'resolved-declaration-reference'
+        WHEN list_contains(labels,'SourceFile') THEN 'source-file-ownership-boundary'
+        WHEN definition AND source_coverage='declaration-only' AND body_count=0
+            AND member_count=0 AND ast_count=0 THEN 'source-expansion-required'
+        WHEN list_contains(labels,'GenericUse') AND instantiation_count>0 AND len(owners)>0 THEN 'owned-generic-use'
         WHEN definition AND (list_has_any(labels,['Fn','FunctionImplementation','Component','CallableDeclaration'])
             OR declaration_kind IN ('FunctionDeclaration','FunctionExpression','ArrowFunction','MethodDeclaration','Constructor','GetAccessor','SetAccessor'))
             AND body_count>0 THEN 'callable-with-body'
@@ -111,6 +134,7 @@ def main():
             AND declaration_kind IN ('TypeAliasDeclaration','ClassDeclaration','InterfaceDeclaration','EnumDeclaration')
             AND name IS NOT NULL AND (member_count>0 OR ast_count>0) THEN 'declared-contract-with-structure'
         WHEN reference AND NOT definition AND len(originals)>0 THEN 'resolved-reference'
+        WHEN list_contains(labels,'DynamicMemberAccess') AND len(owners)>0 THEN 'dynamic-member-needs-receiver'
         WHEN list_contains(labels,'System') AND NOT definition AND len(owners)>0 THEN 'owned-system-syntax'
         WHEN reference AND NOT definition THEN 'unresolved-reference'
         WHEN definition AND list_contains(labels,'AliasDeclaration') AND len(originals)>0 THEN 'resolved-alias'
@@ -127,9 +151,9 @@ def main():
         ELSE 'no-ownership-or-reference-evidence' END AS reason FROM facts''')
     db.execute('''CREATE TABLE candidates AS SELECT *, CASE
         WHEN reason IN ('callable-with-body','declared-contract-with-structure') THEN 'standalone'
-        WHEN reason IN ('resolved-reference','resolved-alias','external-boundary-catalog') THEN 'reference'
+        WHEN reason IN ('resolved-reference','resolved-alias','resolved-declaration-reference','external-boundary-catalog') THEN 'reference'
         WHEN reason IN ('presentation-owned','owned-step-or-block','owned-parameter-or-member',
-            'owned-value-declaration','owned-operation-or-syntax','owned-system-syntax','owned-type-expression') THEN 'inline'
+            'owned-value-declaration','owned-operation-or-syntax','owned-system-syntax','owned-type-expression','owned-generic-use','dynamic-member-needs-receiver') THEN 'inline'
         ELSE 'unresolved' END AS mode,
         CASE WHEN external_boundary THEN 'external-catalog'
              WHEN reason='presentation-owned' THEN 'presentation-only'
@@ -151,7 +175,7 @@ def main():
         names = [d[0] for d in rows.description]
         reasons.append({'reason': reason, 'mode': mode, 'count': size,
                         'examples': [dict(zip(names,row)) for row in rows.fetchall()]})
-    report = {'version':5,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
+    report = {'version':6,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
         'astCountPolicy':'AST children excluding declaration names; a name alone is not contract structure.',
         'writesGraph':False,'generationQueueCertified':False,'existingAnnotationFreshnessChecked':False,
         'input':str(args.parquet.resolve()),'provenanceIds':[r[0] for r in db.execute('SELECT DISTINCT provenance_id FROM nodes').fetchall()],
@@ -163,6 +187,7 @@ def main():
             'External boundary is a catalog candidate, not proof that documentation exists.',
             'Direct originals are not recursively deduplicated; candidate count is not generation cost.',
             'Existing annotation availability and freshness have not been subtracted.'],
+        'memoryLimit':args.memory_limit,
         'elapsedSeconds':round(time.perf_counter()-start,3)}
     (args.output/'summary.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     db.close()

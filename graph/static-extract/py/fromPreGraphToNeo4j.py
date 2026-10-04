@@ -908,6 +908,18 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     from function_flow_catalog import FunctionFlowCatalog
+    pipeline_intervals = []
+
+    def timed(phase, operation):
+        phase_started = time.perf_counter()
+        try:
+            return operation()
+        finally:
+            phase_finished = time.perf_counter()
+            pipeline_intervals.append({'operation': phase,
+                'startSeconds': phase_started - started, 'endSeconds': phase_finished - started,
+                'seconds': phase_finished - phase_started})
+
     staging_path = Path(args.staging_path).resolve()
     parquet_dir = Path(args.parquet_dir).resolve()
     clear_timing_used = 'after-extract' if args.catalog_only else args.neo4j_clear_timing
@@ -920,8 +932,9 @@ def main(argv: list[str] | None = None) -> int:
             flush=True,
         )
         with concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix='neo4j-clear') as executor:
-            clear_future = executor.submit(clear_full_database, settings, started, args.preserve_annotations)
-            extract_result = run_full_extractor(staging_path, parquet_dir)
+            clear_future = executor.submit(timed, 'neo4j-clear',
+                lambda: clear_full_database(settings, started, args.preserve_annotations))
+            extract_result = timed('extract-and-stage', lambda: run_full_extractor(staging_path, parquet_dir))
             clear_future.result()
         print(
             f'[graph:func:pipeline] phase=parallel-done elapsedSeconds={time.perf_counter() - started:.3f}',
@@ -929,11 +942,11 @@ def main(argv: list[str] | None = None) -> int:
             flush=True,
         )
     else:
-        extract_result = run_full_extractor(staging_path, parquet_dir)
-    catalog = FunctionFlowCatalog(staging_path, parquet_dir)
+        extract_result = timed('extract-and-stage', lambda: run_full_extractor(staging_path, parquet_dir))
+    catalog = timed('catalog-open', lambda: FunctionFlowCatalog(staging_path, parquet_dir))
     try:
         if args.catalog_only or args.neo4j_clear_timing != 'parallel':
-            clear_full_database(settings, started, args.preserve_annotations)
+            timed('neo4j-clear', lambda: clear_full_database(settings, started, args.preserve_annotations))
         stage_counts = catalog.counts()
         print(
             '[graph:func:pipeline] '
@@ -951,8 +964,8 @@ def main(argv: list[str] | None = None) -> int:
         try:
             with driver.session(database=settings['database']) as session:
                 print('[graph:func:pipeline] phase=neo4j-prepare-start', file=sys.stderr, flush=True)
-                prepare_bulk_import(session)
-                register_provenance(session, catalog.provenance.values())
+                timed('neo4j-prepare', lambda: prepare_bulk_import(session))
+                timed('provenance-register', lambda: register_provenance(session, catalog.provenance.values()))
                 print(
                     f'[graph:func:pipeline] phase=neo4j-prepare-done elapsedSeconds={time.perf_counter() - started:.3f}',
                     file=sys.stderr,
@@ -994,10 +1007,13 @@ def main(argv: list[str] | None = None) -> int:
                     write_seconds[kind] = kind_write_seconds
                     catalog_read_seconds[kind] = kind_read_seconds
                     phase_seconds[kind] = time.perf_counter() - kind_started
+                    pipeline_intervals.append({'operation': f'neo4j-{kind}',
+                        'startSeconds': kind_started - started, 'endSeconds': time.perf_counter() - started,
+                        'seconds': phase_seconds[kind]})
                     write_batches[kind] = batch_count
                 print('[graph:func:pipeline] phase=neo4j-finish-start', file=sys.stderr, flush=True)
-                finish_bulk_import(session)
-                annotations_restored = restore_scoped_annotations(session, None) if args.preserve_annotations else 0
+                timed('neo4j-finish', lambda: finish_bulk_import(session))
+                annotations_restored = timed('annotations-restore', lambda: restore_scoped_annotations(session, None)) if args.preserve_annotations else 0
                 print(
                     f'[graph:func:pipeline] phase=neo4j-finish-done elapsedSeconds={time.perf_counter() - started:.3f}',
                     file=sys.stderr,
@@ -1013,6 +1029,9 @@ def main(argv: list[str] | None = None) -> int:
             'ok': True,
             'counts': counts,
             'elapsedSeconds': round(elapsed, 3),
+            'pipelineIntervals': sorted(pipeline_intervals, key=lambda interval: interval['startSeconds']),
+            'sourceRevisions': sorted({record.get('source_revision', '') + '+dirty:' + str(record.get('source_dirty_fingerprint') or '') for record in catalog.provenance.values()}),
+            'toolRevisions': sorted({record.get('extractor_commit', '') + '+dirty:' + str(record.get('extractor_dirty_fingerprint') or '') for record in catalog.provenance.values()}),
             'preserveAnnotations': args.preserve_annotations,
             'annotationsRestored': annotations_restored,
             'stageSeconds': extract_result.get('stageSeconds'),
@@ -1021,6 +1040,7 @@ def main(argv: list[str] | None = None) -> int:
             'extractionMetrics': extract_result.get('extractionMetrics'),
             'extractionCpuSeconds': extract_result.get('extractionCpuSeconds'),
             'stageMetrics': extract_result.get('stageMetrics'),
+            'transportMetrics': extract_result.get('transportMetrics'),
             'neo4jBatchSize': args.batch_size,
             'neo4jClearTiming': clear_timing_used,
             'writeSeconds': {key: round(value, 3) for key, value in write_seconds.items()},

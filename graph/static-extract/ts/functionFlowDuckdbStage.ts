@@ -35,6 +35,7 @@ export type StageProgress = {
 };
 
 export type StageMetric = { operation: string; seconds: number; cpuSeconds: number; rssBytes: number };
+export type TransportMetric = { operation: string; seconds: number; calls: number };
 
 // This only controls DuckDB appender flushing. Neo4j transaction batching is
 // configured independently by fromPreGraphToNeo4j.py.
@@ -50,6 +51,8 @@ function compactJson(value: Record<string, unknown>) {
 
 export class FunctionFlowDuckdbStage {
   readonly metrics: StageMetric[] = [];
+  readonly transportMetrics = new Map<string, TransportMetric>();
+  private readonly profileTransport = process.env.GRAPH_EXTRACT_PROFILE_TRANSPORT === '1';
   private ordinal = 0n;
   private pendingEntities = 0;
   private pendingRelationships = 0;
@@ -181,23 +184,30 @@ export class FunctionFlowDuckdbStage {
   }
 
   addEntity(sourceKind: string, row: CanonicalEntity) {
+    const propsJson = this.serializeProperties(row.props);
+    const appendStarted = this.profileTransport ? performance.now() : 0;
     this.ordinal += 1n;
     this.entityAppender.appendBigInt(this.ordinal);
     this.entityAppender.appendVarchar(row.stableId);
     this.entityAppender.appendList(row.labels);
-    this.entityAppender.appendVarchar(compactJson(row.props));
+    this.entityAppender.appendVarchar(propsJson);
     this.entityAppender.appendVarchar(sourceKind);
     this.entityAppender.endRow();
+    if (this.profileTransport) this.recordTransport('entity-appender', appendStarted);
     this.pendingEntities += 1;
     this.rawEntities += 1;
     if (this.pendingEntities >= DUCKDB_APPENDER_FLUSH_ROWS) {
+      const flushStarted = this.profileTransport ? performance.now() : 0;
       this.entityAppender.flushSync();
+      if (this.profileTransport) this.recordTransport('entity-flush', flushStarted);
       this.pendingEntities = 0;
       this.report('extract');
     }
   }
 
   addRelationship(sourceKind: string, row: CanonicalRelationship) {
+    const propsJson = this.serializeProperties(row.props);
+    const appendStarted = this.profileTransport ? performance.now() : 0;
     const producerOutcome = row.props.producer_outcome;
     const relationshipVariant = producerOutcome === 'true' || producerOutcome === 'false'
       ? `\u0000producer_outcome=${producerOutcome}`
@@ -208,21 +218,43 @@ export class FunctionFlowDuckdbStage {
     this.relationshipAppender.appendVarchar(row.fromId);
     this.relationshipAppender.appendVarchar(row.toId);
     this.relationshipAppender.appendVarchar(row.type);
-    this.relationshipAppender.appendVarchar(compactJson(row.props));
+    this.relationshipAppender.appendVarchar(propsJson);
     this.relationshipAppender.appendVarchar(sourceKind);
     this.relationshipAppender.endRow();
+    if (this.profileTransport) this.recordTransport('relationship-appender', appendStarted);
     this.pendingRelationships += 1;
     this.rawRelationships += 1;
     if (this.pendingRelationships >= DUCKDB_APPENDER_FLUSH_ROWS) {
+      const flushStarted = this.profileTransport ? performance.now() : 0;
       this.relationshipAppender.flushSync();
+      if (this.profileTransport) this.recordTransport('relationship-flush', flushStarted);
       this.pendingRelationships = 0;
       this.report('extract');
     }
   }
 
+  private recordTransport(operation: string, started: number) {
+    const metric = this.transportMetrics.get(operation) || { operation, seconds: 0, calls: 0 };
+    metric.seconds += (performance.now() - started) / 1000;
+    metric.calls++;
+    this.transportMetrics.set(operation, metric);
+  }
+
+  private serializeProperties(props: Record<string, unknown>) {
+    if (!this.profileTransport) return compactJson(props);
+    const started = performance.now();
+    const json = compactJson(props);
+    this.recordTransport('properties-json', started);
+    return json;
+  }
+
   async finalize(): Promise<StageCounts> {
+    const entityCloseStarted = this.profileTransport ? performance.now() : 0;
     this.entityAppender.closeSync();
+    if (this.profileTransport) this.recordTransport('entity-close', entityCloseStarted);
+    const relationshipCloseStarted = this.profileTransport ? performance.now() : 0;
     this.relationshipAppender.closeSync();
+    if (this.profileTransport) this.recordTransport('relationship-close', relationshipCloseStarted);
 
     this.report('validate');
     const missing = await this.measured('validate-endpoints', () => this.connection.runAndReadAll(`
@@ -307,6 +339,8 @@ export class FunctionFlowDuckdbStage {
       ALTER TABLE canonical_relationships_export ADD COLUMN provenance_id VARCHAR;
       UPDATE canonical_relationships_export SET provenance_id = (SELECT id FROM extraction_provenance);
     `));
+    await this.connection.run('UPDATE extraction_provenance SET metadata_json=? WHERE id=?',
+      [JSON.stringify(this.provenance), this.provenance.id]);
     await this.measured('export-provenance', () => this.connection.run(`
       COPY extraction_provenance
       TO '${sqlPath(path.join(this.parquetDir, 'provenance.parquet'))}'

@@ -1,7 +1,7 @@
 import http from 'node:http';
 import path from 'node:path';
 import projectPaths from './projectPaths.cjs';
-import {captureExtractionProvenance, assertExtractionUnchanged, gitIdentity} from './extractionProvenance.mjs';
+import {captureExtractionProvenance, verifyExtractionInputs, gitIdentity} from './extractionProvenance.mjs';
 
 import chokidar, { type FSWatcher } from 'chokidar';
 import type ts from 'typescript';
@@ -157,7 +157,7 @@ const server = http.createServer(async (request, response) => {
     response.setHeader('X-Graph-Extractor-Elapsed-Ms', String(Math.round(performance.now() - started)));
     response.setHeader('X-Graph-Extractor-Reused-Program', String(reuse.reusedProgram));
     response.setHeader('X-Graph-Extractor-Reused-Context', String(reuse.reusedContext));
-    assertExtractionUnchanged(provenance);
+    verifyExtractionInputs(provenance);
     jsonResponse(response, 200, payloadForTransport(payload, provenance));
   } catch (error) {
     jsonResponse(response, 500, {

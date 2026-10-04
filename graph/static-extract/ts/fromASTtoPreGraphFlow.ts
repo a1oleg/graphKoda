@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
+import { classifyCallOrigin, type CallOrigin } from './functionFlowGraph.callOrigins.js';
 import {constructorSemantics} from '../../vscode-source-colors/constructorSemantics.cjs';
 
 import {
@@ -316,6 +317,10 @@ type FlowNodeRow = {
   representationEstimatedColumns?: number;
   representationEstimatedRows?: number;
   parentLocalFunctionStableId?: string;
+  callOrigin?: CallOrigin['kind'];
+  callOriginDeclarationStableId?: string;
+  callOriginDeclarationPath?: string;
+  callOriginPackage?: string;
   localFunctionName?: string;
   localFunctionDepth?: number;
   declaredByStableId?: string;
@@ -403,6 +408,8 @@ type FlowNodeRow = {
   callMosaicOwnerStableId?: string;
   callMosaicRole?: 'open' | 'argument' | 'argument-close' | 'close';
   renderPartsJson?: string;
+  renderCompositionSourceStableId?: string;
+  sharedTerminalScopeStableId?: string;
   renderPartsLayout?: 'single' | 'horizontal' | 'vertical' | 'diagonal' | 'container-overlay' | 'container-overlay-side';
   renderPrimaryPartIndex?: number;
   logicalNotPrefix?: boolean;
@@ -580,9 +587,11 @@ function stableIdSourceRange(stableId: string) {
 function sourceCoordinatesFromStableId(stableId: string) {
   const match = /^(.*):(\d+):(\d+):(\d+):(\d+)(?::.*)?$/.exec(stableId);
   if (!match) return undefined;
+  const astSourcePath = match[1].replace(/^flow:(?:call|object-field|object):/, '');
+  const sourcePath = path.isAbsolute(astSourcePath) ? getRepoRelativePath(astSourcePath) : astSourcePath;
   return {
-    canonicalStableId: `${match[1]}:${match[2]}:${match[3]}:${match[4]}:${match[5]}`,
-    repoRelativePath: match[1],
+    canonicalStableId: `${sourcePath}:${match[2]}:${match[3]}:${match[4]}:${match[5]}`,
+    repoRelativePath: sourcePath,
     startLine: Number(match[2]),
     startColumn: Number(match[3]),
     endLine: Number(match[4]),
@@ -610,6 +619,16 @@ export function attachSyntaxCompositionGraph(
   ]));
 
   for (const owner of payload.nodes) {
+    if (owner.labels.some(label => label === 'ExecutionOccurrence' || label === 'AliasDeclaration')) {
+      const originalId = owner.originalStableId;
+      const occurrenceId = getStableIdKey(owner.stableId);
+      if (originalId && originalId !== occurrenceId
+        && (entityById.has(originalId) || canonicalEntities?.has(originalId))) {
+        const key = `${occurrenceId}\u0000PROXY_OF\u0000${originalId}`;
+        relationshipByKey.set(key, { fromId: occurrenceId, toId: originalId, type: 'PROXY_OF',
+          props: { layer: 'structural', resolution: 'explicit-source-node', renderHidden: true } });
+      }
+    }
     if (!owner.renderPartsJson) continue;
     let parts: RenderPartDescriptor[];
     try {
@@ -619,7 +638,18 @@ export function attachSyntaxCompositionGraph(
     }
     if (parts.length < 2) continue;
     const rawOwnerStableId = getStableIdKey(owner.stableId);
-    const ownerCoordinates = sourceCoordinatesFromStableId(rawOwnerStableId);
+    const rawOwnerCoordinates = sourceCoordinatesFromStableId(rawOwnerStableId);
+    const sourceCoordinates = owner.renderCompositionSourceStableId
+      ? sourceCoordinatesFromStableId(owner.renderCompositionSourceStableId)
+      : undefined;
+    const hasCanonicalOwner = rawOwnerCoordinates
+      && (entityById.has(rawOwnerCoordinates.canonicalStableId)
+        || canonicalEntities?.has(rawOwnerCoordinates.canonicalStableId));
+    const ownerCoordinates = !hasCanonicalOwner && sourceCoordinates
+      && rawOwnerCoordinates?.repoRelativePath === sourceCoordinates.repoRelativePath
+      && canonicalEntities?.has(sourceCoordinates.canonicalStableId)
+      ? sourceCoordinates
+      : rawOwnerCoordinates;
     const ownerStableId = ownerCoordinates?.canonicalStableId || rawOwnerStableId;
     const existingOwner = entityById.get(ownerStableId) || canonicalEntities?.get(ownerStableId);
     const ownerLabels = uniqueStrings([
@@ -651,14 +681,25 @@ export function attachSyntaxCompositionGraph(
         ? sourceCoordinatesFromStableId(part.sourceStableId)
         : undefined;
       const partStableId = partCoordinates?.canonicalStableId;
-      if (!partStableId || partStableId === ownerStableId) return;
+      if (!partStableId) return;
+      if (partStableId === ownerStableId) {
+        if (/^flow:(?:call|object-field|object):/.test(rawOwnerStableId)) {
+          const primaryOwner = entityById.get(ownerStableId)!;
+          primaryOwner.labels = uniqueStrings([...primaryOwner.labels, ...(part.labels || [])])
+            .filter(label => label !== 'System'
+              || !['project', 'unknown'].includes(String(primaryOwner.props.call_origin)));
+          primaryOwner.props.roles = primaryOwner.labels;
+        }
+        return;
+      }
       const existing = entityById.get(partStableId) || canonicalEntities?.get(partStableId);
       const labels = uniqueStrings([
         ...(existing?.labels || []),
         'CodeEntity',
         'SyntaxPart',
         ...(part.labels || []),
-      ]);
+      ]).filter(label => label !== 'System'
+        || !['project', 'unknown'].includes(String(existing?.props.call_origin)));
       entityById.set(partStableId, {
         stableId: partStableId,
         labels,
@@ -713,8 +754,6 @@ export function attachImmediateStepOperationGraph(
   payload: GraphExtractedPayload,
   operationIds: ReadonlySet<string> = collectOperationIds(payload.semanticEntities || []),
 ) {
-  if (!operationIds.size) return;
-
   const relationshipByKey = new Map((payload.semanticRelationships || []).map((relationship) => [
     `${relationship.fromId}\u0000${relationship.type}\u0000${relationship.toId}`,
     relationship,
@@ -733,6 +772,37 @@ export function attachImmediateStepOperationGraph(
         ownership: 'immediate-step',
         fromFacet: 'step',
         toFacet: 'operation',
+      },
+    });
+  }
+  const nodeIds = new Set(payload.nodes.map(node => getStableIdKey(node.stableId)));
+  for (const node of payload.nodes) {
+    if (node.sharedTerminalScopeStableId && node.labels.includes('SharedTerminal')) {
+      const terminalId = getStableIdKey(node.stableId);
+      const scopeId = node.sharedTerminalScopeStableId;
+      if (terminalId !== scopeId) {
+        const key = `${scopeId}\u0000HAS_TERMINAL\u0000${terminalId}`;
+        relationshipByKey.set(key, { fromId: scopeId, toId: terminalId, type: 'HAS_TERMINAL',
+          props: { layer: 'structural', ownership: 'direct-terminal-scope',
+            resolution: 'extractor-control-scope' } });
+      }
+    }
+    if (!node.labels.includes('Step')) continue;
+    const stepId = getStableIdKey(node.stableId);
+    const entryId = node.syntaxEntryStableId;
+    // Missing entries remain visible to the integrity audit; never invent them.
+    if (!entryId || entryId === stepId || !nodeIds.has(entryId)) continue;
+    const key = `${stepId}\u0000HAS_SYNTAX_ENTRY\u0000${entryId}`;
+    relationshipByKey.set(key, {
+      fromId: stepId,
+      toId: entryId,
+      type: 'HAS_SYNTAX_ENTRY',
+      props: {
+        layer: 'structural',
+        ownership: 'immediate-step',
+        field: 'syntaxEntry',
+        fromFacet: 'step',
+        toFacet: 'syntaxEntry',
       },
     });
   }
@@ -4498,7 +4568,8 @@ class FunctionFlowGraphBuilder {
     const type=this.fnNode.type;
     const name=ts.isTypeReferenceNode(type)?type.typeName.getText(this.sourceFile):type.getText(this.sourceFile);
     const symbol=ts.isTypeReferenceNode(type)?this.checker.getSymbolAtLocation(type.typeName):undefined;
-    const system=!!symbol?.declarations?.length && symbol.declarations.every(d=>/[/\\]typescript[/\\]lib[/\\]lib\..*\.d\.ts$/.test(d.getSourceFile().fileName));
+    const system=(type.kind >= ts.SyntaxKind.FirstKeyword && type.kind <= ts.SyntaxKind.LastKeyword)
+      || !!symbol?.declarations?.length && symbol.declarations.every(d=>/[/\\]typescript[/\\]lib[/\\]lib\..*\.d\.ts$/.test(d.getSourceFile().fileName));
     const returnId=this.createNode('Op',name,type,{
       labels:['ReturnType','Signature',system?'System':'DeveloperDefined'],diaName:name,
       actionTextRaw:type.getText(this.sourceFile),synthetic:false,
@@ -5092,6 +5163,7 @@ class FunctionFlowGraphBuilder {
 
   private buildRenderParts(node: ts.Node, ownerStableId: string, completeCalls = false): {
     json: string;
+    sourceStableId: string;
     layout: FlowNodeRow['renderPartsLayout'];
     primaryIndex: number;
   } | undefined {
@@ -5208,7 +5280,8 @@ class FunctionFlowGraphBuilder {
           text: 'await',
           kind: 'method',
           labels: ['Op', 'System', 'Keyword', 'Await'],
-          sourceStableId: getExtendedStableId(this.sourceFile, current),
+          sourceStableId: getExtendedStableId(this.sourceFile,
+            current.getChildren(this.sourceFile).find(child => child.kind === ts.SyntaxKind.AwaitKeyword)!),
         }, ...visit(current.expression)];
       }
       if (completeCalls && ts.isObjectLiteralExpression(current)) {
@@ -5380,10 +5453,7 @@ class FunctionFlowGraphBuilder {
           ...part,
           labels: uniqueStrings([...(part.labels || []), ...operationProviderLabels]),
         }));
-        const callOriginLabels = !this.isDeveloperSideCallExpression(
-          current,
-          this.resolveRenderableCallTarget(current),
-        ) ? ['System'] : [];
+        const callOriginLabels = this.callOriginLabels(current);
         const boundaryDesign = this.callBoundaryDesign(current);
         const argumentsForMosaic = this.callMosaicArguments(current);
         // Atomic expressions have no separate argument family to complete an opener.
@@ -5542,6 +5612,7 @@ class FunctionFlowGraphBuilder {
     if (
       ts.isCallExpression(renderedExpression)
       && this.callInvocationContract(renderedExpression).responseMode === 'awaited'
+      && renderedExpression.parent && ts.isAwaitExpression(renderedExpression.parent)
     ) {
       if (!sourceParts.some((part) => part.labels?.includes('Await'))) sourceParts.unshift({
         text: 'await',
@@ -5549,9 +5620,8 @@ class FunctionFlowGraphBuilder {
         labels: ['Op', 'System', 'Keyword', 'Await'],
         sourceStableId: getExtendedStableId(
           this.sourceFile,
-          renderedExpression.parent && ts.isAwaitExpression(renderedExpression.parent)
-            ? renderedExpression.parent
-            : renderedExpression,
+          renderedExpression.parent.getChildren(this.sourceFile)
+            .find(child => child.kind === ts.SyntaxKind.AwaitKeyword)!,
         ),
       });
     }
@@ -5588,6 +5658,7 @@ class FunctionFlowGraphBuilder {
     }
     return {
       json: JSON.stringify(parts),
+      sourceStableId: getExtendedStableId(this.sourceFile, unwrapExpression(expression)),
       layout: parts.some((part) => part.kind === 'operation-provider-container')
         ? 'container-overlay-side'
         : parts.some((part) => part.kind === 'collection-container')
@@ -5726,10 +5797,7 @@ class FunctionFlowGraphBuilder {
     const callSemanticLabels = callExpression
       ? [
           ...(isPropertyAccessLikeExpression(unwrapExpression(callExpression.expression)) ? ['Method'] : []),
-          ...(!this.isDeveloperSideCallExpression(
-            callExpression,
-            this.resolveRenderableCallTarget(callExpression),
-          ) ? ['System'] : []),
+          ...this.callOriginLabels(callExpression),
           ...this.operationProviderLabels(callExpression),
         ]
       : [];
@@ -5740,6 +5808,10 @@ class FunctionFlowGraphBuilder {
         ]
       : [];
     const enrichedExtra: FlowNodeExtra = {
+      ...(callExpression ? { callOrigin: this.callOrigin(callExpression).kind,
+        callOriginDeclarationStableId: this.callOrigin(callExpression).declarationStableId,
+        callOriginDeclarationPath: this.callOrigin(callExpression).declarationPath,
+        callOriginPackage: this.callOrigin(callExpression).packageName } : {}),
       ...(inferCallContract ? this.buildCallTargetExtra(node) || {} : {}),
       ...(invocationContract || {}),
       ...(asyncLabels.length || callSemanticLabels.length ? {
@@ -5769,6 +5841,7 @@ class FunctionFlowGraphBuilder {
       extra: {
         ...(renderParts ? {
           renderPartsJson: renderParts.json,
+          renderCompositionSourceStableId: renderParts.sourceStableId,
           renderPartsLayout: renderParts.layout,
           renderPrimaryPartIndex: renderParts.primaryIndex,
         } : {}),
@@ -5856,7 +5929,10 @@ class FunctionFlowGraphBuilder {
       endColumn: endColumn + this.mergeOrdinal,
     })}:break`;
     this.mergeOrdinal += 1;
-    return this.createNode('BreakStop', 'break', anchor, {}, stableId);
+    return this.createNode('BreakStop', 'break', anchor, {
+      labels: ['SharedTerminal'], synthetic: true,
+      sharedTerminalScopeStableId: getExtendedStableId(this.sourceFile, anchor),
+    }, stableId);
   }
 
   private createReturnNode(statement: ts.ReturnStatement, valueMaterialized = false) {
@@ -5897,6 +5973,8 @@ class FunctionFlowGraphBuilder {
     const stableId = `${this.fnStableId}:throw:${stableSuffix}`;
     return this.createNode('ThrowStop', 'throw', this.fnNode, {
       actionTextRaw,
+      labels: ['SharedTerminal'], synthetic: true,
+      sharedTerminalScopeStableId: this.fnStableId,
     }, stableId);
   }
 
@@ -8647,6 +8725,7 @@ class FunctionFlowGraphBuilder {
       parts.primaryIndex = Math.max(1, parts.primaryIndex);
     }
     branch.renderPartsJson = JSON.stringify(renderParts);
+    branch.renderCompositionSourceStableId = parts.sourceStableId;
     branch.renderPartsLayout = parts.layout;
     branch.renderPrimaryPartIndex = parts.primaryIndex;
   }
@@ -9417,7 +9496,14 @@ class FunctionFlowGraphBuilder {
         || directTarget;
     }
 
-    if (namedFunctionTarget && (!directTarget?.name || directTarget.name === '<anonymous>')) {
+    const namedTargetMatchesSymbol = namedFunctionTarget && ts.isIdentifier(callee)
+      && (resolvedSymbolAt(this.checker, callee)?.declarations || []).some(symbolDeclaration => {
+        const candidates = [symbolDeclaration,
+          ...(ts.isVariableDeclaration(symbolDeclaration) && symbolDeclaration.initializer
+            ? [unwrapExpression(symbolDeclaration.initializer)] : [])];
+        return candidates.some(candidate => getExtendedStableId(candidate.getSourceFile(), candidate) === namedFunctionTarget.stableId);
+      });
+    if (namedFunctionTarget && namedTargetMatchesSymbol && (!directTarget?.name || directTarget.name === '<anonymous>')) {
       return {
         stableId: directTarget?.stableId || namedFunctionTarget.stableId,
         name: namedFunctionTarget.name,
@@ -9739,8 +9825,9 @@ class FunctionFlowGraphBuilder {
   }
 
   private typeMemberRenderParts(member: ts.TypeElement, ownerStableId: string): RenderPartDescriptor[] {
+    const sourceFile = member.getSourceFile();
     if (ts.isPropertySignature(member)) {
-      const name = `${member.name?.getText(this.sourceFile) || 'field'}${member.questionToken ? '?' : ''}`;
+      const name = `${member.name?.getText(sourceFile) || 'field'}${member.questionToken ? '?' : ''}`;
       const typeNode = member.type;
       return [
         {
@@ -9749,7 +9836,7 @@ class FunctionFlowGraphBuilder {
           kind: 'value',
           labels: ['Field', 'FieldName', 'TypeMember'],
           order: 0,
-          sourceStableId: member.name ? getExtendedStableId(this.sourceFile, member.name) : getExtendedStableId(this.sourceFile, member),
+          sourceStableId: member.name ? getExtendedStableId(sourceFile, member.name) : getExtendedStableId(sourceFile, member),
         },
         {
           stableId: `${ownerStableId}:colon`,
@@ -9757,15 +9844,15 @@ class FunctionFlowGraphBuilder {
           kind: 'punctuation',
           labels: ['Punctuation', 'TypeMember', 'TypeSeparator'],
           order: 1,
-          sourceStableId: getExtendedStableId(this.sourceFile, member),
+          sourceStableId: getExtendedStableId(sourceFile, member),
         },
         {
           stableId: `${ownerStableId}:type`,
-          text: typeNode?.getText(this.sourceFile) || 'unknown',
+          text: typeNode?.getText(sourceFile) || 'unknown',
           kind: 'value',
           labels: typeNode ? this.declaredTypeRenderLabels(typeNode) : ['Type', 'System'],
           order: 2,
-          sourceStableId: typeNode ? getExtendedStableId(this.sourceFile, typeNode) : getExtendedStableId(this.sourceFile, member),
+          sourceStableId: typeNode ? getExtendedStableId(sourceFile, typeNode) : getExtendedStableId(sourceFile, member),
           canonicalStableId: typeNode ? this.canonicalTypeDeclarationStableId(typeNode) : undefined,
         },
       ];
@@ -9773,27 +9860,27 @@ class FunctionFlowGraphBuilder {
 
     if (ts.isIndexSignatureDeclaration(member)) {
       const parameter = member.parameters[0];
-      const parameterName = parameter?.name.getText(this.sourceFile) || 'key';
+      const parameterName = parameter?.name.getText(sourceFile) || 'key';
       const keyType = parameter?.type;
       const valueType = member.type;
       return [
-        { stableId: `${ownerStableId}:open`, text: '[', kind: 'punctuation', labels: ['IndexSignature', 'Open', 'Punctuation'], order: 0, sourceStableId: getExtendedStableId(this.sourceFile, member) },
-        { stableId: `${ownerStableId}:key`, text: parameterName, kind: 'value', labels: ['ArgumentName', 'IndexKey', 'IndexSignature'], order: 1, sourceStableId: parameter ? getExtendedStableId(this.sourceFile, parameter.name) : getExtendedStableId(this.sourceFile, member) },
-        { stableId: `${ownerStableId}:key-colon`, text: ':', kind: 'punctuation', labels: ['IndexSignature', 'Punctuation'], order: 2, sourceStableId: getExtendedStableId(this.sourceFile, member) },
-        { stableId: `${ownerStableId}:key-type`, text: keyType?.getText(this.sourceFile) || 'string', kind: 'value', labels: keyType ? this.declaredTypeRenderLabels(keyType) : ['Type', 'System'], order: 3, sourceStableId: keyType ? getExtendedStableId(this.sourceFile, keyType) : getExtendedStableId(this.sourceFile, member), canonicalStableId: keyType ? this.canonicalTypeDeclarationStableId(keyType) : undefined },
-        { stableId: `${ownerStableId}:close`, text: ']', kind: 'punctuation', labels: ['Close', 'IndexSignature', 'Punctuation'], order: 4, sourceStableId: getExtendedStableId(this.sourceFile, member) },
-        { stableId: `${ownerStableId}:value-colon`, text: ':', kind: 'punctuation', labels: ['IndexSignature', 'Punctuation'], order: 5, sourceStableId: getExtendedStableId(this.sourceFile, member) },
-        { stableId: `${ownerStableId}:value-type`, text: valueType.getText(this.sourceFile), kind: 'value', labels: this.declaredTypeRenderLabels(valueType), order: 6, sourceStableId: getExtendedStableId(this.sourceFile, valueType), canonicalStableId: this.canonicalTypeDeclarationStableId(valueType) },
+        { stableId: `${ownerStableId}:open`, text: '[', kind: 'punctuation', labels: ['IndexSignature', 'Open', 'Punctuation'], order: 0, sourceStableId: getExtendedStableId(sourceFile, member) },
+        { stableId: `${ownerStableId}:key`, text: parameterName, kind: 'value', labels: ['ArgumentName', 'IndexKey', 'IndexSignature'], order: 1, sourceStableId: parameter ? getExtendedStableId(sourceFile, parameter.name) : getExtendedStableId(sourceFile, member) },
+        { stableId: `${ownerStableId}:key-colon`, text: ':', kind: 'punctuation', labels: ['IndexSignature', 'Punctuation'], order: 2, sourceStableId: getExtendedStableId(sourceFile, member) },
+        { stableId: `${ownerStableId}:key-type`, text: keyType?.getText(sourceFile) || 'string', kind: 'value', labels: keyType ? this.declaredTypeRenderLabels(keyType) : ['Type', 'System'], order: 3, sourceStableId: keyType ? getExtendedStableId(sourceFile, keyType) : getExtendedStableId(sourceFile, member), canonicalStableId: keyType ? this.canonicalTypeDeclarationStableId(keyType) : undefined },
+        { stableId: `${ownerStableId}:close`, text: ']', kind: 'punctuation', labels: ['Close', 'IndexSignature', 'Punctuation'], order: 4, sourceStableId: getExtendedStableId(sourceFile, member) },
+        { stableId: `${ownerStableId}:value-colon`, text: ':', kind: 'punctuation', labels: ['IndexSignature', 'Punctuation'], order: 5, sourceStableId: getExtendedStableId(sourceFile, member) },
+        { stableId: `${ownerStableId}:value-type`, text: valueType.getText(sourceFile), kind: 'value', labels: this.declaredTypeRenderLabels(valueType), order: 6, sourceStableId: getExtendedStableId(sourceFile, valueType), canonicalStableId: this.canonicalTypeDeclarationStableId(valueType) },
       ];
     }
 
     return [{
       stableId: ownerStableId,
-      text: member.getText(this.sourceFile),
+      text: member.getText(sourceFile),
       kind: 'value',
       labels: ['Type', 'TypeMember'],
       order: 0,
-      sourceStableId: getExtendedStableId(this.sourceFile, member),
+      sourceStableId: getExtendedStableId(sourceFile, member),
     }];
   }
 
@@ -10287,7 +10374,9 @@ class FunctionFlowGraphBuilder {
         executionPrimitive('declare'),
         ['Collection', 'ContainerMethod', 'Declaration', 'LocalBinding', 'Method', 'SemanticExpansion', 'ValueCreate', 'ValueSlot'],
       );
-      container.labels = uniqueStrings([...(container.labels || []), ...primitiveLabels]);
+      container.labels = uniqueStrings([...(container.labels || []), ...primitiveLabels, 'AliasDeclaration']);
+      container.originalStableId = getExtendedStableId(this.sourceFile, declaration);
+      container.canonicalStableId = container.originalStableId;
       Object.assign(container, primitive);
       container.containerStableId = targetStableId;
       container.containerMethodKind = 'declare';
@@ -10874,8 +10963,9 @@ class FunctionFlowGraphBuilder {
       ? callee.name.text
       : getCallLikeName(callExpression.expression);
     const hasOriginal = Boolean(target && target.targetKind !== 'synthetic-external');
-    const developerSide = hasOriginal || this.isDeveloperSideCallExpression(callExpression, target);
-    const targetIdentity = hasOriginal ? target!.stableId : `system:${methodName || 'call'}`;
+    const origin = this.callOrigin(callExpression);
+    const targetIdentity = hasOriginal ? target!.stableId
+      : origin.declarationStableId || `unresolved:${getExtendedStableId(this.sourceFile, callExpression)}`;
     const proxyName = target?.name || methodName || formatCallDiaName(callExpression, this.sourceFile);
     const openingNode = this.nodeByStableId(callStableId);
     const splitClosure = openingNode?.callBoundaryRole === 'open';
@@ -10891,7 +10981,8 @@ class FunctionFlowGraphBuilder {
         ...(foldedObjectArgument ? ['Field', 'Join', 'Object', 'Arg'] : []),
         callRoleLabel,
         ...(isPropertyAccessLikeExpression(callee) ? ['Method'] : []),
-        ...(!developerSide ? ['System'] : ['Fn']),
+        ...this.callOriginLabels(callExpression),
+        ...(origin.kind === 'project' || hasOriginal ? ['Fn'] : []),
         ...(!foldedObjectArgument && this.isCollectionMethodCall(callExpression) ? ['Collection'] : []),
       ]),
       diaName: foldedObjectArgument ? (expandedFoldedObject ? ')' : '})') : splitClosure ? ')' : proxyName,
@@ -13765,7 +13856,27 @@ class FunctionFlowGraphBuilder {
     this.addEdge(undefined, fromId, undefined, toId, type, { label });
   }
 
+  private readonly callOrigins = new WeakMap<ts.Node, CallOrigin>();
+
+  private callOrigin(callExpression: ts.CallExpression | ts.NewExpression) {
+    let origin = this.callOrigins.get(callExpression);
+    if (!origin) {
+      origin = classifyCallOrigin(this.checker, callExpression);
+      this.callOrigins.set(callExpression, origin);
+    }
+    return origin;
+  }
+
+  private callOriginLabels(callExpression: ts.CallExpression | ts.NewExpression) {
+    const kind = this.callOrigin(callExpression).kind;
+    return kind === 'standard-library' ? ['System']
+      : kind === 'framework' ? ['System', 'Framework']
+      : kind === 'external-library' ? ['ExternalLibrary']
+      : kind === 'unknown' ? ['UnresolvedCallOrigin'] : [];
+  }
+
   private isDeveloperSideCallExpression(callExpression: ts.CallExpression | ts.NewExpression, target: ResolvedCallTarget | undefined) {
+    if (this.callOrigin(callExpression).kind === 'project') return true;
     if (isCallableGraphTarget(target)) {
       return true;
     }
@@ -14792,7 +14903,7 @@ class FunctionFlowGraphBuilder {
     const target = this.resolveRenderableCallTarget(callExpression);
     const labels = this.semanticCallSiteLabels(callExpression, [
       callRoleLabel,
-      ...(!this.isDeveloperSideCallExpression(callExpression, target) ? ['System'] : []),
+      ...this.callOriginLabels(callExpression),
       ...this.operationProviderLabels(callExpression),
     ]);
     if (isPropertyAccessLikeExpression(unwrapExpression(callExpression.expression))) {
@@ -15170,6 +15281,7 @@ class FunctionFlowGraphBuilder {
         sourceStableId,
       }]),
       ...extra,
+      originalStableId: sourceStableId,
     }, projectedStableId, false);
     const projectedNode = this.nodes.find((candidate) => getStableIdKey(candidate.stableId) === stableId);
     if (projectedNode) {
@@ -20625,6 +20737,21 @@ export function writeFunctionFlowArtifacts(
   fnStableIds?: ReadonlySet<string>,
   onMetric?: (metric: { operation: string; seconds: number; cpuSeconds: number; rssBytes: number }) => void,
 ) {
+  const bodyMetrics = new Map<string, { seconds: number; cpuSeconds: number; rssBytes: number; calls: number }>();
+  const measureBody = <T>(operation: string, run: () => T): T => {
+    if (!onMetric) return run();
+    const started = performance.now();
+    const cpu = process.cpuUsage();
+    try { return run(); } finally {
+      const used = process.cpuUsage(cpu);
+      const previous = bodyMetrics.get(operation) || { seconds: 0, cpuSeconds: 0, rssBytes: 0, calls: 0 };
+      previous.seconds += (performance.now() - started) / 1000;
+      previous.cpuSeconds += (used.user + used.system) / 1e6;
+      previous.rssBytes = process.memoryUsage().rss;
+      previous.calls++;
+      bodyMetrics.set(operation, previous);
+    }
+  };
   const measure = <T>(operation: string, run: () => T): T => {
     if (!onMetric) return run();
     const started = performance.now();
@@ -20770,18 +20897,22 @@ export function writeFunctionFlowArtifacts(
               label: functionName,
               repoRelativePath: getRepoRelativePath(sourceFile.fileName),
             })),
-            ...builder.build(),
+            ...measureBody('function-body-build', () => builder.build()),
           } as GraphExtractedPayload;
-          attachParameterOrigins(
+          measureBody('function-parameter-origins', () => attachParameterOrigins(
             result,
             parameterOriginFactsByTarget.get(stableId) || [],
             accessorIndex,
-          );
-          if (finiteLiteralGraph) attachFiniteLiteralDomainsFromGraph(finiteLiteralGraph, result);
-          const storageGraph = buildStorageGraph(result.nodes);
-          attachStorageBindings(result.edges, storageGraph.storageBindings);
-          attachImmediateStepOperationGraph(result, operationIds);
-          attachSyntaxCompositionGraph(result, canonicalEntityById);
+          ));
+          if (finiteLiteralGraph) measureBody('function-literal-context', () => attachFiniteLiteralDomainsFromGraph(finiteLiteralGraph, result));
+          const storageGraph = measureBody('function-storage', () => {
+            const storage = buildStorageGraph(result.nodes);
+            attachStorageBindings(result.edges, storage.storageBindings);
+            return storage;
+          });
+          measureBody('function-step-operations', () => attachImmediateStepOperationGraph(result, operationIds));
+          measureBody('function-syntax-composition', () => attachSyntaxCompositionGraph(result, canonicalEntityById));
+          measureBody('function-artifact-transport', () => {
           for (const nodeRow of result.nodes) {
             writer.writeNode(nodeRow);
           }
@@ -20797,6 +20928,7 @@ export function writeFunctionFlowArtifacts(
           for (const relationship of result.semanticRelationships || []) {
             writer.writeSemanticRelationship(relationship);
           }
+          });
         }
 
         ts.forEachChild(node, visit);
@@ -20805,6 +20937,8 @@ export function writeFunctionFlowArtifacts(
       visit(sourceFile);
     }
     });
+
+    for (const [operation, metric] of bodyMetrics) onMetric?.({ operation, ...metric });
 
     // External targets are discovered while function bodies are built, so emit
     // the final registry after that traversal as well. DuckDB canonicalization
@@ -20866,6 +21000,10 @@ const NODE_PROPERTY_MAP: Record<string, string> = {
   representationEstimatedColumns: 'representationEstimatedColumns',
   representationEstimatedRows: 'representationEstimatedRows',
   parentLocalFunctionStableId: 'parentLocalFunctionStableId',
+  callOrigin: 'call_origin',
+  callOriginDeclarationStableId: 'call_origin_declaration_stable_id',
+  callOriginDeclarationPath: 'call_origin_declaration_path',
+  callOriginPackage: 'call_origin_package',
   localFunctionName: 'localFunctionName',
   localFunctionDepth: 'localFunctionDepth',
   declaredByStableId: 'declaredByStableId',
@@ -20932,6 +21070,8 @@ const NODE_PROPERTY_MAP: Record<string, string> = {
   callMosaicRole: 'call_mosaic_role',
   compactCallMosaic: 'compactCallMosaic',
   renderPartsJson: 'render_parts_json',
+  renderCompositionSourceStableId: 'render_composition_source_stable_id',
+  sharedTerminalScopeStableId: 'shared_terminal_scope_stable_id',
   renderPartsLayout: 'render_parts_layout',
   renderPrimaryPartIndex: 'render_primary_part_index',
   objectFamilyStableId: 'object_family_stable_id',
@@ -20956,6 +21096,7 @@ const NODE_PROPERTY_MAP: Record<string, string> = {
 const RESOURCE_PROPERTY_MAP: Record<string, string> = {
   parentFnStableId: 'parentFnStableId', repoRelativePath: 'repo_relative_path',
   resourceKind: 'resource_kind', resourceSubkind: 'resource_subkind', resourceName: 'resource_name',
+  resourceContextScope: 'resource_context_scope',
   settingKind: 'setting_kind', settingSubkind: 'setting_subkind', settingName: 'setting_name',
   resourceSemanticId: 'resource_semantic_id', resourceSemanticDetailId: 'resource_semantic_detail_id',
   parentStableId: 'parentStableId', resourceCellName: 'resource_cell_name', resourceCellKind: 'resource_cell_kind',
@@ -20986,9 +21127,49 @@ function validateRelationshipType(value: unknown) {
   return type;
 }
 
-function mapGraphProperties(row: Record<string, unknown>, mapping: Record<string, string>) {
+const NODE_PROPERTY_ENTRIES = Object.entries(NODE_PROPERTY_MAP);
+const RESOURCE_PROPERTY_ENTRIES = Object.entries(RESOURCE_PROPERTY_MAP);
+const EDGE_PROPERTY_ENTRIES = Object.entries({
+  label: 'label', diaName: 'diaName', callTextRaw: 'call_text_raw', invocationMode: 'invocation_mode',
+  responseMode: 'response_mode', storageStableIds: 'storage_stable_ids',
+  mainFlow: 'main_flow', callSiteStableId: 'call_site_stable_id', invocationType: 'invocation_type',
+  flowLayer: 'flow_layer',
+  semanticExpansion: 'semantic_expansion', sequenceOrder: 'sequence_order',
+  executionOutcome: 'execution_outcome', protocolRole: 'protocol_role',
+  protocolRoles: 'protocol_roles',
+  argumentName: 'argument_name', argumentIndex: 'argument_index',
+  layoutFrame: 'layout_frame',
+  argumentTextRaw: 'argument_text_raw',
+  fieldName: 'field_name', fieldIndex: 'field_index',
+  displayLabel: 'display_label', flowRoles: 'flow_roles',
+  controlKind: 'control_kind', dataKind: 'data_kind',
+  structureKind: 'structure_kind', effectKind: 'effect_kind',
+  contextOnly: 'context_only',
+  producerRouteRole: 'producer_route_role',
+  producerOutcome: 'producer_outcome',
+  optionalReturnGroupStableId: 'optional_return_group_stable_id',
+  producerScopeStartOrder: 'producer_scope_start_order',
+  producerScopeEndOrder: 'producer_scope_end_order',
+  producerScopeStableIds: 'producer_scope_stable_ids',
+  repeatOrigin: 'repeat_origin',
+  oneWay: 'one_way',
+  sourcePort: 'source_port', targetPort: 'target_port',
+  sourcePortCandidates: 'source_port_candidates', targetPortCandidates: 'target_port_candidates',
+  lockPortCandidates: 'lock_port_candidates',
+  sourceRenderPartStableId: 'source_render_part_stable_id',
+  targetRenderPartStableId: 'target_render_part_stable_id',
+  elseIfChainBypass: 'else_if_chain_bypass',
+});
+const RESOURCE_EDGE_PROPERTY_ENTRIES = Object.entries({
+  accessType: 'access_type', calleeText: 'callee_text', asyncKind: 'async_kind', asyncPhase: 'async_phase',
+  signalKind: 'signal_kind', continuationKind: 'continuation_kind', resourceCellName: 'resource_cell_name',
+  parentStableId: 'parentStableId',
+  flowLayer: 'flow_layer',
+});
+
+function mapGraphProperties(row: Record<string, unknown>, mapping: ReadonlyArray<readonly [string, string]>) {
   const props: Record<string, unknown> = { source: GRAPH_SOURCE };
-  for (const [sourceKey, targetKey] of Object.entries(mapping)) {
+  for (const [sourceKey, targetKey] of mapping) {
     if (row[sourceKey] !== undefined && row[sourceKey] !== null) props[targetKey] = row[sourceKey];
   }
   return props;
@@ -21045,7 +21226,7 @@ function toCanonicalArtifact(kind: ArtifactKind, value: ArtifactTransportRow): C
     if (kind === 'node' && String(row.primaryLabel || '') !== labels[0]) {
       throw new Error(`node.primaryLabel must equal labels[0] for ${stableId}.`);
     }
-    const props = mapGraphProperties(row, kind === 'node' ? NODE_PROPERTY_MAP : RESOURCE_PROPERTY_MAP);
+    const props = mapGraphProperties(row, kind === 'node' ? NODE_PROPERTY_ENTRIES : RESOURCE_PROPERTY_ENTRIES);
     if (!props.flow_layer) throw new Error(`${kind}.flowLayer must be assigned by extraction.`);
     if (kind === 'resource' && !props.data_flow_role) props.data_flow_role = 'storage';
     return {
@@ -21063,48 +21244,17 @@ function toCanonicalArtifact(kind: ArtifactKind, value: ArtifactTransportRow): C
     fromId = requireTransportId(row, 'fromId', kind);
     toId = requireTransportId(row, 'toId', kind);
     type = validateRelationshipType(row.type);
-    for (const [sourceKey, targetKey] of Object.entries({
-      label: 'label', diaName: 'diaName', callTextRaw: 'call_text_raw', invocationMode: 'invocation_mode',
-      responseMode: 'response_mode', storageStableIds: 'storage_stable_ids',
-      mainFlow: 'main_flow', callSiteStableId: 'call_site_stable_id', invocationType: 'invocation_type',
-      flowLayer: 'flow_layer',
-      semanticExpansion: 'semantic_expansion', sequenceOrder: 'sequence_order',
-      executionOutcome: 'execution_outcome', protocolRole: 'protocol_role',
-      protocolRoles: 'protocol_roles',
-      argumentName: 'argument_name', argumentIndex: 'argument_index',
-      layoutFrame: 'layout_frame',
-      argumentTextRaw: 'argument_text_raw',
-      fieldName: 'field_name', fieldIndex: 'field_index',
-      displayLabel: 'display_label', flowRoles: 'flow_roles',
-      controlKind: 'control_kind', dataKind: 'data_kind',
-      structureKind: 'structure_kind', effectKind: 'effect_kind',
-      contextOnly: 'context_only',
-      producerRouteRole: 'producer_route_role',
-      producerOutcome: 'producer_outcome',
-      optionalReturnGroupStableId: 'optional_return_group_stable_id',
-      producerScopeStartOrder: 'producer_scope_start_order',
-      producerScopeEndOrder: 'producer_scope_end_order',
-      producerScopeStableIds: 'producer_scope_stable_ids',
-      repeatOrigin: 'repeat_origin',
-      oneWay: 'one_way',
-      sourcePort: 'source_port', targetPort: 'target_port',
-      sourcePortCandidates: 'source_port_candidates', targetPortCandidates: 'target_port_candidates',
-      lockPortCandidates: 'lock_port_candidates',
-      sourceRenderPartStableId: 'source_render_part_stable_id',
-      targetRenderPartStableId: 'target_render_part_stable_id',
-      elseIfChainBypass: 'else_if_chain_bypass',
-    })) if (row[sourceKey] !== undefined && row[sourceKey] !== null) props[targetKey] = row[sourceKey];
+    for (const [sourceKey, targetKey] of EDGE_PROPERTY_ENTRIES) {
+      if (row[sourceKey] !== undefined && row[sourceKey] !== null) props[targetKey] = row[sourceKey];
+    }
     if (!props.flow_layer) throw new Error(`${kind}.flowLayer must be assigned by extraction.`);
   } else if (kind === 'resourceEdge') {
     fromId = requireTransportId(row, 'flowNodeStableId', kind);
     toId = requireTransportId(row, 'stableId', kind);
     type = validateRelationshipType(row.relType);
-    for (const [sourceKey, targetKey] of Object.entries({
-      accessType: 'access_type', calleeText: 'callee_text', asyncKind: 'async_kind', asyncPhase: 'async_phase',
-      signalKind: 'signal_kind', continuationKind: 'continuation_kind', resourceCellName: 'resource_cell_name',
-      parentStableId: 'parentStableId',
-      flowLayer: 'flow_layer',
-    })) if (row[sourceKey] !== undefined && row[sourceKey] !== null) props[targetKey] = row[sourceKey];
+    for (const [sourceKey, targetKey] of RESOURCE_EDGE_PROPERTY_ENTRIES) {
+      if (row[sourceKey] !== undefined && row[sourceKey] !== null) props[targetKey] = row[sourceKey];
+    }
     if (!props.flow_layer) throw new Error(`${kind}.flowLayer must be assigned by the TS extractor.`);
   } else {
     fromId = requireTransportId(row, 'sourceStableId', kind);
@@ -21113,6 +21263,7 @@ function toCanonicalArtifact(kind: ArtifactKind, value: ArtifactTransportRow): C
     if (row.label !== undefined && row.label !== null) props.label = row.label;
     if (row.calleeText !== undefined && row.calleeText !== null) props.callee_text = row.calleeText;
     if (row.flowLayer !== undefined && row.flowLayer !== null) props.flow_layer = row.flowLayer;
+    if (row.ownership !== undefined && row.ownership !== null) props.ownership = row.ownership;
     if (!props.flow_layer) throw new Error(`${kind}.flowLayer must be assigned by the TS extractor.`);
   }
   return { fromId, toId, type, props };
@@ -21143,8 +21294,16 @@ async function writeFunctionFlowArtifactsDuckdb(
   const stage = await FunctionFlowDuckdbStage.create(stagingPath, parquetDir, (progress) => {
     reportProgress(progress.phase, progress.rawEntities, progress.rawRelationships);
   }, provenance);
+  const profileTransport = process.env.GRAPH_EXTRACT_PROFILE_TRANSPORT === '1';
+  let normalizationSeconds = 0;
+  let normalizationCalls = 0;
   const writer = createArtifactWriter(false, (kind, row) => {
+    const normalizationStarted = profileTransport ? performance.now() : 0;
     const normalized = toCanonicalArtifact(kind, row);
+    if (profileTransport) {
+      normalizationSeconds += (performance.now() - normalizationStarted) / 1000;
+      normalizationCalls++;
+    }
     if (kind === 'function' || kind === 'node' || kind === 'resource' || kind === 'semanticEntity') {
       stage.addEntity(kind, normalized as CanonicalEntity);
     } else {
@@ -21164,11 +21323,12 @@ async function writeFunctionFlowArtifactsDuckdb(
     const extractSeconds = Math.round(performance.now() - extractStarted) / 1000;
     const extractCpuUsed = process.cpuUsage(extractCpu);
     const canonicalizeStarted = performance.now();
-    assertExtractionUnchanged(provenance);
+    verifyExtractionInputs(provenance);
     const counts = await stage.finalize();
     const canonicalizeSeconds = Math.round(performance.now() - canonicalizeStarted) / 1000;
     process.stdout.write(`${JSON.stringify({
       ok: true,
+      provenance,
       counts,
       stageSeconds: Math.round(performance.now() - started) / 1000,
       extractSeconds,
@@ -21176,6 +21336,10 @@ async function writeFunctionFlowArtifactsDuckdb(
       extractionMetrics,
       extractionCpuSeconds: (extractCpuUsed.user + extractCpuUsed.system) / 1e6,
       stageMetrics: stage.metrics,
+      transportMetrics: profileTransport ? [
+        { operation: 'artifact-normalization', seconds: normalizationSeconds, calls: normalizationCalls },
+        ...stage.transportMetrics.values(),
+      ] : [],
       duckdbPath: path.resolve(stagingPath),
       parquetDir: path.resolve(parquetDir),
       parquetBytes: {
@@ -21225,12 +21389,12 @@ async function main() {
   const payload = collectFunctionFlowArtifacts(program, fnStableId, fnName, metadataOnly, undefined, { includeParameterOrigins });
 
   if (outputPath) {
-    assertExtractionUnchanged(provenance);
+    verifyExtractionInputs(provenance);
     writePayloadToFile(outputPath, payload, provenance);
     return;
   }
 
-  assertExtractionUnchanged(provenance);
+  verifyExtractionInputs(provenance);
   process.stdout.write(`${JSON.stringify(payloadForTransport(payload, provenance))}\n`);
 }
 
@@ -21240,4 +21404,4 @@ if (isEntrypoint()) {
     process.exitCode = 1;
   });
 }
-import {captureExtractionProvenance, assertExtractionUnchanged} from '../../../dev/extractionProvenance.mjs';
+import {captureExtractionProvenance, verifyExtractionInputs} from '../../../dev/extractionProvenance.mjs';

@@ -25,6 +25,7 @@ type LiteralDomain = {
   typeText: string;
   repoRelativePath: string;
   declarationStableId: string;
+  declaration: ts.TypeAliasDeclaration | ts.EnumDeclaration;
   members: DomainMember[];
 };
 
@@ -123,6 +124,7 @@ function domainFromTypeAlias(declaration: ts.TypeAliasDeclaration): LiteralDomai
     typeText: declaration.type.getText(declaration.getSourceFile()),
     repoRelativePath: getRepoRelativePath(declaration.getSourceFile().fileName),
     declarationStableId,
+    declaration,
     members: uniqueValues.map((value, ordinal) => ({
       stableId: `${stableId}:member:${ordinal}`,
       value,
@@ -151,6 +153,7 @@ function domainFromEnum(declaration: ts.EnumDeclaration, checker: ts.TypeChecker
     typeText: declaration.name.text,
     repoRelativePath: getRepoRelativePath(declaration.getSourceFile().fileName),
     declarationStableId,
+    declaration,
     members: values.map((value, ordinal) => ({
       stableId: `${stableId}:member:${ordinal}`,
       name: declaration.members[ordinal].name.getText(declaration.getSourceFile()),
@@ -211,7 +214,20 @@ function expressionDomain(
 }
 
 function domainEntities(domain: LiteralDomain): CanonicalEntity[] {
+  const source = domain.declaration.getSourceFile();
+  const start = source.getLineAndCharacterOfPosition(domain.declaration.getStart(source));
+  const end = source.getLineAndCharacterOfPosition(domain.declaration.getEnd());
+  const external = source.isDeclarationFile || /[/\\]node_modules[/\\]/.test(source.fileName);
   return [{
+    stableId: domain.declarationStableId,
+    labels: ['Declaration', 'TypeDeclaration', domain.kind === 'enum' ? 'EnumDeclaration' : 'TypeAliasDeclaration',
+      ...(external ? ['ExternalBoundary', 'System'] : ['DeveloperDefined'])],
+    props: { name: domain.name, syntax: domain.declaration.getText(source),
+      declarationKind: ts.SyntaxKind[domain.declaration.kind], canonical: true,
+      repoRelativePath: domain.repoRelativePath, startLine: start.line + 1, startColumn: start.character,
+      endLine: end.line + 1, endColumn: end.character,
+      sourceCoverage: isTrackedSourceFile(source) ? 'syntax-extracted' : 'declaration-only' },
+  }, {
     stableId: domain.stableId,
     labels: ['LiteralDomain', domain.kind === 'enum' ? 'Enum' : 'LiteralUnion'],
     props: {
@@ -321,12 +337,14 @@ export function collectFiniteLiteralDomainGraph(program: ts.Program): FiniteLite
 
   const relationships: CanonicalRelationship[] = [];
   for (const domain of usedDomains.values()) {
+    relationships.push({ fromId: domain.stableId, toId: domain.declarationStableId,
+      type: 'PROXY_OF', props: { resolution: 'typescript-declaration', flow_layer: 'data' } });
     for (const member of domain.members) {
       relationships.push({
         fromId: domain.stableId,
         toId: member.stableId,
         type: 'HAS_MEMBER',
-        props: { ordinal: member.ordinal, flow_layer: 'data' },
+        props: { ordinal: member.ordinal, ownership: 'direct', flow_layer: 'data' },
       });
     }
   }

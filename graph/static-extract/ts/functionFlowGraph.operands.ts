@@ -34,12 +34,24 @@ export function getDeclarationSourceFileInfo(declaration: ts.Declaration | undef
   };
 }
 
+// A new program/checker gets a separate cache, including incremental rebuilds.
+const typeTextByChecker = new WeakMap<ts.TypeChecker, WeakMap<ts.Node, string>>();
+
 export function getNodeTypeTextForChecker(checker: ts.TypeChecker | undefined, node: ts.Node | undefined) {
   if (!checker || !node) {
     return undefined;
   }
 
-  return checker.typeToString(checker.getTypeAtLocation(node));
+  let cache = typeTextByChecker.get(checker);
+  if (!cache) {
+    cache = new WeakMap();
+    typeTextByChecker.set(checker, cache);
+  }
+  const cached = cache.get(node);
+  if (cached !== undefined) return cached;
+  const text = checker.typeToString(checker.getTypeAtLocation(node));
+  cache.set(node, text);
+  return text;
 }
 
 function buildSymbolSemanticForChecker(checker: ts.TypeChecker | undefined, node: ts.Node | undefined) {

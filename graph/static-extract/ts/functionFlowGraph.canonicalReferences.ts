@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import ts from 'typescript';
+import { classifyCallOrigin } from './functionFlowGraph.callOrigins.js';
+import { classifyRuntimeIntrinsic } from './functionFlowGraph.runtimeIntrinsics.js';
 import { declaredMemberEvidence } from './declaredMemberEvidence.js';
 import { callbackContributesToResult } from './callbackResultFlow.js';
 import { awaitedTypeArgumentIndex } from './awaitedTypeContract.mjs';
@@ -211,6 +213,8 @@ function typeReferenceTargetNode(node: ts.TypeNode) {
 
 function isDerivedTypeNode(node: ts.Node): node is ts.TypeNode {
   return ts.isUnionTypeNode(node)
+    || ts.isTypeLiteralNode(node)
+    || ts.isParenthesizedTypeNode(node)
     || ts.isIntersectionTypeNode(node)
     || ts.isConditionalTypeNode(node)
     || ts.isMappedTypeNode(node)
@@ -222,7 +226,23 @@ function isDerivedTypeNode(node: ts.Node): node is ts.TypeNode {
     || ts.isTupleTypeNode(node)
     || ts.isFunctionTypeNode(node)
     || ts.isConstructorTypeNode(node)
+    || ts.isTypePredicateNode(node)
     || ts.isTemplateLiteralTypeNode(node);
+}
+
+function isOwnershipSyntaxContainer(node: ts.Node) {
+  return ts.isVariableDeclarationList(node) || ts.isVariableStatement(node) || ts.isCatchClause(node)
+    || ts.isExportAssignment(node) || ts.isExpressionStatement(node) || ts.isReturnStatement(node)
+    || ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || ts.isSatisfiesExpression(node)
+    || ts.isTemplateLiteralTypeSpan(node) || ts.isSwitchStatement(node) || ts.isCaseBlock(node)
+    || ts.isCaseClause(node) || ts.isDefaultClause(node) || ts.isPropertyAccessExpression(node)
+    || ts.isParenthesizedExpression(node) || ts.isTemplateExpression(node)
+    || ts.isTemplateSpan(node) || ts.isNewExpression(node) || ts.isAwaitExpression(node)
+    || ts.isConditionalExpression(node) || ts.isNonNullExpression(node) || ts.isPrefixUnaryExpression(node)
+    || ts.isJsxElement(node) || ts.isJsxFragment(node) || ts.isJsxExpression(node)
+    || ts.isJsxAttributes(node) || ts.isJsxAttribute(node) || ts.isJsxSpreadAttribute(node)
+    || (ts.isBinaryExpression(node) && [ts.SyntaxKind.AmpersandAmpersandToken,
+      ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind));
 }
 
 function directMemberOwner(node: ts.Declaration): ts.Declaration | undefined {
@@ -233,7 +253,6 @@ function directMemberOwner(node: ts.Declaration): ts.Declaration | undefined {
     || ts.isClassExpression(parent)
     || ts.isEnumDeclaration(parent)
   ) return parent;
-  if (ts.isTypeLiteralNode(parent) && ts.isTypeAliasDeclaration(parent.parent)) return parent.parent;
   return undefined;
 }
 
@@ -378,6 +397,13 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
   }
 
   function emitDeclaration(node: ts.Declaration, forcedCategory?: DeclarationCategory) {
+    if (ts.isSourceFile(node)) {
+      const id = `source-file:${getRepoRelativePath(node.fileName)}`;
+      declarationIds.set(node, id);
+      emitEntity({ stableId: id, labels: ['CodeEntity', 'SourceFile'],
+        props: { ...sourceProps(node), name: getRepoRelativePath(node.fileName), syntaxKind: 'SourceFile' } });
+      return id;
+    }
     // Resolving a call through a signature does not turn that type into a value.
     if (ts.isFunctionTypeNode(node) || ts.isConstructorTypeNode(node)) forcedCategory = 'TypeDeclaration';
     const previous = declarationIds.get(node);
@@ -414,6 +440,7 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
         name: declarationName(node),
         declarationKind: ts.SyntaxKind[node.kind],
         canonical: true,
+        sourceCoverage: isTrackedSourceFile(node.getSourceFile()) ? 'syntax-extracted' : 'declaration-only',
       },
     });
     const name = (node as ts.NamedDeclaration).name;
@@ -473,6 +500,41 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
   }
 
   function emitReference(node: ts.Node, kind: 'TypeReference' | 'ValueReference' | 'MemberReference') {
+    if (node.kind >= ts.SyntaxKind.FirstKeyword && node.kind <= ts.SyntaxKind.LastKeyword) {
+      const id = stableId(node);
+      emitEntity({ stableId: id, labels: ['CodeEntity', 'SyntaxPart', 'System'],
+        props: { ...sourceProps(node), name: node.getText(node.getSourceFile()),
+          syntaxKind: ts.SyntaxKind[node.kind], resolution: 'typescript-keyword' } });
+      return id;
+    }
+    const intrinsic = kind === 'ValueReference' ? classifyRuntimeIntrinsic(program, node) : undefined;
+    if (intrinsic) {
+      const id = stableId(node);
+      const ownerId = intrinsic.owner ? emitDeclaration(intrinsic.owner, 'ValueDeclaration') : undefined;
+      emitEntity({ stableId: id, labels: ['CodeEntity', 'SyntaxPart', 'System', 'Value',
+        intrinsic.kind === 'arguments' ? 'RuntimeArguments' : 'RuntimeGlobalObject'],
+        props: { ...sourceProps(node), name: node.getText(node.getSourceFile()),
+          runtimeIntrinsic: intrinsic.kind, resolution: 'typescript-intrinsic-runtime',
+          compilerSymbolFlags: intrinsic.symbolFlags, argumentsOwnerStableId: ownerId } });
+      if (ownerId) emitRelationship(id, ownerId, 'READS_ARGUMENTS_OF', {
+        layer: 'functional', resolution: 'lexical-non-arrow-function', contextRole: 'runtime-binding',
+      });
+      for (const declaration of intrinsic.typeDeclarations || []) {
+        emitRelationship(id, emitDeclaration(declaration, 'TypeDeclaration'), 'HAS_TYPE', {
+          layer: 'type', resolution: 'typescript-standard-library',
+        });
+      }
+      return id;
+    }
+    if (kind === 'ValueReference' && ts.isIdentifier(node) && node.text === 'undefined'
+      && (checker.getTypeAtLocation(node).flags & ts.TypeFlags.Undefined)
+      && !symbolDeclarations(checker, node).length) {
+      const id = stableId(node);
+      emitEntity({ stableId: id, labels: ['CodeEntity', 'SyntaxPart', 'System', 'Value', 'LiteralValue'],
+        props: { ...sourceProps(node), name: 'undefined', value_kind: 'undefined',
+          resolution: 'typescript-intrinsic-value' } });
+      return id;
+    }
     if (kind === 'MemberReference') memberReferences.add(node);
     const suffix = kind.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
     const id = stableId(node, suffix);
@@ -493,6 +555,26 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     const declarations = kind === 'MemberReference'
       ? memberDeclarationsAt(node)
       : symbolDeclarations(checker, node);
+    if (!declarations.length && kind === 'MemberReference'
+      && ts.isPropertyAccessExpression(node.parent) && node.parent.name === node) {
+      const receiver = node.parent.expression;
+      const type = checker.getNonNullableType(checker.getTypeAtLocation(receiver));
+      const index = checker.getIndexInfoOfType(type, ts.IndexKind.String);
+      const typeMember = type.getProperty(node.parent.name.text);
+      const dynamic = type.flags & ts.TypeFlags.Any ? 'receiver-any'
+        : index ? 'string-index-signature'
+        : typeMember ? 'structural-type-member' : undefined;
+      if (dynamic) {
+        const entity = entities.get(id)!;
+        entity.labels = [...new Set([...entity.labels, 'DynamicMemberAccess'])];
+        Object.assign(entity.props, { memberResolution: dynamic, memberName: node.parent.name.text,
+          receiverTypeText: checker.typeToString(type), staticMemberKnown: false,
+          typeMemberKnown: Boolean(typeMember), declarationResolution: 'no-source-declaration' });
+        emitRelationship(id, emitExpressionValue(receiver), 'READS_FROM', {
+          role: 'receiver', layer: 'functional', resolution: 'typescript-dynamic-member',
+        });
+      }
+    }
     for (const declaration of declarations) {
       const targetId = emitDeclaration(declaration, forcedCategory);
       emitRelationship(id, targetId, 'RESOLVES_TO', resolutionProps('RESOLVES_TO', node, declaration));
@@ -530,6 +612,24 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     return id;
   }
 
+  function isIntrinsicTypeSyntax(node: ts.TypeNode) {
+    return ts.isLiteralTypeNode(node)
+      || (node.kind >= ts.SyntaxKind.FirstKeyword && node.kind <= ts.SyntaxKind.LastKeyword)
+      || (ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName) && node.typeName.text === 'const'
+        && (ts.isAsExpression(node.parent) || ts.isTypeAssertionExpression(node.parent)));
+  }
+
+  function emitTypeContext(node: ts.TypeNode) {
+    if (isIntrinsicTypeSyntax(node)) {
+      const id = stableId(node);
+      emitEntity({ stableId: id, labels: ['CodeEntity', 'SyntaxPart', 'System'],
+        props: { ...sourceProps(node), name: node.getText(node.getSourceFile()), syntaxKind: ts.SyntaxKind[node.kind] } });
+      return id;
+    }
+    if (isDerivedTypeNode(node)) return emitDerivedType(node);
+    return emitReference(typeReferenceTargetNode(node), 'TypeReference');
+  }
+
   function emitGenericUse(node: ts.TypeReferenceNode | ts.ExpressionWithTypeArguments | ts.CallExpression | ts.NewExpression) {
     const typeArguments = node.typeArguments;
     if (!typeArguments?.length) return;
@@ -560,7 +660,7 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     const awaitedIndex = ts.isCallExpression(node) ? awaitedTypeArgumentIndex(ts, node, resolvedDeclaration) : -1;
     typeArguments.forEach((argument, index) => {
       let targets = targetDeclarationIds(typeReferenceTargetNode(argument), 'TypeDeclaration');
-      if (!targets.length && isDerivedTypeNode(argument)) targets = [emitDerivedType(argument)];
+      if (!targets.length) targets = [emitTypeContext(argument)];
       for (const targetId of targets) emitRelationship(id, targetId, index === awaitedIndex ? 'AWAITS_TYPE' : 'TYPE_ARGUMENT', {
         index, layer: 'type', resolution: 'typescript-signature',
         ...(index === awaitedIndex ? { staticOnly: true, runtimeValidation: false } : {}),
@@ -685,7 +785,7 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
   }
 
   function callableTargetNode(expression: ts.LeftHandSideExpression) {
-    return ts.isPropertyAccessExpression(expression) ? expression.name : expression;
+    return expressionTargetNode(expression);
   }
 
   function isIdentityCallable(node: ts.CallExpression) {
@@ -866,7 +966,7 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
         labels: ['Value', 'PropertyValue'],
         props: { ...sourceProps(property), name: propertyName, index },
       });
-      emitRelationship(id, propertyId, 'HAS_PROPERTY', { index, propertyName, layer: 'functional' });
+      emitRelationship(id, propertyId, 'HAS_PROPERTY', { index, propertyName, layer: 'functional', ownership: 'direct' });
       const contextualDeclarations = [...new Set([...contextualTypes.flatMap((type) => {
         const member = checker.getNonNullableType(type).getProperty(propertyName);
         return member?.declarations || (member?.valueDeclaration ? [member.valueDeclaration] : []);
@@ -889,7 +989,13 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
         emitRelationship(propertyId, functionId, 'VALUE_FROM', { layer: 'functional' });
       }
       if (value) {
-        emitRelationship(propertyId, emitExpressionValue(value), 'VALUE_FROM', { layer: 'functional' });
+        const valueId = emitExpressionValue(value);
+        emitRelationship(propertyId, valueId, 'VALUE_FROM', { layer: 'functional' });
+        if (ts.isPropertyAssignment(property) && valueId === stableId(value)) {
+          emitRelationship(propertyId, valueId, 'AST_CHILD', {
+            field: 'initializer', order: 1, layer: 'syntax',
+          });
+        }
         const implementations = callbackImplementations(value);
         for (const declaration of contextualDeclarations) {
           if (!implementations.length) continue;
@@ -990,10 +1096,13 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     const id = stableId(node, 'call');
     if (emittedCalls.has(node)) return id;
     emittedCalls.add(node);
+    const origin = classifyCallOrigin(checker, node);
     emitEntity({
       stableId: id,
       labels: ['Operation', 'Call', 'CallResult'],
-      props: { ...sourceProps(node), name: node.expression.getText(node.getSourceFile()) },
+      props: { ...sourceProps(node), name: node.expression.getText(node.getSourceFile()),
+        call_origin: origin.kind, call_origin_declaration_stable_id: origin.declarationStableId,
+        call_origin_declaration_path: origin.declarationPath, call_origin_package: origin.packageName },
     });
     markEnclosingFunctionImplementation(node, id);
     if (node.arguments[0] && isReactApiCall(checker, node, ['useContext'])) {
@@ -1002,9 +1111,13 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       });
     }
     const targetNode = callableTargetNode(node.expression);
-    const referenceKind = ts.isPropertyAccessExpression(node.expression) ? 'MemberReference' : 'ValueReference';
-    const referenceId = emitReference(targetNode, referenceKind);
-    emitRelationship(id, referenceId, 'CALLS_VALUE', { layer: 'functional' });
+    const callableExpression = unwrapExpression(node.expression);
+    const referenceKind = ts.isPropertyAccessExpression(callableExpression) ? 'MemberReference' : 'ValueReference';
+    const namedTarget = ts.isIdentifier(callableExpression) || ts.isPropertyAccessExpression(callableExpression)
+      || (callableExpression.kind >= ts.SyntaxKind.FirstKeyword && callableExpression.kind <= ts.SyntaxKind.LastKeyword);
+    const referenceId = namedTarget ? emitReference(targetNode, referenceKind) : emitExpressionValue(callableExpression);
+    emitRelationship(id, referenceId, 'CALLS_VALUE', { layer: 'functional',
+      ...(!namedTarget ? { role: 'callee', resolution: 'ast-computed-callee' } : {}) });
     const setterSymbol = resolveSymbol(checker, targetNode);
     const stateId = setterSymbol && reactStateBySetterSymbol.get(setterSymbol);
     if (stateId) {
@@ -1013,8 +1126,8 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
         resolution: 'react-state-provenance',
       });
     }
-    if (ts.isPropertyAccessExpression(node.expression)) {
-      emitRelationship(referenceId, emitExpressionValue(node.expression.expression), 'READS_FROM', {
+    if (ts.isPropertyAccessExpression(callableExpression)) {
+      emitRelationship(referenceId, emitExpressionValue(callableExpression.expression), 'READS_FROM', {
         role: 'receiver',
         layer: 'functional',
       });
@@ -1026,8 +1139,8 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       if (ts.isBindingElement(declaration)) pendingPropCallbackCalls.push({ call: node, member: declaration });
     }
     if (signatureDeclaration) {
-      const members = ts.isPropertyAccessExpression(node.expression)
-        ? memberDeclarationsAt(node.expression.name)
+      const members = ts.isPropertyAccessExpression(callableExpression)
+        ? memberDeclarationsAt(callableExpression.name)
         : [callableMemberDeclaration(signatureDeclaration)].filter((member): member is ts.Declaration => Boolean(member));
       for (const member of members) pendingPropCallbackCalls.push({ call: node, member });
     }
@@ -1111,6 +1224,35 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     if (ts.isJsxElement(node)) return emitJsxConstruction(node.openingElement);
     if (ts.isJsxSelfClosingElement(node)) return emitJsxConstruction(node);
     if (ts.isCallExpression(node)) return emitCall(node);
+    if (ts.isAwaitExpression(node)) {
+      const id = stableId(node);
+      emitEntity({ stableId: id, labels: ['CodeEntity', 'SyntaxPart', 'SyntaxContainer', 'System'],
+        props: { ...sourceProps(node), syntaxKind: 'AwaitExpression' } });
+      emitRelationship(id, emitExpressionValue(node.expression), 'CONSUMES_VALUE', {
+        layer: 'functional', role: 'awaited', resolution: 'ast-operand',
+      });
+      return id;
+    }
+    const shortCircuit = ts.isBinaryExpression(node) && [ts.SyntaxKind.AmpersandAmpersandToken,
+      ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind);
+    if (shortCircuit || ts.isPrefixUnaryExpression(node)) {
+      const id = stableId(node);
+      emitEntity({ stableId: id, labels: ['CodeEntity', 'SyntaxPart', 'SyntaxContainer', 'System'],
+        props: { ...sourceProps(node), syntaxKind: ts.SyntaxKind[node.kind] } });
+      const operands: [ts.Expression, string][] = ts.isBinaryExpression(node)
+        ? [[node.left, 'left'], [node.right, 'right']] : [[(node as ts.PrefixUnaryExpression).operand, 'operand']];
+      for (const [operand, role] of operands) {
+        const operandId = emitExpressionValue(operand);
+        emitRelationship(id, operandId, 'CONSUMES_VALUE', {
+          layer: 'functional', role, resolution: 'ast-operand',
+          ...(shortCircuit && role === 'right' ? { evaluation: 'short-circuit-conditional' } : {}),
+        });
+        if (operandId === stableId(operand)) emitRelationship(id, operandId, 'AST_CHILD', {
+          field: role, layer: 'syntax',
+        });
+      }
+      return id;
+    }
     const binaryUse = ts.isBinaryExpression(node)
       && !(node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
       && ![ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.CommaToken].includes(node.operatorToken.kind);
@@ -1153,9 +1295,9 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       if (ts.isReturnStatement(current) && current.expression && ts.isObjectLiteralExpression(current.expression)) {
         for (const property of current.expression.properties) {
           if (ts.isSpreadAssignment(property) || propertyNameText(property) !== propertyName) continue;
-          const objectId = emitObjectConstruction(current.expression);
+          emitObjectConstruction(current.expression);
           const propertyId = stableId(property, 'property-value');
-          emitRelationship(emitDeclaration(declaration, 'ValueDeclaration'), objectId, 'RETURNS_VALUE', { layer: 'functional' });
+          emitReturn(current);
           matches.push(propertyId);
         }
       }
@@ -1217,9 +1359,48 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     emittedReturns.add(node);
     const owner = enclosingFunction(node);
     if (!owner) return;
+    const ownerId = emitDeclaration(owner, 'ValueDeclaration');
+    const returnId = stableId(node);
+    const valueId = emitExpressionValue(node.expression);
+    const expressionId = stableId(node.expression);
+    if (!entities.has(expressionId)) {
+      emitEntity({ stableId: expressionId, labels: ['CodeEntity', 'SyntaxPart', 'SyntaxContainer', 'System'],
+        props: { ...sourceProps(node.expression), syntaxKind: ts.SyntaxKind[node.expression.kind] } });
+      let order = 0;
+      ts.forEachChild(node.expression, child => {
+        const childId = stableId(child);
+        if (entities.has(childId) && childId !== expressionId) {
+          emitRelationship(expressionId, childId, 'AST_CHILD', {
+            ...syntaxChildDescriptor(node.expression!, child, order), layer: 'syntax',
+          });
+        }
+        order += 1;
+      });
+    }
+    emitEntity({ stableId: returnId, labels: ['CodeEntity', 'SyntaxPart', 'SyntaxContainer', 'System'],
+      props: { ...sourceProps(node), syntaxKind: 'ReturnStatement' } });
+    emitRelationship(returnId, expressionId, 'AST_CHILD', {
+      field: 'expression', order: 0, layer: 'syntax',
+    });
+    // Return-field resolution also visits bodies outside the requested scope.
+    // Preserve their concrete statement owner without claiming full body coverage.
+    let ancestor = node.parent;
+    const skippedSyntaxKinds: string[] = [];
+    while (ancestor) {
+      const ancestorId = ancestor === owner ? ownerId : stableId(ancestor);
+      if (entities.has(ancestorId)) {
+        emitRelationship(returnId, ancestorId, 'ENCLOSED_BY', {
+          layer: 'structural', resolution: 'nearest-materialized-ast-owner',
+          skippedSyntaxKinds: JSON.stringify(skippedSyntaxKinds),
+        });
+        break;
+      }
+      skippedSyntaxKinds.push(ts.SyntaxKind[ancestor.kind]);
+      ancestor = ancestor.parent;
+    }
     emitRelationship(
-      emitDeclaration(owner, 'ValueDeclaration'),
-      emitExpressionValue(node.expression),
+      ownerId,
+      valueId,
       'RETURNS_VALUE',
       { layer: 'functional' },
     );
@@ -1254,11 +1435,17 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     visitedSourceNodes.push(node);
     // Keep declaration containers so the generic AST pass can express ownership
     // without treating a rendered identifier tile as the declaration's parent.
-    if (ts.isVariableDeclarationList(node) || ts.isVariableStatement(node) || ts.isCatchClause(node)
-      || ts.isExportAssignment(node)) {
+    if (isOwnershipSyntaxContainer(node)) {
       emitEntity({ stableId: stableId(node),
-        labels: ['CodeEntity', 'SyntaxPart', 'DeclarationContainer',
+        labels: ['CodeEntity', 'SyntaxPart', 'SyntaxContainer',
+          ...(ts.isVariableDeclarationList(node) || ts.isVariableStatement(node)
+            || ts.isCatchClause(node) || ts.isExportAssignment(node) ? ['DeclarationContainer'] : []),
           ...(ts.isExportAssignment(node) ? [] : ['System'])],
+        props: { ...sourceProps(node), syntaxKind: ts.SyntaxKind[node.kind] } });
+    }
+    if (ts.isTypeNode(node) && isIntrinsicTypeSyntax(node)) emitTypeContext(node);
+    if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {
+      emitEntity({ stableId: stableId(node), labels: ['CodeEntity', 'SyntaxPart', 'System'],
         props: { ...sourceProps(node), syntaxKind: ts.SyntaxKind[node.kind] } });
     }
     if (ts.isTypeAliasDeclaration(node) || ts.isInterfaceDeclaration(node) || ts.isTypeParameterDeclaration(node)) {
@@ -1294,9 +1481,12 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       || ts.isEnumMember(node)
     ) {
       const owner = directMemberOwner(node);
-      if (owner) {
+      const ownerId = ts.isTypeLiteralNode(node.parent)
+        ? emitDerivedType(node.parent)
+        : owner ? emitDeclaration(owner, 'TypeDeclaration') : undefined;
+      if (ownerId) {
         emitRelationship(
-          emitDeclaration(owner, 'TypeDeclaration'),
+          ownerId,
           emitDeclaration(node, 'MemberDeclaration'),
           'HAS_MEMBER',
           { ownership: 'direct' },
@@ -1317,8 +1507,7 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
           ? 'MemberDeclaration'
           : 'ValueDeclaration',
       );
-      const typeReferenceNode = ts.isTypeReferenceNode(node.type) ? node.type.typeName : node.type;
-      const typeReferenceId = emitReference(typeReferenceNode, 'TypeReference');
+      const typeReferenceId = emitTypeContext(node.type);
       const typeDeclarationIds = targetDeclarationIds(typeReferenceTargetNode(node.type), 'TypeDeclaration');
       if (typeDeclarationIds.length) {
         for (const typeDeclarationId of typeDeclarationIds) {
@@ -1413,7 +1602,7 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       }
     }
 
-    if (ts.isTypeReferenceNode(node)) {
+    if (ts.isTypeReferenceNode(node) && !isIntrinsicTypeSyntax(node)) {
       emitReference(node.typeName, 'TypeReference');
       emitGenericUse(node);
     } else if (ts.isExpressionWithTypeArguments(node)) {
@@ -1465,6 +1654,7 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
         && ![ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.CommaToken].includes(node.operatorToken.kind)) emitExpressionValue(node);
     }
     if (ts.isElementAccessExpression(node)) emitExpressionValue(node);
+    if (ts.isAwaitExpression(node)) emitExpressionValue(node);
 
     if (ts.isJsxAttribute(node) && node.name.text === 'ref' && node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression) {
       emitRuntimeRef(node, node.initializer.expression);
@@ -1501,7 +1691,8 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       const propertyDeclarationName = (ts.isPropertyAssignment(parent) || ts.isPropertySignature(parent) || ts.isPropertyDeclaration(parent)) && parent.name === node;
       if (!inTypeReference && !propertyName && !importExportName && !propertyDeclarationName) {
         const declarations = symbolDeclarations(checker, node);
-        if (declarations.length) emitReference(node, 'ValueReference');
+        if (declarations.length || (node.text === 'undefined'
+          && (checker.getTypeAtLocation(node).flags & ts.TypeFlags.Undefined))) emitReference(node, 'ValueReference');
       }
     }
 
@@ -1647,11 +1838,40 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     }
   }
 
+  // Render composition runs later; preserve concrete operator tokens now so
+  // the direct AST owner does not disappear when a rendered tile is added.
+  for (const node of visitedSourceNodes) {
+    if (ts.isAwaitExpression(node)) {
+      const token = node.getChildren(node.getSourceFile()).find(child => child.kind === ts.SyntaxKind.AwaitKeyword);
+      if (token) {
+        emitEntity({ stableId: stableId(token), labels: ['CodeEntity', 'SyntaxPart', 'System', 'Keyword', 'Await'],
+          props: { ...sourceProps(token), name: 'await', syntaxKind: 'AwaitKeyword' } });
+        emitRelationship(stableId(node), stableId(token), 'AST_CHILD', {
+          field: 'awaitKeyword', layer: 'syntax', resolution: 'typescript-token',
+        });
+      }
+    }
+    if (ts.isNewExpression(node) && entities.has(stableId(node))) {
+      const token = node.getChildren(node.getSourceFile()).find(child => child.kind === ts.SyntaxKind.NewKeyword);
+      if (token) {
+        emitEntity({ stableId: stableId(token), labels: ['CodeEntity', 'SyntaxPart', 'System', 'Keyword', 'New'],
+          props: { ...sourceProps(token), name: 'new', syntaxKind: 'NewKeyword' } });
+        emitRelationship(stableId(node), stableId(token), 'AST_CHILD', {
+          field: 'newKeyword', layer: 'syntax', resolution: 'typescript-token',
+        });
+      }
+    }
+    if (!ts.isBinaryExpression(node) || !entities.has(stableId(node))) continue;
+    const token = node.operatorToken;
+    emitEntity({ stableId: stableId(token), labels: ['CodeEntity', 'SyntaxPart', 'System', 'Op', 'Operand'],
+      props: { ...sourceProps(token), name: token.getText(token.getSourceFile()),
+        syntaxKind: ts.SyntaxKind[token.kind] } });
+  }
+
   // Project containment only across unmaterialized AST nodes. This is not
   // execution flow or value provenance; keep the skipped syntax explicit.
   for (const node of visitedSourceNodes) {
-    if (!ts.isVariableStatement(node) && !ts.isVariableDeclarationList(node) && !ts.isCatchClause(node)
-      && !ts.isExportAssignment(node)) continue;
+    if (!isOwnershipSyntaxContainer(node)) continue;
     const childId = stableId(node);
     let ancestor = node.parent;
     const skippedSyntaxKinds: string[] = [];
@@ -1666,6 +1886,10 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       if (ancestorId !== childId && entities.has(ancestorId)) {
         emitRelationship(childId, ancestorId, 'ENCLOSED_BY', {
           layer: 'structural', resolution: 'nearest-materialized-ast-owner',
+          skippedSyntaxKinds: JSON.stringify(skippedSyntaxKinds),
+        });
+        Object.assign(relationships.get(`${childId}\u0000ENCLOSED_BY\u0000${ancestorId}`)!.props, {
+          syntaxOwnerResolution: 'nearest-materialized-ast-owner',
           skippedSyntaxKinds: JSON.stringify(skippedSyntaxKinds),
         });
         break;
@@ -1710,7 +1934,8 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
         });
       }
     }
-    const parentId = stableId(parent);
+    const parentId = ts.isSourceFile(parent)
+      ? `source-file:${getRepoRelativePath(parent.fileName)}` : stableId(parent);
     if (!entities.has(parentId)) continue;
     let order = 0;
     ts.forEachChild(parent, (child) => {
@@ -1773,10 +1998,11 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     const parts = [...new Set(symbol.declarations || [])].filter((declaration) => declarationIds.has(declaration));
     if (parts.length < 2) continue;
     const first = parts[0];
+    const externalBoundary = parts.every(part => declarationLabels(part, declarationCategory(part)).includes('ExternalBoundary'));
     const mergedId = `symbol:merged:${getExtendedStableId(first.getSourceFile(), first)}`;
     emitEntity({
       stableId: mergedId,
-      labels: ['Declaration', 'MergedSymbol'],
+      labels: ['Declaration', 'MergedSymbol', ...(externalBoundary ? ['ExternalBoundary', 'System'] : [])],
       props: { ...sourceProps(first), name: symbol.getName(), declarationPartCount: parts.length },
     });
     for (const part of parts) emitRelationship(mergedId, emitDeclaration(part), 'HAS_DECLARATION_PART');

@@ -95,7 +95,8 @@ def main():
         endings[(kind, status)] += 1
         evidence.append((stable_id, kind, decisions[current], status, ids[end], hops))
     db.execute('CREATE TABLE comparison(stable_id VARCHAR,kind VARCHAR,decision VARCHAR,terminal_status VARCHAR,terminal_id VARCHAR,hops INTEGER)')
-    db.executemany('INSERT INTO comparison VALUES (?,?,?,?,?,?)', evidence)
+    if evidence:
+        db.executemany('INSERT INTO comparison VALUES (?,?,?,?,?,?)', evidence)
     destination = (args.output/'declaration-chains.parquet').as_posix().replace("'", "''")
     db.execute(f"COPY comparison TO '{destination}' (FORMAT PARQUET,COMPRESSION ZSTD)")
 
@@ -109,6 +110,18 @@ def main():
           WHERE decision='follow-original'
         UNION
         SELECT stable_id,target FROM plan,unnest(required_body_context) t(target)''')
+    if any(row[0]=='required_type_context' for row in db.execute('DESCRIBE plan').fetchall()):
+        db.execute('''INSERT INTO dependency_ids
+            SELECT stable_id,target FROM plan,unnest(required_type_context) t(target)
+            EXCEPT SELECT consumer,prerequisite FROM dependency_ids''')
+    if any(row[0]=='required_value_context' for row in db.execute('DESCRIBE plan').fetchall()):
+        db.execute('''INSERT INTO dependency_ids
+            SELECT stable_id,target FROM plan,unnest(required_value_context) t(target)
+            EXCEPT SELECT consumer,prerequisite FROM dependency_ids''')
+    if any(row[0]=='required_callable_context' for row in db.execute('DESCRIBE plan').fetchall()):
+        db.execute('''INSERT INTO dependency_ids
+            SELECT stable_id,target FROM plan,unnest(required_callable_context) t(target)
+            EXCEPT SELECT consumer,prerequisite FROM dependency_ids''')
     missing = db.execute('''SELECT count(*) FROM dependency_ids d
         LEFT JOIN numbered a ON a.stable_id=d.consumer
         LEFT JOIN numbered b ON b.stable_id=d.prerequisite WHERE a.idx IS NULL OR b.idx IS NULL''').fetchone()[0]
@@ -127,7 +140,8 @@ def main():
     direct = bytearray(count)
     cyclic = bytearray(size > 1 for size in sizes)
     for i, decision in enumerate(decisions):
-        if not boundaries[i] and (decision.startswith('blocked-') or decision.startswith('review-')):
+        if not boundaries[i] and (decision.startswith('blocked-') or decision.startswith('review-')
+                or decision.startswith('deferred-')):
             direct[i] = 1
             blocked[group[i]] = 1
     component_sources, component_targets = array('I'), array('I')
@@ -166,13 +180,15 @@ def main():
     assert direct_count + sum(inherited.values()) == states['blocked-evidence']
     direct_reasons = db.execute('''SELECT decision,evidence_reason,owner_status,count(*)
         FROM numbered WHERE NOT file_boundary
-          AND (starts_with(decision,'blocked-') OR starts_with(decision,'review-'))
+          AND (starts_with(decision,'blocked-') OR starts_with(decision,'review-')
+               OR starts_with(decision,'deferred-'))
         GROUP BY ALL ORDER BY count(*) DESC''').fetchall()
     examples = db.execute('''SELECT n.stable_id,n.decision,n.evidence_reason,n.owner_status,
         count(d.consumer) AS immediate_consumers
         FROM numbered n LEFT JOIN dependency_ids d ON d.prerequisite=n.stable_id
         WHERE NOT n.file_boundary
-          AND (starts_with(n.decision,'blocked-') OR starts_with(n.decision,'review-'))
+          AND (starts_with(n.decision,'blocked-') OR starts_with(n.decision,'review-')
+               OR starts_with(n.decision,'deferred-'))
         GROUP BY ALL ORDER BY immediate_consumers DESC,n.stable_id LIMIT 20''').fetchall()
     failures = db.execute('''SELECT kind,terminal_status,terminal_id,count(*) AS total
         FROM comparison WHERE terminal_status NOT IN ('source-file','generation-candidate',
@@ -196,7 +212,7 @@ def main():
                 'directExamples': [{'stableId': i, 'decision': d, 'reason': r,
                                     'ownerStatus': o, 'immediateConsumers': c}
                                    for i,d,r,o,c in examples],
-                'policy': 'Direct means own unresolved/review evidence; inherited-only means a blocked prerequisite. Neither counts independent extraction defects.'}},
+                'policy': 'Direct means own unresolved/review evidence or pending source expansion; inherited-only means a blocked prerequisite. Neither counts independent extraction defects.'}},
         'generatesAnnotations': False, 'writesGraph': False,
         'limitations': ['Simulates the inventory plan, not all production annotation-profile dependencies.',
             'SourceFile is an ownership boundary, not a certified annotation job.',

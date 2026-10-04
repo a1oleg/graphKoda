@@ -19,8 +19,8 @@ db.read_parquet(str(args.report/'subjects.parquet')).create_view('subjects')
 db.read_parquet(str(Path(summary['input'])/'relationships.parquet')).create_view('rels')
 db.read_parquet(str(Path(summary['input'])/'nodes.parquet')).create_view('raw_nodes')
 db.execute('''CREATE TABLE technical_flow_joins AS SELECT stable_id FROM raw_nodes
-    WHERE list_contains(labels,'Join') AND json_extract_string(props_json,'$.operation_code')='FLOW_JOIN'
-      AND json_extract_string(props_json,'$.join_kind')='flow'
+    WHERE list_contains(labels,'Join') AND json_extract_string(props_json,'$.operation_code')
+      IN ('FLOW_JOIN','ARG_JOIN','FIELD_JOIN','OPERAND_JOIN')
       AND json_extract_string(props_json,'$.synthetic')='true' ''')
 db.execute('''CREATE TABLE structural_owner_props AS SELECT stable_id,
     json_extract_string(props_json,'$.parentFlowBlockStableId') AS block_id,
@@ -30,20 +30,34 @@ db.execute('''CREATE TABLE structural_owner_props AS SELECT stable_id,
       OR stable_id IN (SELECT stable_id FROM technical_flow_joins)''')
 # Field-bearing AST edges describe direct containment. Projection edges only
 # describe an ancestor and must not compete with an immediate owner.
+# A shared terminal's explicit control scope is as direct as AST containment;
+# an inherited parentStep is its layout context, not a competing semantic owner.
 # Insert evidence sources separately to bound peak join memory. Deduplicate
 # after selecting the nearest tier, before aggregating owner evidence.
 db.execute('''CREATE TABLE owner_candidates AS
     SELECT r.to_id AS stable_id,r.from_id AS target,r.rel_type AS relation,
       json_extract_string(r.props_json,'$.field') AS field,
-      CASE WHEN r.rel_type='HAS_OPERATION' THEN 1 ELSE 0 END AS tier
+      CASE WHEN r.rel_type IN ('HAS_OPERATION','HAS_SYNTAX_ENTRY') THEN 1 ELSE 0 END AS tier
     FROM rels r JOIN subjects s ON s.stable_id=r.to_id
     JOIN subjects owner ON owner.stable_id=r.from_id
     WHERE r.from_id<>r.to_id AND (
       (r.rel_type='AST_CHILD' AND json_extract_string(r.props_json,'$.field') IS NOT NULL
         AND json_extract_string(r.props_json,'$.projection') IS NULL)
-      OR (r.rel_type='HAS_OPERATION' AND json_extract_string(r.props_json,'$.ownership')='immediate-step')
+      OR (r.rel_type IN ('HAS_OPERATION','HAS_SYNTAX_ENTRY') AND json_extract_string(r.props_json,'$.ownership')='immediate-step')
+      OR (r.rel_type='HAS_TERMINAL' AND json_extract_string(r.props_json,'$.ownership')='direct-terminal-scope')
       OR (r.rel_type IN ('HAS_MEMBER','HAS_PROPERTY') AND json_extract_string(r.props_json,'$.ownership')='direct'))
     ''')
+db.execute('''INSERT INTO owner_candidates
+    SELECT r.to_id,r.from_id,'HAS_MEMBER','finite-domain-member',0
+    FROM rels r JOIN raw_nodes member ON member.stable_id=r.to_id
+    JOIN subjects domain ON domain.stable_id=r.from_id
+    WHERE r.rel_type='HAS_MEMBER' AND r.from_id<>r.to_id
+      AND list_contains(member.labels,'LiteralDomainValue')
+      AND list_contains(domain.labels,'LiteralDomain')
+      AND json_extract_string(member.props_json,'$.domain_stable_id')=r.from_id
+      AND json_extract_string(member.props_json,'$.ordinal')=json_extract_string(r.props_json,'$.ordinal')
+    ''')
+
 db.execute('''INSERT INTO owner_candidates
     SELECT property.to_id,property.from_id,'HAS_PROPERTY','argument-object-property',-1
     FROM rels property JOIN subjects member ON member.stable_id=property.to_id
@@ -55,6 +69,28 @@ db.execute('''INSERT INTO owner_candidates
         ON ancestor.from_id=argument.from_id AND ancestor.to_id=property.to_id
           AND ancestor.rel_type='HAS_PROPERTY'
         WHERE argument.rel_type='HAS_ARGUMENT' AND argument.to_id=property.from_id)
+    ''')
+
+db.execute('''INSERT INTO owner_candidates
+    SELECT r.from_id,r.to_id,r.rel_type,'resource-cell',0
+    FROM rels r JOIN raw_nodes cell ON cell.stable_id=r.from_id
+    JOIN raw_nodes resource ON resource.stable_id=r.to_id
+    WHERE r.rel_type='PART_OF' AND r.from_id<>r.to_id
+      AND json_extract_string(r.props_json,'$.ownership')='direct-resource-cell'
+      AND list_contains(cell.labels,'Cell')
+      AND json_extract_string(cell.props_json,'$.parentStableId')=r.to_id
+    ''')
+db.execute('''INSERT INTO owner_candidates
+    SELECT r.to_id,r.from_id,r.rel_type,'function-resource-context',4
+    FROM rels r JOIN raw_nodes resource ON resource.stable_id=r.to_id
+    JOIN subjects owner ON owner.stable_id=r.from_id
+    WHERE r.rel_type='HAS_RESOURCE' AND r.from_id<>r.to_id
+      AND json_extract_string(r.props_json,'$.ownership')='function-local-resource'
+      AND (json_extract_string(resource.props_json,'$.resource_context_scope')='function'
+        OR (json_extract_string(resource.props_json,'$.resource_context_scope') IS NULL
+          AND json_extract_string(resource.props_json,'$.resource_kind')='async-flow'))
+      AND json_extract_string(resource.props_json,'$.parentFnStableId')=r.from_id
+      AND list_has_any(owner.labels,['Fn','FnDeclaration','CallableDeclaration'])
     ''')
 db.execute('''INSERT INTO owner_candidates
     SELECT r.to_id,r.from_id,'HAS_ARGUMENT','object-argument',0
@@ -109,8 +145,9 @@ db.execute('''INSERT INTO owner_candidates
 db.execute('''INSERT INTO owner_candidates
     SELECT r.from_id,r.to_id,r.rel_type,'nearest-materialized-ast-owner',5
     FROM rels r JOIN subjects s ON s.stable_id=r.from_id
-    WHERE list_contains(s.labels,'DeclarationContainer') AND r.rel_type='ENCLOSED_BY'
-      AND json_extract_string(r.props_json,'$.resolution')='nearest-materialized-ast-owner'
+    WHERE list_has_any(s.labels,['DeclarationContainer','SyntaxContainer']) AND r.rel_type='ENCLOSED_BY'
+      AND (json_extract_string(r.props_json,'$.resolution')='nearest-materialized-ast-owner'
+        OR json_extract_string(r.props_json,'$.syntaxOwnerResolution')='nearest-materialized-ast-owner')
     ''')
 
 # Materialized syntax parts can lack a separate AST parent (operator tokens,
@@ -131,8 +168,30 @@ db.execute('''INSERT INTO owner_candidates
       AND json_extract_string(r.props_json,'$.field')='renderedExpression'
     ''')
 
-# A syntax parent is nearer than its enclosing step. Equal-tier disagreement
-# remains a conflict; sorting stable IDs must never resolve ownership.
+# Composition may repeat the same tile on an operation and its enclosing Step.
+# Discard only a proven ancestor, not an owner inferred from IDs or coordinates.
+db.execute('''CREATE TABLE composition_containment AS
+    SELECT DISTINCT r.from_id AS ancestor,r.to_id AS descendant FROM rels r
+    WHERE r.from_id<>r.to_id AND (
+      (r.rel_type='AST_CHILD' AND json_extract_string(r.props_json,'$.field') IS NOT NULL
+        AND json_extract_string(r.props_json,'$.projection') IS NULL)
+      OR (r.rel_type IN ('HAS_OPERATION','HAS_SYNTAX_ENTRY') AND json_extract_string(r.props_json,'$.ownership')='immediate-step')
+      OR (r.rel_type IN ('HAS_MEMBER','HAS_PROPERTY') AND json_extract_string(r.props_json,'$.ownership')='direct'))
+    ''')
+db.execute('''DELETE FROM owner_candidates outer_owner WHERE outer_owner.tier=6
+    AND EXISTS (SELECT 1 FROM owner_candidates inner_owner
+      JOIN composition_containment c ON c.ancestor=outer_owner.target AND c.descendant=inner_owner.target
+      WHERE inner_owner.stable_id=outer_owner.stable_id AND inner_owner.tier=6
+        AND NOT EXISTS (SELECT 1 FROM owner_candidates nested_owner
+          JOIN composition_containment nested ON nested.ancestor=inner_owner.target
+            AND nested.descendant=nested_owner.target
+          WHERE nested_owner.stable_id=outer_owner.stable_id AND nested_owner.tier=6)
+        AND NOT EXISTS (SELECT 1 FROM composition_containment reverse
+          WHERE reverse.ancestor=c.descendant AND reverse.descendant=c.ancestor))''')
+db.execute('DROP TABLE composition_containment')
+
+# Equal-tier disagreement without proven containment remains a conflict.
+# Sorting stable IDs must never resolve ownership.
 db.execute('''CREATE TABLE direct_evidence AS
     SELECT DISTINCT e.*, (t.stable_id IS NOT NULL AND e.target<>e.stable_id
       AND (e.tier<>6 OR NOT EXISTS (SELECT 1 FROM rels reverse
@@ -216,10 +275,18 @@ for row in audit['subjects']:
     rows.append((row['stable_id'],row['auditCategory'],any(not s['entryExists'] for s in row['ownedSteps']),targets))
 if rows:
     db.executemany('INSERT INTO audit VALUES (?,?,?,?)', rows)
+db.execute('''CREATE TABLE generic_context AS
+    SELECT r.from_id AS stable_id,list(DISTINCT r.to_id ORDER BY r.to_id) AS targets
+    FROM rels r JOIN subjects s ON s.stable_id=r.from_id JOIN subjects target ON target.stable_id=r.to_id
+    WHERE list_contains(s.labels,'GenericUse') AND r.rel_type IN ('INSTANTIATES','TYPE_ARGUMENT')
+      AND r.from_id<>r.to_id GROUP BY r.from_id''')
+
 db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
     CASE
       WHEN coalesce(a.missing_step,false) THEN 'blocked-missing-step-target'
       WHEN a.category='explicit-external-boundary' OR s.context_kind='external-catalog' THEN 'external-boundary'
+      WHEN s.reason='source-file-ownership-boundary' THEN 'syntax-summary'
+      WHEN s.reason='source-expansion-required' THEN 'deferred-source-expansion'
       WHEN a.category IN ('binding-to-confirmed-implementation','function-proxy-resolved-by-property') THEN 'follow-original'
       WHEN a.category='empty-body' THEN 'syntax-summary'
       WHEN a.category='signature-without-body' THEN 'contract-candidate'
@@ -256,13 +323,32 @@ db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
       WHEN len(d.targets)>1 THEN 'conflicting-direct-owners'
       ELSE 'no-direct-owner-evidence' END AS owner_status,
     s.body_targets AS required_body_context,
+    coalesce(g.targets,[]::VARCHAR[]) AS required_type_context,
+    coalesce(v.targets,[]::VARCHAR[]) AS required_value_context,
+    coalesce(callable.targets,[]::VARCHAR[]) AS required_callable_context,
+    s.reason='source-expansion-required' AS expansion_required,
     true AS retain_context,
     false AS scheduled
     FROM subjects s LEFT JOIN audit a USING(stable_id)
     LEFT JOIN direct_owners d USING(stable_id)
     LEFT JOIN callback_composition c USING(stable_id)
     LEFT JOIN capture_originals capture USING(stable_id)
-    LEFT JOIN object_arguments object_arg USING(stable_id)''')
+    LEFT JOIN object_arguments object_arg USING(stable_id)
+    LEFT JOIN generic_context g USING(stable_id)
+    LEFT JOIN (SELECT r.from_id AS stable_id,list(DISTINCT r.to_id ORDER BY r.to_id) AS targets
+      FROM rels r JOIN subjects target ON target.stable_id=r.to_id
+      WHERE r.rel_type='CALLS_VALUE' AND r.from_id<>r.to_id
+        AND json_extract_string(r.props_json,'$.resolution')='ast-computed-callee'
+      GROUP BY r.from_id) callable USING(stable_id)
+    LEFT JOIN (SELECT r.from_id AS stable_id,list(DISTINCT r.to_id ORDER BY r.to_id) AS targets
+      FROM rels r JOIN subjects child ON child.stable_id=r.from_id
+      JOIN subjects receiver ON receiver.stable_id=r.to_id
+      WHERE r.from_id<>r.to_id AND (
+        (list_contains(child.labels,'DynamicMemberAccess') AND r.rel_type='READS_FROM'
+          AND json_extract_string(r.props_json,'$.role')='receiver')
+        OR (list_contains(child.labels,'ValueConsumption') AND r.rel_type='CONSUMES_VALUE'
+          AND json_extract_string(r.props_json,'$.role') IN ('receiver','index')))
+      GROUP BY r.from_id) v USING(stable_id)''')
 assert db.execute('SELECT count(*) FROM plan').fetchone()[0] == summary['nodes']
 assert db.execute("SELECT count(*) FROM plan WHERE decision='follow-original' AND len(context_targets)=0").fetchone()[0] == 0
 assert db.execute("SELECT count(*) FROM plan WHERE decision='compose-in-owner' AND len(context_targets)<>1").fetchone()[0] == 0
@@ -278,7 +364,7 @@ for status, reason, count in db.execute('''SELECT owner_status,s.reason,count(*)
         ORDER BY p.stable_id LIMIT 3''', [status,reason]).fetchall()
     owner_review.append({'status':status,'reason':reason,'count':count,
         'examples':[{'stableId':i,'candidateOwners':t,'evidence':e} for i,t,e in examples]})
-report = {'version':14,'nodes':summary['nodes'],
+report = {'version':27,'nodes':summary['nodes'],
     'counts':dict(db.execute('SELECT decision,count(*) FROM plan GROUP BY decision ORDER BY decision').fetchall()),
     'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds'],
     'generatesAnnotations':False,'scheduledTasks':0,'requiredGenerationCount':None,

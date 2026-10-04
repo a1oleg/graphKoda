@@ -2,6 +2,9 @@ import { execFile, spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { StringDecoder } from 'node:string_decoder';
+import projectPaths from '../../../../../dev/projectPaths.cjs';
+import { parseImportResult, readImportPerformanceHistory, saveImportPerformance } from './extractPerformance.js';
 
 const EXTRACT_MODES = {
   func: ['func'],
@@ -9,6 +12,15 @@ const EXTRACT_MODES = {
 
 let activeRun = null;
 let lastRun = null;
+
+function recordPerformance(run, result = null) {
+  if (run.fnStableId) return;
+  try { run.performance = saveImportPerformance(run, result); }
+  catch (error) {
+    run.performanceError = error.message;
+    appendLogLine(run.logPath, `[orchestrator] performance recording failed: ${error.message}`);
+  }
+}
 
 const execFileAsync = promisify(execFile);
 
@@ -249,7 +261,7 @@ function refreshActiveRun() {
     return;
   }
 
-  if (isProcessRunning(activeRun.pid)) {
+  if (activeRun.drainingOutput || isProcessRunning(activeRun.pid)) {
     return;
   }
 
@@ -260,6 +272,7 @@ function refreshActiveRun() {
     signal: 'lost',
     running: false,
   };
+  recordPerformance(lastRun);
   activeRun = null;
 }
 
@@ -415,6 +428,13 @@ finally:
 
 export function getExtractPlan() {
   return {
+    performance: {
+      automaticForFullImports: true,
+      statusRoute: '/api/extract/status',
+      reportSuffix: '.performance.json',
+      comparison: 'previous-compatible-successful-full-import',
+      firstRun: 'baseline-only',
+    },
     modes: Object.fromEntries(
       Object.entries(EXTRACT_MODES).map(([mode, steps]) => [mode, { steps }]),
     ),
@@ -503,6 +523,7 @@ export function getExtractStatus({ tailLog = false } = {}) {
     running: Boolean(activeRun),
     activeRun: decorateRun(activeRun, { tailLog }),
     lastRun: decorateRun(lastRun, { tailLog }),
+    performance: lastRun?.performance || readImportPerformanceHistory(ensureLogDir())[0] || null,
     plan: getExtractPlan(),
   };
 }
@@ -672,20 +693,30 @@ export function startExtract({
   // Node; routing this through `cmd.exe /c npm run ...` would interpret shell
   // metacharacters on Windows.
   const spawnSpec = buildExtractCommand(normalizedMode, scriptArgs);
+  const childEnv = { ...process.env, ...readLocalGraphEnv(), PYTHONUNBUFFERED: '1', FORCE_COLOR: '0' };
+  let endpoint = null;
+  try { const uri = new URL(childEnv.NEO4J_URI); endpoint = `${uri.protocol}//${uri.host}`; } catch {}
   const child = spawn(spawnSpec.command, spawnSpec.args, {
     cwd: process.cwd(),
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
-    env: {
-      ...process.env,
-      ...readLocalGraphEnv(),
-      PYTHONUNBUFFERED: '1',
-      FORCE_COLOR: '0',
-    },
+    env: childEnv,
   });
 
+  const decoder = new StringDecoder('utf8');
+  let stdoutPending = '';
+  let importResult = null;
+  const consumeStdout = (text) => {
+    stdoutPending += text;
+    let end;
+    while ((end = stdoutPending.indexOf('\n')) >= 0) {
+      importResult = parseImportResult(stdoutPending.slice(0, end)) || importResult;
+      stdoutPending = stdoutPending.slice(end + 1);
+    }
+  };
   child.stdout?.on('data', (chunk) => {
     fs.appendFileSync(logPath, chunk);
+    consumeStdout(decoder.write(chunk));
   });
   child.stderr?.on('data', (chunk) => {
     fs.appendFileSync(logPath, chunk);
@@ -695,6 +726,15 @@ export function startExtract({
     mode: normalizedMode,
     fnStableId: scopedFnStableId,
     preserveAnnotations: shouldPreserveAnnotations,
+    catalogOnly,
+    performanceContext: {
+      sourceRoot: path.resolve(childEnv.graphKoda_SOURCE_ROOT || projectPaths.sourceRoot),
+      sourceRoots: childEnv.GRAPH_EXTRACT_SOURCE_ROOTS || null,
+      targetEndpoint: endpoint,
+      database: childEnv.NEO4J_DATABASE || childEnv.NEO4J_DB || 'neo4j',
+      mode: normalizedMode, catalogOnly, preserveAnnotations: shouldPreserveAnnotations,
+      transportProfiling: childEnv.GRAPH_EXTRACT_PROFILE_TRANSPORT === '1',
+    },
     steps: EXTRACT_MODES[normalizedMode],
     script,
     scriptArgs,
@@ -721,10 +761,15 @@ export function startExtract({
       error: error.message,
       running: false,
     };
+    recordPerformance(lastRun);
     activeRun = null;
   });
 
-  child.on('exit', (code, signal) => {
+  // Wait for stdout to drain before reading the final importer result.
+  child.on('exit', () => {
+    if (activeRun?.pid === child.pid) activeRun.drainingOutput = true;
+  });
+  child.on('close', (code, signal) => {
     if (activeRun?.pid !== child.pid) {
       return;
     }
@@ -736,6 +781,9 @@ export function startExtract({
       signal: signal || null,
       running: false,
     };
+    consumeStdout(decoder.end());
+    importResult = parseImportResult(stdoutPending) || importResult;
+    recordPerformance(lastRun, importResult);
     activeRun = null;
   });
 
@@ -787,6 +835,7 @@ export function stopExtract() {
     signal: 'stopped',
     running: false,
   };
+  recordPerformance(lastRun);
   activeRun = null;
 
   return {

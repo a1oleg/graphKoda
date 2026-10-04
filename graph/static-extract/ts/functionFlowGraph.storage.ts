@@ -12,6 +12,7 @@ export type StorageNode = {
   resourceKind: string;
   resourceSubkind: string;
   resourceName: string;
+  resourceContextScope?: 'function' | 'shared';
   settingKind?: string;
   settingSubkind?: string;
   settingName?: string;
@@ -51,6 +52,7 @@ export type StorageLink = {
   label?: string;
   calleeText?: string;
   flowLayer?: 'data';
+  ownership?: 'direct-resource-cell' | 'function-local-resource';
 };
 
 export type StorageBinding = {
@@ -272,6 +274,7 @@ function createResource(
     resourceKind: kind,
     resourceSubkind: subkind,
     resourceName: name,
+    resourceContextScope: kind === 'config-store' || kind === 'build-gate' ? 'shared' : 'function',
     settingKind: kind === 'config-store' ? kind : undefined,
     settingSubkind: kind === 'config-store' ? subkind : undefined,
     settingName: kind === 'config-store' ? name : undefined,
@@ -416,7 +419,7 @@ export function buildStorageGraph(nodes: SemanticFlowNode[]): {
     if (!cellName) return parent;
     const target = createCell(parent, cellName);
     storages.set(target.stableId, target);
-    const link: StorageLink = { sourceStableId: target.stableId, targetStableId: parent.stableId, relType: LINK_RELATIONSHIPS['part-of'], label: 'part-of', calleeText };
+    const link: StorageLink = { sourceStableId: target.stableId, targetStableId: parent.stableId, relType: LINK_RELATIONSHIPS['part-of'], label: 'part-of', calleeText, ownership: 'direct-resource-cell' };
     storageLinks.set(`${link.sourceStableId}:${link.relType}:${link.targetStableId}`, link);
     return target;
   };
@@ -484,8 +487,7 @@ export function buildStorageGraph(nodes: SemanticFlowNode[]): {
         const parent = createResource(node, kind, subkind, name, String(payload.resourceSemanticId || '') || undefined, String(payload.resourceSemanticDetailId || '') || undefined);
         addAccess(node, parent, accessType, name, undefined, payload);
         for (const cellName of kind === 'async-flow' ? ASYNC_CELL_NAMES : []) {
-          const cell = createCell(parent, cellName);
-          storages.set(cell.stableId, cell);
+          registerTarget(parent, cellName);
         }
         for (const rawInput of Array.isArray(payload.inputResources) ? payload.inputResources : []) {
           if (!rawInput || typeof rawInput !== 'object') continue;
@@ -556,6 +558,19 @@ export function buildStorageGraph(nodes: SemanticFlowNode[]): {
         );
       }
     }
+  }
+
+  // These resources are function-scoped representations, not proof of runtime
+  // object ownership or creation. Cells retain their immediate resource parent.
+  const functionIds = new Set(nodes.map(node => stableIdValue(node.parentFnStableId)).filter(Boolean));
+  for (const resource of storages.values()) {
+    if (resource.resourceContextScope !== 'function' || resource.parentStableId
+      || !functionIds.has(resource.parentFnStableId)) continue;
+    const link: StorageLink = {
+      sourceStableId: resource.parentFnStableId, targetStableId: resource.stableId,
+      relType: 'HAS_RESOURCE', ownership: 'function-local-resource', label: 'resource-context',
+    };
+    storageLinks.set(`${link.sourceStableId}:${link.relType}:${link.targetStableId}`, link);
   }
 
   const relevantOriginEdges = (FEATURE_ORIGIN_FACTS.originEdges || []).filter((edge) => storages.has(edge.targetStableId));

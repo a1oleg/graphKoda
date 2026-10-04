@@ -34,6 +34,28 @@ export function captureExtractionProvenance(roots=projectPaths) {
   return {id:createHash('sha256').update(JSON.stringify(identity)).digest('hex'),...identity,extracted_at:new Date().toISOString()};
 }
 
-export function assertExtractionUnchanged(provenance) {
-  if(captureExtractionProvenance().id!==provenance.id)throw new Error('Source or extractor changed during extraction; discard this result and retry.');
+export function verifyExtractionInputs(provenance, roots=projectPaths) {
+  const current=captureExtractionProvenance(roots);
+  if(current.source_revision!==provenance.source_revision
+    || current.source_dirty_fingerprint!==provenance.source_dirty_fingerprint) {
+    throw new Error('Input source changed during extraction; retry against a consistent source snapshot.');
+  }
+  if(current.extraction_options!==provenance.extraction_options) {
+    throw new Error('Extraction options changed during extraction; retry with consistent options.');
+  }
+  // Loaded modules can finish while their checkout is edited. Record both
+  // identities without replacing the identity captured at extraction start.
+  const checkoutChanged=current.extractor_commit!==provenance.extractor_commit
+    || current.extractor_dirty_fingerprint!==provenance.extractor_dirty_fingerprint;
+  provenance.completion_check={
+    checked_at:new Date().toISOString(),
+    extractor_checkout_changed:checkoutChanged,
+    extractor_checkout_at_completion:{commit:current.extractor_commit, dirtyFingerprint:current.extractor_dirty_fingerprint},
+    policy:'source-and-options-stable; tool-checkout-changes-recorded-not-rejected',
+  };
+  if(checkoutChanged) process.stderr.write('[graph:provenance] Tool checkout changed during extraction; result retained with start and completion identities.\n');
+  return provenance.completion_check;
 }
+
+// Compatibility for existing callers; only extraction inputs are asserted now.
+export const assertExtractionUnchanged=verifyExtractionInputs;
