@@ -3,6 +3,7 @@
 import neo4j from 'neo4j-driver';
 import { getRankingPlan, getRankingPreflight, getRankingStatus, isRankingActive, startRanking, persistRanking, recoverRanking, withRankingExclusion } from './orchestrator/graphRanking.js';
 import { getAnnotationInventoryPlan, getAnnotationInventoryPreflight, getAnnotationInventoryStatus, getAnnotationInventorySubjects, startAnnotationInventory } from './orchestrator/graphRanking.js';
+import { getUnresolvedReferenceAuditPlan, getUnresolvedReferenceAuditPreflight, getUnresolvedReferenceAuditStatus, getUnresolvedReferenceAuditRecords, startUnresolvedReferenceAudit } from './orchestrator/graphRanking.js';
 import { executeAnnotationGraphql, sharedSchemaSDL } from './orchestrator/annotationGraphql.js';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -1644,6 +1645,22 @@ async function handleGet(requestUrl, response, context) {
     sendJson(response, 200, { ok: true, plan: getAnnotationInventoryPlan() });
     return;
   }
+  if (pathname === '/api/graph/annotation-inventory/audit/plan') {
+    sendJson(response, 200, { ok: true, plan: getUnresolvedReferenceAuditPlan() });
+    return;
+  }
+  if (pathname === '/api/graph/annotation-inventory/audit/preflight') {
+    sendJson(response, 200, await getUnresolvedReferenceAuditPreflight(Object.fromEntries(searchParams)));
+    return;
+  }
+  if (pathname === '/api/graph/annotation-inventory/audit/status') {
+    sendJson(response, 200, getUnresolvedReferenceAuditStatus(searchParams.get('runId')));
+    return;
+  }
+  if (pathname === '/api/graph/annotation-inventory/audit/records') {
+    sendJson(response, 200, getUnresolvedReferenceAuditRecords(Object.fromEntries(searchParams)));
+    return;
+  }
   if (pathname === '/api/graph/annotation-inventory/preflight') {
     sendJson(response, 200, await getAnnotationInventoryPreflight());
     return;
@@ -1782,6 +1799,11 @@ async function handlePost(requestUrl, request, response, context) {
   }
   if (pathname === '/api/graph/annotation-inventory/run') {
     const result = await startAnnotationInventory();
+    sendJson(response, result.ok ? 202 : 409, result);
+    return;
+  }
+  if (pathname === '/api/graph/annotation-inventory/audit/run') {
+    const result = await startUnresolvedReferenceAudit(body);
     sendJson(response, result.ok ? 202 : 409, result);
     return;
   }

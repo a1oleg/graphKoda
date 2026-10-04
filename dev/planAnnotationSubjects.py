@@ -347,7 +347,9 @@ db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
       FROM rels r JOIN subjects child ON child.stable_id=r.from_id
       JOIN subjects receiver ON receiver.stable_id=r.to_id
       WHERE r.from_id<>r.to_id AND (
-        (list_contains(child.labels,'MemberReference') AND r.rel_type='READS_FROM'
+        ((list_contains(child.labels,'DynamicMemberAccess')
+          OR (list_contains(child.labels,'MemberReference') AND child.reason='unresolved-reference'))
+          AND r.rel_type='READS_FROM'
           AND json_extract_string(r.props_json,'$.role')='receiver')
         OR (list_contains(child.labels,'ValueConsumption') AND r.rel_type='CONSUMES_VALUE'
           AND json_extract_string(r.props_json,'$.role') IN ('receiver','index')))

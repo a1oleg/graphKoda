@@ -464,6 +464,22 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
         });
       }
     }
+    // Keep ownership of a referenced declaration's written type even when its
+    // source file is outside the extraction scope. This is shallow AST evidence,
+    // not a request to expand the library or resolve every type dependency.
+    if (!isTrackedSourceFile(node.getSourceFile())
+      && declarationLabels(node, category).includes('ExternalDeclaration')
+      && (ts.isVariableDeclaration(node) || ts.isParameter(node)
+        || ts.isPropertyDeclaration(node) || ts.isPropertySignature(node))
+      && node.type) {
+      const typeId = stableId(node.type);
+      emitEntity({ stableId: typeId,
+        labels: ['CodeEntity', 'SyntaxPart', ...(isIntrinsicTypeSyntax(node.type) ? ['System'] : [])],
+        props: { ...sourceProps(node.type), syntaxKind: ts.SyntaxKind[node.type.kind] } });
+      emitRelationship(id, typeId, 'AST_CHILD', {
+        ...syntaxChildDescriptor(node, node.type, 0), layer: 'syntax',
+      });
+    }
     return id;
   }
 
@@ -622,6 +638,7 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
 
   function isIntrinsicTypeSyntax(node: ts.TypeNode) {
     return ts.isLiteralTypeNode(node)
+      || ts.isThisTypeNode(node)
       || (node.kind >= ts.SyntaxKind.FirstKeyword && node.kind <= ts.SyntaxKind.LastKeyword)
       || (ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName) && node.typeName.text === 'const'
         && (ts.isAsExpression(node.parent) || ts.isTypeAssertionExpression(node.parent)));
@@ -1651,6 +1668,13 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       }
     } else if (ts.isNewExpression(node)) {
       emitGenericUse(node);
+      node.arguments?.forEach((argument, index) => {
+        const argumentId = argument.kind === ts.SyntaxKind.ThisKeyword
+          ? emitReference(argument, 'ValueReference') : emitExpressionValue(argument);
+        emitRelationship(stableId(node), argumentId, 'HAS_ARGUMENT', {
+          index, layer: 'functional', resolution: 'ast-constructor-argument',
+        });
+      });
     }
 
     if (ts.isObjectLiteralExpression(node)) emitObjectConstruction(node);

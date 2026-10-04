@@ -39,7 +39,9 @@ try {
       const id = getExtendedStableId(source!, node);
       if (requested.has(id)) {
         assert.ok(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node, id);
-        const receiverId = getExtendedStableId(source!, node.parent.expression);
+        const receiver = node.parent.expression;
+        // Property values use their member-reference identity in this graph.
+        const receiverId = getExtendedStableId(source!, ts.isPropertyAccessExpression(receiver) ? receiver.name : receiver);
         assert.equal(links.get(id)?.to, receiverId, id);
         assert.equal(links.get(id)?.props.resolution, 'ast-member-receiver', id);
         assert.equal(nodes.get(id)?.props.memberResolution, 'unresolved-member', id);

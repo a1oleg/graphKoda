@@ -32,6 +32,8 @@ const GROUPS = [
   ['Graph', 'GET', ['/api/graph/ranking/plan', '/api/graph/ranking/preflight', '/api/graph/ranking/status']],
   ['Graph', 'GET', ['/api/graph/annotation-inventory/plan', '/api/graph/annotation-inventory/preflight', '/api/graph/annotation-inventory/status', '/api/graph/annotation-inventory/subjects']],
   ['Graph', 'POST', ['/api/graph/annotation-inventory/run', '/api/graph/annotation-inventory/recover']],
+  ['Graph', 'GET', ['/api/graph/annotation-inventory/audit/plan', '/api/graph/annotation-inventory/audit/preflight', '/api/graph/annotation-inventory/audit/status', '/api/graph/annotation-inventory/audit/records']],
+  ['Graph', 'POST', ['/api/graph/annotation-inventory/audit/run']],
   ['Graph', 'POST', ['/api/graph/ranking/run', '/api/graph/ranking/persist', '/api/graph/ranking/recover']],
   ['Extraction', 'POST', [
     '/api/actions/run-extract', '/api/actions/import-functions', '/api/actions/stop-extract',
@@ -86,6 +88,11 @@ const DETAILS = {
   'GET /api/graph/annotation-inventory/subjects': ['Read annotation candidate evidence', 'Filter by stableId or mode; bounded pagination includes body targets, ownership and original-reference evidence.'],
   'POST /api/graph/annotation-inventory/run': ['Inventory annotation candidates', 'Asynchronous whole-snapshot checks and persisted candidate markings in Parquet. No generation, re-extraction or Neo4j mutation.'],
   'POST /api/graph/annotation-inventory/recover': ['Recover interrupted graph analysis', 'Shared ranking/inventory lock is released only after recorded processes are no longer running.'],
+  'GET /api/graph/annotation-inventory/audit/plan': ['Describe unresolved-reference audit', 'Actual AST/checker evidence, source-identity validation; no graph writes or generation.'],
+  'GET /api/graph/annotation-inventory/audit/preflight': ['Check reference audit readiness', 'Existing matching snapshot/inventory under checks, Node dependencies and shared-operation lock.'],
+  'GET /api/graph/annotation-inventory/audit/status': ['Read reference audit status', 'Persistent worker state and compact classification summary.'],
+  'GET /api/graph/annotation-inventory/audit/records': ['Read unresolved-reference evidence', 'Bounded records filtered by category or stableId.'],
+  'POST /api/graph/annotation-inventory/audit/run': ['Audit unresolved references', 'Asynchronous AST/checker classification with persisted evidence. Accepts snapshot and optional inventoryRunId.'],
   'GET /api/graph/ranking/plan': ['Describe graph ranking', 'Individual and SCC component levels, configured Parquet snapshot and output paths. No re-extraction.'],
   'GET /api/graph/ranking/preflight': ['Check graph ranking readiness', 'Checks Python dependencies, snapshot files and managed-operation conflicts. Publication performs full Neo4j snapshot validation.'],
   'GET /api/graph/ranking/status': ['Read ranking progress', 'Persistent run state, latest progress and summary by runId; omitted runId selects active or latest run.'],
@@ -126,6 +133,7 @@ const DESTRUCTIVE = new Set([
 ]);
 
 const BODY_SCHEMA_BY_KEY = {
+  'POST /api/graph/annotation-inventory/audit/run': 'ReferenceAuditRequest',
   'POST /api/graph/ranking/persist': 'RankingRunRequest',
   'POST /api/actions/import-functions': 'ScopedFunctionImportRequest',
   'POST /api/actions/reset-graph-database': 'GraphResetRequest',
@@ -140,6 +148,18 @@ const BODY_SCHEMA_BY_KEY = {
 };
 
 const QUERY_PARAMETERS = {
+  '/api/graph/annotation-inventory/audit/preflight': [
+    ['snapshot', 'string', false, 'Existing snapshot directory under configured checks; defaults to streaming.'],
+    ['inventoryRunId', 'string', false, 'Completed inventory UUID for this snapshot; otherwise snapshot/inventory.'],
+  ],
+  '/api/graph/annotation-inventory/audit/status': [['runId', 'string', false, 'Audit UUID; defaults to latest audit.']],
+  '/api/graph/annotation-inventory/audit/records': [
+    ['runId', 'string', false, 'Completed audit UUID; defaults to latest audit.'],
+    ['category', 'string', false, 'Exact category from audit plan.'],
+    ['stableId', 'string', false, 'Exact graph entity stable ID.'],
+    ['limit', 'integer', false, 'Page size 1..200; default 50.'],
+    ['offset', 'integer', false, 'Nonnegative offset; default 0.'],
+  ],
   '/api/graph/annotation-inventory/status': [['runId', 'string', false, 'Inventory UUID; defaults to latest inventory.']],
   '/api/graph/annotation-inventory/subjects': [
     ['runId', 'string', false, 'Completed inventory UUID; defaults to latest inventory.'],
@@ -239,6 +259,11 @@ export function buildApiRouteCatalog(baseUrl = 'http://127.0.0.1:8791/') {
 }
 
 const schemas = {
+  ReferenceAuditRequest: { type: 'object', additionalProperties: false,
+    properties: {
+      snapshot: { type: 'string', description: 'Existing extraction directory within configured checks.' },
+      inventoryRunId: { type: 'string', format: 'uuid', description: 'Completed inventory for the same snapshot.' },
+    } },
   RankingRunRequest: { type: 'object', required: ['runId'], additionalProperties: false,
     properties: { runId: { type: 'string', format: 'uuid' } } },
   GenericObject: { type: 'object', additionalProperties: true },
