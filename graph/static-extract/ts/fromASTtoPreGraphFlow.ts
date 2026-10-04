@@ -675,6 +675,17 @@ export function attachSyntaxCompositionGraph(
           : 'none',
       },
     });
+    // A composition without a canonical AST owner still belongs to the Step
+    // assigned by the flow builder. Preserve that evidence, not coordinate nesting.
+    if (!canonicalEntities?.has(ownerStableId)
+      && (!existingOwner || existingOwner.labels.includes('SyntaxComposition'))
+      && owner.parentStepStableId && owner.parentStepStableId !== ownerStableId) {
+      const stepId = owner.parentStepStableId;
+      const key = `${stepId}\u0000HAS_OPERATION\u0000${ownerStableId}`;
+      relationshipByKey.set(key, { fromId: stepId, toId: ownerStableId, type: 'HAS_OPERATION',
+        props: { layer: 'structural', ownership: 'composition-step-context',
+          resolution: 'flow-syntax-composition', sourceFlowNodeStableId: rawOwnerStableId } });
+    }
     const occurrencesByRelationship = new Map<string, RenderPartDescriptor[]>();
     parts.forEach((part, order) => {
       const partCoordinates = part.sourceStableId
@@ -9979,7 +9990,7 @@ class FunctionFlowGraphBuilder {
     });
 
     const closeStableId = this.createNode('FieldJoin', 'declare close', declaration, {
-      labels: ['ContainerMethod', 'Declaration', 'Method', 'ObjectType', 'SemanticExpansion', 'Primitive', 'Type', 'TypeFamilyClose'],
+      labels: ['ContainerMethod', 'CallBoundary', 'Method', 'ObjectType', 'SemanticExpansion', 'Primitive', 'Type', 'TypeFamilyClose'],
       diaName: '>',
       actionTextRaw: declaration.getText(this.sourceFile),
       containerMethodKind: 'declare',
@@ -14702,6 +14713,22 @@ class FunctionFlowGraphBuilder {
       annotationKind: 'Step',
       flowLayer: 'control',
     }, context.stableId, false);
+    // Keep lexical callback containment separate from execution ownership.
+    const recordCallable = (node: ts.Node): void => {
+      if (ts.isFunctionLike(node) && 'body' in node && node.body) {
+        this.semanticRelationships.push({
+          fromId: context.stableId,
+          toId: getExtendedStableId(this.sourceFile, node),
+          type: 'CONTAINS_CALLABLE',
+          props: { layer: 'structural', ownership: 'lexical-step-context',
+            resolution: 'ast-step-anchor',
+            sourceAnchorStableId: getExtendedStableId(this.sourceFile, anchor) },
+        });
+        return;
+      }
+      ts.forEachChild(node, recordCallable);
+    };
+    recordCallable(anchor);
     return context;
   }
 

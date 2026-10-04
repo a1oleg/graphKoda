@@ -149,6 +149,38 @@ db.execute('''INSERT INTO owner_candidates
       AND (json_extract_string(r.props_json,'$.resolution')='nearest-materialized-ast-owner'
         OR json_extract_string(r.props_json,'$.syntaxOwnerResolution')='nearest-materialized-ast-owner')
     ''')
+db.execute('''INSERT INTO owner_candidates
+    SELECT r.to_id,r.from_id,r.rel_type,'composition-step-context',5
+    FROM rels r JOIN subjects composition ON composition.stable_id=r.to_id
+    JOIN subjects step ON step.stable_id=r.from_id
+    WHERE r.rel_type='HAS_OPERATION' AND r.from_id<>r.to_id
+      AND list_contains(composition.labels,'SyntaxComposition') AND list_contains(step.labels,'Step')
+      AND json_extract_string(r.props_json,'$.ownership')='composition-step-context'
+      AND json_extract_string(r.props_json,'$.resolution')='flow-syntax-composition' ''')
+
+# An outer callback declaration context must not compete with its own body Step.
+# Build only explicit lexical Step/function chains, not arbitrary graph reachability.
+db.execute('''CREATE TABLE lexical_step_ancestors AS
+    WITH RECURSIVE nesting(ancestor,descendant) AS (
+      SELECT DISTINCT r.from_id,s.stable_id
+      FROM rels r JOIN raw_nodes s
+        ON json_extract_string(s.props_json,'$.parentFnStableId')=r.to_id
+      WHERE r.rel_type='CONTAINS_CALLABLE' AND list_contains(s.labels,'Step')
+        AND json_extract_string(r.props_json,'$.resolution')='ast-step-anchor'
+        AND json_extract_string(r.props_json,'$.ownership')='lexical-step-context'
+        AND r.from_id<>s.stable_id
+      UNION
+      SELECT n.ancestor,d.descendant FROM nesting n JOIN nesting d ON n.descendant=d.ancestor
+    ) SELECT * FROM nesting''')
+db.execute('''DELETE FROM owner_candidates outer_owner
+    WHERE outer_owner.field='composition-step-context'
+      AND EXISTS (SELECT 1 FROM owner_candidates inner_owner
+        JOIN lexical_step_ancestors n ON n.ancestor=outer_owner.target AND n.descendant=inner_owner.target
+        WHERE inner_owner.stable_id=outer_owner.stable_id
+          AND inner_owner.field='composition-step-context'
+          AND NOT EXISTS (SELECT 1 FROM lexical_step_ancestors reverse
+            WHERE reverse.ancestor=n.descendant AND reverse.descendant=n.ancestor))''')
+db.execute('DROP TABLE lexical_step_ancestors')
 
 # Materialized syntax parts can lack a separate AST parent (operator tokens,
 # for example). Explicit composition is weaker than AST/step ownership; retain
@@ -234,6 +266,9 @@ db.execute('''CREATE TABLE callback_composition AS
       AND EXISTS (SELECT 1 FROM rels r WHERE r.from_id=d.targets[1]
         AND r.to_id=s.stable_id AND r.rel_type='HAS_ARGUMENT')
       AND NOT EXISTS (SELECT 1 FROM rels r WHERE r.to_id=s.stable_id
+        AND NOT (r.rel_type='CONTAINS_CALLABLE'
+          AND json_extract_string(r.props_json,'$.ownership')='lexical-step-context'
+          AND json_extract_string(r.props_json,'$.resolution')='ast-step-anchor')
         AND (r.rel_type NOT IN ('AST_CHILD','HAS_ARGUMENT','COMPOSES_SYNTAX','ENCLOSED_BY')
           OR (r.rel_type='HAS_ARGUMENT' AND r.from_id<>d.targets[1])))''')
 db.execute('''CREATE TABLE object_arguments AS SELECT DISTINCT stable_id FROM direct_evidence
@@ -370,7 +405,7 @@ for status, reason, count in db.execute('''SELECT owner_status,s.reason,count(*)
         ORDER BY p.stable_id LIMIT 3''', [status,reason]).fetchall()
     owner_review.append({'status':status,'reason':reason,'count':count,
         'examples':[{'stableId':i,'candidateOwners':t,'evidence':e} for i,t,e in examples]})
-report = {'version':30,'nodes':summary['nodes'],
+report = {'version':32,'nodes':summary['nodes'],
     'counts':dict(db.execute('SELECT decision,count(*) FROM plan GROUP BY decision ORDER BY decision').fetchall()),
     'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds'],
     'generatesAnnotations':False,'scheduledTasks':0,'requiredGenerationCount':None,

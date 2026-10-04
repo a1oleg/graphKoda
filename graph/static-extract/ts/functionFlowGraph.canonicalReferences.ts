@@ -236,7 +236,7 @@ function isOwnershipSyntaxContainer(node: ts.Node) {
   return ts.isVariableDeclarationList(node) || ts.isVariableStatement(node) || ts.isCatchClause(node)
     || ts.isExportAssignment(node) || ts.isExpressionStatement(node) || ts.isReturnStatement(node) || ts.isThrowStatement(node)
     || ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || ts.isSatisfiesExpression(node)
-    || ts.isNamedTupleMember(node) || ts.isOptionalTypeNode(node) || ts.isRestTypeNode(node)
+    || ts.isNamedTupleMember(node) || ts.isOptionalTypeNode(node) || ts.isRestTypeNode(node) || ts.isInferTypeNode(node)
     || ts.isTemplateLiteralTypeSpan(node) || ts.isIfStatement(node) || ts.isSwitchStatement(node) || ts.isCaseBlock(node)
     || ts.isCaseClause(node) || ts.isDefaultClause(node) || ts.isPropertyAccessExpression(node)
     || ts.isParenthesizedExpression(node) || ts.isTemplateExpression(node)
@@ -646,6 +646,13 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
   }
 
   function emitTypeContext(node: ts.TypeNode) {
+    if (ts.isInferTypeNode(node)) {
+      const id = stableId(node);
+      emitEntity({ stableId: id, labels: ['CodeEntity', 'SyntaxPart', 'SyntaxContainer', 'System'],
+        props: { ...sourceProps(node), syntaxKind: ts.SyntaxKind[node.kind] } });
+      emitDeclaration(node.typeParameter, 'TypeDeclaration');
+      return id;
+    }
     if (isIntrinsicTypeSyntax(node)) {
       const id = stableId(node);
       emitEntity({ stableId: id, labels: ['CodeEntity', 'SyntaxPart', 'System'],
