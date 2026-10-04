@@ -1,5 +1,13 @@
 import ts from 'typescript';
 
+export function findCommonJsModuleRequest(program: ts.Program, node: ts.Identifier) {
+  const call = node.parent;
+  if (node.text !== 'require' || !ts.isCallExpression(call) || call.expression !== node
+    || call.questionDotToken || call.arguments.length !== 1 || !ts.isStringLiteralLike(call.arguments[0])
+    || program.getTypeChecker().getSymbolAtLocation(node)?.declarations?.length) return;
+  return call.arguments[0];
+}
+
 export function findGuardedBrowserGlobal(program: ts.Program, node: ts.Identifier) {
   const checker = program.getTypeChecker();
   if (checker.getSymbolAtLocation(node)?.declarations?.length) return;
@@ -67,7 +75,8 @@ function writtenBindings(program: ts.Program, source: ts.SourceFile) {
 
 type RuntimePresenceGuard = {guard: ts.BinaryExpression; aliases: ts.VariableDeclaration[]};
 
-export function resolveRuntimePresenceGuard(program: ts.Program, node: ts.Identifier) {
+function resolveRuntimeGuard(program: ts.Program, node: ts.Identifier, includeCreationContext: boolean,
+  hostProbe?: (expression: ts.BinaryExpression) => boolean) {
   const checker = program.getTypeChecker();
   if (checker.getSymbolAtLocation(node)?.declarations?.length) return;
   function probe(expression: ts.Expression, visited = new Set<ts.Symbol>()): RuntimePresenceGuard | undefined {
@@ -86,6 +95,13 @@ export function resolveRuntimePresenceGuard(program: ts.Program, node: ts.Identi
       return result ? {...result, aliases: [declaration, ...result.aliases]} : undefined;
     }
     if (!ts.isBinaryExpression(expression)) return;
+    if (hostProbe) {
+      if (hostProbe(expression)) return {guard: expression, aliases: []};
+      if (expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+        return probe(expression.left, visited) || probe(expression.right, visited);
+      }
+      return;
+    }
     if (expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
       return probe(expression.left, visited) || probe(expression.right, visited);
     }
@@ -100,22 +116,66 @@ export function resolveRuntimePresenceGuard(program: ts.Program, node: ts.Identi
     if (equality && ['function','object','string','number','boolean','symbol','bigint'].includes(literal.text)
       || inequality && literal.text === 'undefined') return {guard: expression, aliases: []};
   }
+  const callbacks: (ts.ArrowFunction | ts.FunctionExpression)[] = [];
   for (let child: ts.Node = node, parent = node.parent; parent; child = parent, parent = parent.parent) {
-    if (ts.isFunctionLike(parent)) return;
+    if (ts.isFunctionLike(parent)) {
+      // Hoisted declarations and methods do not have the creation semantics of inline callbacks.
+      if (!includeCreationContext || !(ts.isArrowFunction(parent) || ts.isFunctionExpression(parent))) return;
+      callbacks.push(parent);
+    }
     if (ts.isIfStatement(parent) && child === parent.thenStatement) {
       const guard = probe(parent.expression);
-      if (guard) return guard;
+      if (guard) return {...guard, callbacks};
     }
     if (ts.isBinaryExpression(parent) && parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
       && child === parent.right) {
       const guard = probe(parent.left);
-      if (guard) return guard;
+      if (guard) return {...guard, callbacks};
     }
   }
 }
 
+export function resolveRuntimePresenceGuard(program: ts.Program, node: ts.Identifier) {
+  return resolveRuntimeGuard(program, node, false);
+}
+
+export function findConditionalRuntimeCapture(program: ts.Program, node: ts.Identifier) {
+  const result = resolveRuntimeGuard(program, node, true);
+  return result?.callbacks.length ? result : undefined;
+}
+
 export function findRuntimePresenceGuard(program: ts.Program, node: ts.Identifier) {
   return resolveRuntimePresenceGuard(program, node)?.guard;
+}
+
+export function findNodeRuntimeGuard(program: ts.Program, node: ts.Identifier) {
+  if (node.text !== 'Buffer') return;
+  const checker = program.getTypeChecker();
+  const positiveNodeProbe = (expression: ts.BinaryExpression) => {
+    const checks = new Set<string>();
+    const visit = (part: ts.Expression) => {
+      if (ts.isParenthesizedExpression(part)) return visit(part.expression);
+      if (!ts.isBinaryExpression(part)) return;
+      if (part.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+        visit(part.left); visit(part.right); return;
+      }
+      if (part.operatorToken.kind !== ts.SyntaxKind.EqualsEqualsToken
+        && part.operatorToken.kind !== ts.SyntaxKind.EqualsEqualsEqualsToken) return;
+      const [type, literal] = ts.isTypeOfExpression(part.left) ? [part.left, part.right] : [part.right, part.left];
+      if (!ts.isTypeOfExpression(type) || !ts.isStringLiteralLike(literal)) return;
+      const members: string[] = [];
+      let receiver = type.expression;
+      while (ts.isPropertyAccessExpression(receiver) && !receiver.questionDotToken) {
+        members.unshift(receiver.name.text); receiver = receiver.expression;
+      }
+      if (!ts.isIdentifier(receiver) || receiver.text !== 'process'
+        || checker.getSymbolAtLocation(receiver)?.declarations?.length) return;
+      checks.add([receiver.text, ...members].join('.') + ':' + literal.text);
+    };
+    visit(expression);
+    return ['process:object', 'process.versions:object', 'process.versions.node:string'].every(check => checks.has(check));
+  };
+  return resolveRuntimeGuard(program, node, false, positiveNodeProbe);
 }
 
 export type RuntimeIntrinsic = {

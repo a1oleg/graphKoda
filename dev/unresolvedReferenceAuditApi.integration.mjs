@@ -38,14 +38,27 @@ try {
     run = (await request(`${base}/status?runId=${runId}`)).body.run;
   } while (run.status === 'running');
   assert.equal(run.status, 'complete', run.error);
+  assert.equal(run.summary.version, 2);
   assert.equal(run.summary.nodes, expected.nodes);
   assert.deepEqual(run.summary.counts, expected.counts);
+  assert.equal(run.summary.unboundSourceReferences, expected.unboundSourceReferences);
+  assert.equal(run.summary.declaredButUnlinkedReferences, expected.declaredButUnlinkedReferences);
+  assert.deepEqual(run.summary.diagnosticOptions, expected.diagnosticOptions);
   assert.equal(run.summary.records, undefined);
   assert.equal(isRankingActive(), false);
   assert.equal((await request(`${base}/status`)).body.run.runId, runId);
   const page = (await request(`${base}/records?runId=${runId}&limit=2`)).body;
   assert.equal(page.total, expected.records.length);
   assert.deepEqual(page.records, expected.records.slice(0, 2));
+  for (const record of page.records) {
+    assert.ok(Array.isArray(record.compilerDiagnostics));
+    assert.ok(['es-module', 'script'].includes(record.sourceModuleKind));
+    if (record.category === 'commonjs-binding-in-es-module') {
+      assert.equal(record.sourceModuleKind, 'es-module');
+      assert.equal(record.runtimeInjection, 'not-proven');
+      assert.equal(record.requiredRuntimeScope, 'CommonJS module');
+    }
+  }
   const id = expected.records[0].stableId;
   const single = (await request(`${base}/records?runId=${runId}&stableId=${encodeURIComponent(id)}`)).body;
   assert.equal(single.total, 1);

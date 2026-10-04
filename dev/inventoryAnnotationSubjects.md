@@ -267,3 +267,25 @@ python dev/inventoryAnnotationSubjects.py --parquet <snapshot> --output <report>
 python dev/inventoryAnnotationSubjects.integration.py --report <report>
 python dev/inventoryAnnotationSubjects.integration.py --report <v10-report> --previous-report <v9-report>
 ```
+
+### Unresolved Reference Audit v2
+
+The existing `/api/graph/annotation-inventory/audit/{plan,preflight,run,status,records}`
+routes also report source module kind and compiler diagnostics for each unresolved
+coordinate. When the project disables `checkJs`, a separate diagnostic Program
+enables it without modifying extraction options or the source files. Reports
+distinguish `declaredButUnlinkedReferences` from `unboundSourceReferences`.
+
+`commonjs-binding-in-es-module` identifies an unbound CommonJS binding used by an
+ES module. It records the expected runtime contract and `runtimeInjection=not-proven`.
+Missing-name diagnostics do not exclude runtime injection by a bundler or host.
+Neither this category nor `unbound-identifier` is automatically considered a system
+boundary, a resolved dependency, or dead code. Annotation readiness decisions and
+the fixed repair-cohort ledger remain unchanged by the diagnostic-only audit.
+
+The CLI reuses an existing snapshot and inventory; it does not re-extract or import:
+
+```text
+node --import tsx dev/auditUnresolvedReferences.mts <snapshot> <new-report.json>
+node dev/unresolvedReferenceAuditApi.integration.mjs <actual-audited-snapshot>
+```

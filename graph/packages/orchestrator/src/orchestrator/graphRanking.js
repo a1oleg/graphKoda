@@ -34,13 +34,15 @@ export function getAnnotationInventoryPlan() {
     exclusion: 'Shares the ranking lock; cannot overlap managed extraction or graph mutations.' };
 }
 export function getUnresolvedReferenceAuditPlan() {
-  return { version: 1, defaultSnapshot: path.dirname(parquet), outputRoot: root,
+  return { version: 2, defaultSnapshot: path.dirname(parquet), outputRoot: root,
     inputPolicy: 'Existing snapshot and inventory under configured dataRoot/checks; real source identity must match.',
     generatesAnnotations: false, writesGraph: false, classificationOnly: true,
+    compilerDiagnostics: 'Per-reference semantic diagnostics; checkJs enabled separately when necessary. No extraction options changed.',
     exclusion: 'Shares the ranking/inventory/extraction lock.',
     categories: ['source-declaration-not-linked', 'compiler-symbol-without-declaration', 'unbound-identifier',
       'member-declaration-not-linked', 'receiver-type-never', 'receiver-type-any', 'receiver-index-signature',
-      'member-without-source-declaration', 'member-absent-from-receiver-type', 'unresolved-alias-with-local-binding'] };
+      'member-without-source-declaration', 'member-absent-from-receiver-type', 'unresolved-alias-with-local-binding',
+      'commonjs-binding-in-es-module'] };
 }
 function auditDirectory(value) {
   const directory = fs.realpathSync(path.resolve(value));

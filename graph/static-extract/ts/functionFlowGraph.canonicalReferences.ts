@@ -3,8 +3,9 @@ import path from 'node:path';
 
 import ts from 'typescript';
 import { classifyCallOrigin } from './functionFlowGraph.callOrigins.js';
-import { classifyRuntimeIntrinsic, findGuardedBrowserGlobal, resolveRuntimePresenceGuard } from './functionFlowGraph.runtimeIntrinsics.js';
+import { classifyRuntimeIntrinsic, findCommonJsModuleRequest, findConditionalRuntimeCapture, findGuardedBrowserGlobal, findNodeRuntimeGuard, resolveRuntimePresenceGuard } from './functionFlowGraph.runtimeIntrinsics.js';
 import { declaredMemberEvidence } from './declaredMemberEvidence.js';
+import {findHostRuntimeContract} from './functionFlowGraph.hostEnvironments.js';
 import { callbackContributesToResult } from './callbackResultFlow.js';
 import { awaitedTypeArgumentIndex } from './awaitedTypeContract.mjs';
 
@@ -584,6 +585,51 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     const declarations = kind === 'MemberReference'
       ? memberDeclarationsAt(node)
       : symbolDeclarations(checker, node);
+    const host = kind !== 'MemberReference' && ts.isIdentifier(node) && !declarations.length
+      ? findHostRuntimeContract(program, node) : undefined;
+    if (host) {
+      const entity = entities.get(id)!;
+      entity.labels = [...new Set([...entity.labels, 'HostRuntimeAccess', 'ExternalBoundary', 'System'])];
+      Object.assign(entity.props, {declarationResolution: 'no-source-declaration',
+        bindingEvidence: 'typed-audioworklet-module-loader', runtimeScope: host.scope,
+        runtimeContractUrl: host.specification, runtimeExecution: 'not-observed'});
+      for (const loader of host.loaders) {
+        const loaderId = stableId(loader);
+        emitEntity({stableId: loaderId, labels: ['CodeEntity', 'SyntaxPart', 'HostModuleLoader', 'ExternalBoundary', 'System'],
+          props: {...sourceProps(loader), name: loader.getText(), runtimeScope: host.scope,
+            bindingEvidence: 'typescript-standard-library-loader', runtimeExecution: 'not-observed'}});
+        emitRelationship(id, loaderId, 'HOSTED_BY', {
+          resolution: 'typescript-standard-audioworklet-loader', layer: 'functional',
+        });
+      }
+    }
+    const nodeHost = kind === 'ValueReference' && ts.isIdentifier(node) && !declarations.length
+      ? findNodeRuntimeGuard(program, node) : undefined;
+    if (nodeHost) {
+      const entity = entities.get(id)!;
+      entity.labels = [...new Set([...entity.labels, 'NodeRuntimeAccess', 'ExternalBoundary', 'System'])];
+      Object.assign(entity.props, {declarationResolution: 'no-source-declaration',
+        bindingEvidence: 'positive-node-version-host-guard', runtimeScope: 'Node.js',
+        runtimeContractUrl: 'https://nodejs.org/api/globals.html#class-buffer', runtimeExecution: 'not-observed'});
+      emitRelationship(id, emitExpressionValue(nodeHost.guard), 'RUNTIME_GUARDED_BY', {
+        resolution: 'ast-positive-node-version-guard', layer: 'functional', branch: 'true',
+      });
+      for (const alias of nodeHost.aliases) emitRelationship(id, emitDeclaration(alias, 'ValueDeclaration'), 'GUARD_VIA', {
+        resolution: 'ast-unwritten-condition-binding', layer: 'functional',
+      });
+    }
+    const moduleSpecifier = kind === 'ValueReference' && ts.isIdentifier(node) && !declarations.length
+      ? findCommonJsModuleRequest(program, node) : undefined;
+    if (moduleSpecifier) {
+      const entity = entities.get(id)!;
+      entity.labels = [...new Set([...entity.labels, 'CommonJsModuleRequest'])];
+      Object.assign(entity.props, {declarationResolution: 'no-source-declaration',
+        moduleSpecifier: moduleSpecifier.text, moduleResolution: 'not-requested',
+        bindingEvidence: 'commonjs-call-syntax'});
+      emitRelationship(id, emitExpressionValue(moduleSpecifier), 'REQUESTS_MODULE', {
+        resolution: 'ast-commonjs-module-specifier', layer: 'functional',
+      });
+    }
     const guardedGlobal = kind === 'ValueReference' && ts.isIdentifier(node) && !declarations.length
       ? findGuardedBrowserGlobal(program, node) : undefined;
     if (guardedGlobal) {
@@ -613,6 +659,23 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
           resolution: 'ast-unwritten-condition-binding', layer: 'functional',
         });
       }
+    }
+    const capture = kind === 'ValueReference' && ts.isIdentifier(node) && !declarations.length && !presenceGuard
+      ? findConditionalRuntimeCapture(program, node) : undefined;
+    if (capture) {
+      const entity = entities.get(id)!;
+      entity.labels = [...new Set([...entity.labels, 'ConditionalRuntimeCapture'])];
+      Object.assign(entity.props, {declarationResolution: 'no-source-declaration',
+        bindingEvidence: 'callback-creation-under-typeof-guard', callTimePresence: 'not-proven'});
+      emitRelationship(id, emitExpressionValue(capture.guard), 'CREATED_UNDER', {
+        resolution: 'ast-callback-creation-guard', branch: 'true', layer: 'functional',
+      });
+      for (const callback of capture.callbacks) emitRelationship(id, emitExpressionValue(callback), 'CAPTURE_CONTEXT', {
+        resolution: 'ast-inline-callback-context', layer: 'functional',
+      });
+      for (const alias of capture.aliases) emitRelationship(id, emitDeclaration(alias, 'ValueDeclaration'), 'GUARD_VIA', {
+        resolution: 'ast-unwritten-condition-binding', layer: 'functional',
+      });
     }
     if (!declarations.length && kind === 'MemberReference'
       && ts.isPropertyAccessExpression(node.parent) && node.parent.name === node) {

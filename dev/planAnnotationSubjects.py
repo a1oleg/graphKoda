@@ -398,6 +398,17 @@ db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
         OR (list_contains(child.labels,'GuardedRuntimeAccess') AND child.reason='guarded-runtime-needs-context'
           AND ((r.rel_type='GUARDED_BY' AND json_extract_string(r.props_json,'$.resolution')='ast-positive-typeof-guard')
             OR (r.rel_type='GUARD_VIA' AND json_extract_string(r.props_json,'$.resolution')='ast-unwritten-condition-binding')))
+        OR (list_contains(child.labels,'CommonJsModuleRequest') AND child.reason='module-request-needs-specifier'
+          AND r.rel_type='REQUESTS_MODULE' AND json_extract_string(r.props_json,'$.resolution')='ast-commonjs-module-specifier')
+        OR (list_contains(child.labels,'HostRuntimeAccess') AND r.rel_type='HOSTED_BY'
+          AND json_extract_string(r.props_json,'$.resolution')='typescript-standard-audioworklet-loader')
+        OR (list_contains(child.labels,'NodeRuntimeAccess')
+          AND ((r.rel_type='RUNTIME_GUARDED_BY' AND json_extract_string(r.props_json,'$.resolution')='ast-positive-node-version-guard')
+            OR (r.rel_type='GUARD_VIA' AND json_extract_string(r.props_json,'$.resolution')='ast-unwritten-condition-binding')))
+        OR (list_contains(child.labels,'ConditionalRuntimeCapture') AND child.reason='conditional-capture-needs-creation-context'
+          AND ((r.rel_type='CREATED_UNDER' AND json_extract_string(r.props_json,'$.resolution')='ast-callback-creation-guard')
+            OR (r.rel_type='CAPTURE_CONTEXT' AND json_extract_string(r.props_json,'$.resolution')='ast-inline-callback-context')
+            OR (r.rel_type='GUARD_VIA' AND json_extract_string(r.props_json,'$.resolution')='ast-unwritten-condition-binding')))
         OR (list_contains(child.labels,'RuntimeThisBinding') AND r.rel_type='BOUND_TO_CONTEXT'
           AND json_extract_string(r.props_json,'$.resolution')='ast-this-binding'))
       GROUP BY r.from_id) v USING(stable_id)''')
@@ -416,7 +427,7 @@ for status, reason, count in db.execute('''SELECT owner_status,s.reason,count(*)
         ORDER BY p.stable_id LIMIT 3''', [status,reason]).fetchall()
     owner_review.append({'status':status,'reason':reason,'count':count,
         'examples':[{'stableId':i,'candidateOwners':t,'evidence':e} for i,t,e in examples]})
-report = {'version':37,'nodes':summary['nodes'],
+report = {'version':41,'nodes':summary['nodes'],
     'counts':dict(db.execute('SELECT decision,count(*) FROM plan GROUP BY decision ORDER BY decision').fetchall()),
     'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds'],
     'generatesAnnotations':False,'scheduledTasks':0,'requiredGenerationCount':None,
