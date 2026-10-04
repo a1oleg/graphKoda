@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import ts from 'typescript';
 import { classifyCallOrigin } from './functionFlowGraph.callOrigins.js';
-import { classifyRuntimeIntrinsic, findGuardedBrowserGlobal } from './functionFlowGraph.runtimeIntrinsics.js';
+import { classifyRuntimeIntrinsic, findGuardedBrowserGlobal, resolveRuntimePresenceGuard } from './functionFlowGraph.runtimeIntrinsics.js';
 import { declaredMemberEvidence } from './declaredMemberEvidence.js';
 import { callbackContributesToResult } from './callbackResultFlow.js';
 import { awaitedTypeArgumentIndex } from './awaitedTypeContract.mjs';
@@ -588,7 +588,7 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       ? findGuardedBrowserGlobal(program, node) : undefined;
     if (guardedGlobal) {
       const entity = entities.get(id)!;
-      entity.labels.push('GuardedGlobalAccess');
+      entity.labels = [...new Set([...entity.labels, 'GuardedGlobalAccess'])];
       Object.assign(entity.props, {declarationResolution: 'no-source-declaration',
         globalPropertyName: node.text, bindingEvidence: 'positive-browser-global-property-guard'});
       emitRelationship(id, emitExpressionValue(guardedGlobal.receiver), 'READS_FROM', {
@@ -597,6 +597,22 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
       emitRelationship(id, emitExpressionValue(guardedGlobal.guard), 'GUARDED_BY', {
         resolution: 'ast-positive-in-guard', branch: 'true', layer: 'functional',
       });
+    }
+    const presenceGuard = kind === 'ValueReference' && ts.isIdentifier(node) && !declarations.length
+      ? resolveRuntimePresenceGuard(program, node) : undefined;
+    if (presenceGuard) {
+      const entity = entities.get(id)!;
+      entity.labels = [...new Set([...entity.labels, 'GuardedRuntimeAccess'])];
+      Object.assign(entity.props, {declarationResolution: 'no-source-declaration',
+        bindingEvidence: 'positive-typeof-presence-guard'});
+      emitRelationship(id, emitExpressionValue(presenceGuard.guard), 'GUARDED_BY', {
+        resolution: 'ast-positive-typeof-guard', branch: 'true', layer: 'functional',
+      });
+      for (const alias of presenceGuard.aliases) {
+        emitRelationship(id, emitDeclaration(alias, 'ValueDeclaration'), 'GUARD_VIA', {
+          resolution: 'ast-unwritten-condition-binding', layer: 'functional',
+        });
+      }
     }
     if (!declarations.length && kind === 'MemberReference'
       && ts.isPropertyAccessExpression(node.parent) && node.parent.name === node) {

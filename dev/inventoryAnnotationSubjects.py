@@ -54,6 +54,11 @@ def main():
           AND json_extract_string(r.props_json,'$.resolution')='ast-guarded-global-receiver'
           AND guard.rel_type='GUARDED_BY' AND json_extract_string(guard.props_json,'$.resolution')='ast-positive-in-guard'
           AND json_extract_string(guard.props_json,'$.branch')='true' ''')
+    db.execute('''CREATE TABLE guarded_runtime AS SELECT DISTINCT r.from_id AS stable_id
+        FROM rels r JOIN nodes n ON n.stable_id=r.from_id JOIN nodes condition ON condition.stable_id=r.to_id
+        WHERE list_contains(n.labels,'GuardedRuntimeAccess') AND r.rel_type='GUARDED_BY'
+          AND json_extract_string(r.props_json,'$.resolution')='ast-positive-typeof-guard'
+          AND json_extract_string(r.props_json,'$.branch')='true' ''')
     db.execute('''CREATE TABLE index_consumers AS
         SELECT r.from_id AS stable_id FROM rels r
         JOIN raw_nodes n ON n.stable_id=r.from_id JOIN nodes operand ON operand.stable_id=r.to_id
@@ -185,6 +190,8 @@ def main():
         WHEN reference AND NOT definition AND len(originals)>0 THEN 'resolved-reference'
         WHEN reference AND NOT definition AND len(owners)>0 AND stable_id IN (SELECT stable_id FROM guarded_globals)
             THEN 'guarded-global-needs-context'
+        WHEN reference AND NOT definition AND len(owners)>0 AND stable_id IN (SELECT stable_id FROM guarded_runtime)
+            THEN 'guarded-runtime-needs-context'
         WHEN reference AND NOT definition AND len(originals)=0 AND len(owners)>0
             AND stable_id IN (SELECT stable_id FROM index_consumers) THEN 'index-access-needs-operands'
         WHEN reference AND NOT definition AND len(owners)>0
@@ -208,7 +215,7 @@ def main():
         WHEN reason IN ('callable-with-body','declared-contract-with-structure') THEN 'standalone'
         WHEN reason IN ('resolved-reference','resolved-alias','resolved-declaration-reference','resolved-source-occurrence','external-boundary-catalog') THEN 'reference'
         WHEN reason IN ('presentation-owned','owned-step-or-block','owned-parameter-or-member',
-            'owned-value-declaration','owned-operation-or-syntax','owned-system-syntax','owned-type-expression','owned-generic-use','dynamic-member-needs-receiver','member-access-needs-receiver','index-access-needs-operands','runtime-this-needs-context','guarded-global-needs-context') THEN 'inline'
+            'owned-value-declaration','owned-operation-or-syntax','owned-system-syntax','owned-type-expression','owned-generic-use','dynamic-member-needs-receiver','member-access-needs-receiver','index-access-needs-operands','runtime-this-needs-context','guarded-global-needs-context','guarded-runtime-needs-context') THEN 'inline'
         ELSE 'unresolved' END AS mode,
         CASE WHEN external_boundary THEN 'external-catalog'
              WHEN reason='presentation-owned' THEN 'presentation-only'
@@ -230,7 +237,7 @@ def main():
         names = [d[0] for d in rows.description]
         reasons.append({'reason': reason, 'mode': mode, 'count': size,
                         'examples': [dict(zip(names,row)) for row in rows.fetchall()]})
-    report = {'version':13,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
+    report = {'version':14,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
         'astCountPolicy':'AST children excluding declaration names; a name alone is not contract structure.',
         'writesGraph':False,'generationQueueCertified':False,'existingAnnotationFreshnessChecked':False,
         'input':str(args.parquet.resolve()),'provenanceIds':[r[0] for r in db.execute('SELECT DISTINCT provenance_id FROM nodes').fetchall()],
