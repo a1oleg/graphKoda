@@ -236,7 +236,8 @@ function isOwnershipSyntaxContainer(node: ts.Node) {
   return ts.isVariableDeclarationList(node) || ts.isVariableStatement(node) || ts.isCatchClause(node)
     || ts.isExportAssignment(node) || ts.isExpressionStatement(node) || ts.isReturnStatement(node) || ts.isThrowStatement(node)
     || ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || ts.isSatisfiesExpression(node)
-    || ts.isTemplateLiteralTypeSpan(node) || ts.isSwitchStatement(node) || ts.isCaseBlock(node)
+    || ts.isNamedTupleMember(node) || ts.isOptionalTypeNode(node) || ts.isRestTypeNode(node)
+    || ts.isTemplateLiteralTypeSpan(node) || ts.isIfStatement(node) || ts.isSwitchStatement(node) || ts.isCaseBlock(node)
     || ts.isCaseClause(node) || ts.isDefaultClause(node) || ts.isPropertyAccessExpression(node)
     || ts.isParenthesizedExpression(node) || ts.isTemplateExpression(node)
     || ts.isArrayLiteralExpression(node) || ts.isSpreadElement(node)
@@ -1470,6 +1471,9 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
         props: { ...sourceProps(node), syntaxKind: ts.SyntaxKind[node.kind] } });
     }
     if (ts.isTypeNode(node) && isIntrinsicTypeSyntax(node)) emitTypeContext(node);
+    if (ts.isNamedTupleMember(node) || ts.isOptionalTypeNode(node) || ts.isRestTypeNode(node)) {
+      emitTypeContext(node.type);
+    }
     if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {
       emitEntity({ stableId: stableId(node), labels: ['CodeEntity', 'SyntaxPart', 'System'],
         props: { ...sourceProps(node), syntaxKind: ts.SyntaxKind[node.kind] } });

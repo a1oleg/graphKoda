@@ -348,7 +348,8 @@ db.execute('''CREATE TABLE plan AS SELECT s.stable_id,
       JOIN subjects receiver ON receiver.stable_id=r.to_id
       WHERE r.from_id<>r.to_id AND (
         ((list_contains(child.labels,'DynamicMemberAccess')
-          OR (list_contains(child.labels,'MemberReference') AND child.reason='unresolved-reference'))
+          OR (list_contains(child.labels,'MemberReference')
+            AND child.reason IN ('unresolved-reference','member-access-needs-receiver')))
           AND r.rel_type='READS_FROM'
           AND json_extract_string(r.props_json,'$.role')='receiver')
         OR (list_contains(child.labels,'ValueConsumption') AND r.rel_type='CONSUMES_VALUE'
@@ -369,7 +370,7 @@ for status, reason, count in db.execute('''SELECT owner_status,s.reason,count(*)
         ORDER BY p.stable_id LIMIT 3''', [status,reason]).fetchall()
     owner_review.append({'status':status,'reason':reason,'count':count,
         'examples':[{'stableId':i,'candidateOwners':t,'evidence':e} for i,t,e in examples]})
-report = {'version':29,'nodes':summary['nodes'],
+report = {'version':30,'nodes':summary['nodes'],
     'counts':dict(db.execute('SELECT decision,count(*) FROM plan GROUP BY decision ORDER BY decision').fetchall()),
     'source':'extraction-report-not-live-neo4j','provenanceIds':summary['provenanceIds'],
     'generatesAnnotations':False,'scheduledTasks':0,'requiredGenerationCount':None,

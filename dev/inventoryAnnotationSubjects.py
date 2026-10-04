@@ -41,6 +41,12 @@ def main():
         FROM raw_nodes''')
     count = db.execute('SELECT count(*) FROM nodes').fetchone()[0]
     assert count == db.execute('SELECT count(DISTINCT stable_id) FROM nodes').fetchone()[0]
+    db.execute('''CREATE TABLE member_receivers AS SELECT DISTINCT r.from_id AS stable_id
+        FROM rels r JOIN nodes member ON member.stable_id=r.from_id
+        JOIN nodes receiver ON receiver.stable_id=r.to_id
+        WHERE list_contains(member.labels,'MemberReference') AND r.from_id<>r.to_id
+          AND r.rel_type='READS_FROM' AND json_extract_string(r.props_json,'$.role')='receiver'
+          AND json_extract_string(r.props_json,'$.resolution') IN ('ast-member-receiver','typescript-dynamic-member')''')
     # Only explicit ownership/reference evidence; never guess from names or
     # source-coordinate nesting. Preserve all alternatives, not an arbitrary one.
     db.execute('''CREATE TABLE owner_evidence AS
@@ -84,6 +90,20 @@ def main():
         FROM rels r JOIN nodes a ON a.stable_id=r.from_id JOIN nodes b ON b.stable_id=r.to_id
         WHERE r.from_id<>r.to_id AND r.rel_type='ENCLOSED_BY'
           AND json_extract_string(r.props_json,'$.resolution')='lexical-function-owner' ''')
+    # Entry/signature chains are explicit body evidence, including IIFEs whose
+    # control body has no directly owned Step or operation edge.
+    db.execute('''INSERT INTO body_evidence
+        WITH RECURSIVE signature(owner,current) AS (
+          SELECT r.from_id,r.to_id FROM rels r JOIN nodes n ON n.stable_id=r.from_id
+          WHERE r.rel_type='NEXT'
+            AND json_extract_string(r.props_json,'$.semantic_expansion')='function-entry'
+            AND list_has_any(n.labels,['Fn','FunctionImplementation','CallableDeclaration','CallbackImplementation'])
+          UNION
+          SELECT s.owner,r.to_id FROM signature s JOIN rels r ON r.from_id=s.current
+          WHERE r.rel_type IN ('SIGNATURE_PARAMETER','SIGNATURE_RETURN')
+        ) SELECT DISTINCT s.owner,r.to_id,'BODY_ENTRY:signature-chain'
+          FROM signature s JOIN rels r ON r.from_id=s.current AND r.rel_type='BODY_ENTRY'
+          JOIN nodes n ON n.stable_id=r.to_id WHERE s.owner<>r.to_id''')
     db.execute('''CREATE TABLE facts AS SELECT n.*,
         coalesce(o.targets,[]::VARCHAR[]) AS owners,
         coalesce(o.evidence,[]::VARCHAR[]) AS owner_evidence,
@@ -140,6 +160,8 @@ def main():
             AND declaration_kind IN ('TypeAliasDeclaration','ClassDeclaration','InterfaceDeclaration','EnumDeclaration')
             AND name IS NOT NULL AND (member_count>0 OR ast_count>0) THEN 'declared-contract-with-structure'
         WHEN reference AND NOT definition AND len(originals)>0 THEN 'resolved-reference'
+        WHEN reference AND NOT definition AND len(owners)>0
+            AND stable_id IN (SELECT stable_id FROM member_receivers) THEN 'member-access-needs-receiver'
         WHEN list_contains(labels,'DynamicMemberAccess') AND len(owners)>0 THEN 'dynamic-member-needs-receiver'
         WHEN list_contains(labels,'System') AND NOT definition AND len(owners)>0 THEN 'owned-system-syntax'
         WHEN reference AND NOT definition THEN 'unresolved-reference'
@@ -159,7 +181,7 @@ def main():
         WHEN reason IN ('callable-with-body','declared-contract-with-structure') THEN 'standalone'
         WHEN reason IN ('resolved-reference','resolved-alias','resolved-declaration-reference','resolved-source-occurrence','external-boundary-catalog') THEN 'reference'
         WHEN reason IN ('presentation-owned','owned-step-or-block','owned-parameter-or-member',
-            'owned-value-declaration','owned-operation-or-syntax','owned-system-syntax','owned-type-expression','owned-generic-use','dynamic-member-needs-receiver') THEN 'inline'
+            'owned-value-declaration','owned-operation-or-syntax','owned-system-syntax','owned-type-expression','owned-generic-use','dynamic-member-needs-receiver','member-access-needs-receiver') THEN 'inline'
         ELSE 'unresolved' END AS mode,
         CASE WHEN external_boundary THEN 'external-catalog'
              WHEN reason='presentation-owned' THEN 'presentation-only'
@@ -181,7 +203,7 @@ def main():
         names = [d[0] for d in rows.description]
         reasons.append({'reason': reason, 'mode': mode, 'count': size,
                         'examples': [dict(zip(names,row)) for row in rows.fetchall()]})
-    report = {'version':8,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
+    report = {'version':10,'kind':'annotation-subject-candidate-inventory','generatesAnnotations':False,
         'astCountPolicy':'AST children excluding declaration names; a name alone is not contract structure.',
         'writesGraph':False,'generationQueueCertified':False,'existingAnnotationFreshnessChecked':False,
         'input':str(args.parquet.resolve()),'provenanceIds':[r[0] for r in db.execute('SELECT DISTINCT provenance_id FROM nodes').fetchall()],
