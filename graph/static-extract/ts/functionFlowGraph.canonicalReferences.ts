@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import ts from 'typescript';
 import { classifyCallOrigin } from './functionFlowGraph.callOrigins.js';
-import { classifyRuntimeIntrinsic } from './functionFlowGraph.runtimeIntrinsics.js';
+import { classifyRuntimeIntrinsic, findGuardedBrowserGlobal } from './functionFlowGraph.runtimeIntrinsics.js';
 import { declaredMemberEvidence } from './declaredMemberEvidence.js';
 import { callbackContributesToResult } from './callbackResultFlow.js';
 import { awaitedTypeArgumentIndex } from './awaitedTypeContract.mjs';
@@ -237,6 +237,7 @@ function isOwnershipSyntaxContainer(node: ts.Node) {
     || ts.isExportAssignment(node) || ts.isExpressionStatement(node) || ts.isReturnStatement(node) || ts.isThrowStatement(node)
     || ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || ts.isSatisfiesExpression(node)
     || ts.isNamedTupleMember(node) || ts.isOptionalTypeNode(node) || ts.isRestTypeNode(node) || ts.isInferTypeNode(node)
+    || ts.isHeritageClause(node)
     || ts.isTemplateLiteralTypeSpan(node) || ts.isIfStatement(node) || ts.isSwitchStatement(node) || ts.isCaseBlock(node)
     || ts.isCaseClause(node) || ts.isDefaultClause(node) || ts.isPropertyAccessExpression(node)
     || ts.isParenthesizedExpression(node) || ts.isTemplateExpression(node)
@@ -583,6 +584,20 @@ export function collectCanonicalReferenceGraph(program: ts.Program): CanonicalRe
     const declarations = kind === 'MemberReference'
       ? memberDeclarationsAt(node)
       : symbolDeclarations(checker, node);
+    const guardedGlobal = kind === 'ValueReference' && ts.isIdentifier(node) && !declarations.length
+      ? findGuardedBrowserGlobal(program, node) : undefined;
+    if (guardedGlobal) {
+      const entity = entities.get(id)!;
+      entity.labels.push('GuardedGlobalAccess');
+      Object.assign(entity.props, {declarationResolution: 'no-source-declaration',
+        globalPropertyName: node.text, bindingEvidence: 'positive-browser-global-property-guard'});
+      emitRelationship(id, emitExpressionValue(guardedGlobal.receiver), 'READS_FROM', {
+        role: 'receiver', resolution: 'ast-guarded-global-receiver', layer: 'functional',
+      });
+      emitRelationship(id, emitExpressionValue(guardedGlobal.guard), 'GUARDED_BY', {
+        resolution: 'ast-positive-in-guard', branch: 'true', layer: 'functional',
+      });
+    }
     if (!declarations.length && kind === 'MemberReference'
       && ts.isPropertyAccessExpression(node.parent) && node.parent.name === node) {
       const receiver = node.parent.expression;

@@ -1,5 +1,32 @@
 import ts from 'typescript';
 
+export function findGuardedBrowserGlobal(program: ts.Program, node: ts.Identifier) {
+  const checker = program.getTypeChecker();
+  if (checker.getSymbolAtLocation(node)?.declarations?.length) return;
+  function probe(expression: ts.Expression): {guard: ts.BinaryExpression; receiver: ts.Identifier} | undefined {
+    if (ts.isParenthesizedExpression(expression)) return probe(expression.expression);
+    if (!ts.isBinaryExpression(expression)) return;
+    if (expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+      return probe(expression.left) || probe(expression.right);
+    }
+    if (expression.operatorToken.kind !== ts.SyntaxKind.InKeyword
+      || !ts.isStringLiteralLike(expression.left) || expression.left.text !== node.text
+      || !ts.isIdentifier(expression.right) || expression.right.text !== 'window') return;
+    const declarations = checker.getSymbolAtLocation(expression.right)?.declarations || [];
+    if (!declarations.length || !declarations.every(declaration =>
+      program.isSourceFileDefaultLibrary(declaration.getSourceFile()))) return;
+    return {guard: expression, receiver: expression.right};
+  }
+  // Do not carry a branch guard into callbacks whose execution may outlive it.
+  for (let child: ts.Node = node, parent = node.parent; parent; child = parent, parent = parent.parent) {
+    if (ts.isFunctionLike(parent)) return;
+    if (ts.isIfStatement(parent) && child === parent.thenStatement) {
+      const result = probe(parent.expression);
+      if (result) return result;
+    }
+  }
+}
+
 export type RuntimeIntrinsic = {
   kind: 'arguments' | 'global-this' | 'this';
   symbolFlags: number;

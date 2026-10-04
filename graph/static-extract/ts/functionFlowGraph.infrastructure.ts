@@ -207,7 +207,7 @@ export function createProgram(oldProgram?: ts.Program) {
     throw new Error(ts.formatDiagnosticsWithColorAndContext([parsedConfig.error], formatHost));
   }
 
-  const config = ts.parseJsonConfigFileContent(parsedConfig.config, ts.sys, workspaceRoot);
+  const config = ts.parseJsonConfigFileContent(parsedConfig.config, ts.sys, workspaceRoot, undefined, tsconfigPath);
   if (config.errors.length) {
     throw new Error(ts.formatDiagnosticsWithColorAndContext(config.errors, formatHost));
   }
